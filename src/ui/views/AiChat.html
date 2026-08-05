@@ -4,9 +4,9 @@
   <div class="border rounded p-3 space-y-2 dark:border-gray-700">
     <div class="flex items-center justify-between">
       <p class="text-sm font-medium">Phạm vi tra cứu (Knowledge Scope)</p>
-      <button @click="suggestChatLibraries()" class="text-xs text-blue-600 underline">Gợi ý theo câu hỏi</button>
+      <button @click="suggestChatLibraries()" class="text-xs holo-text-accent underline">Gợi ý theo câu hỏi</button>
     </div>
-    <p class="text-xs text-gray-500">Chọn kho càng đúng, câu trả lời càng nhanh và chính xác hơn. Để trống = tìm trên toàn bộ kho bạn có quyền xem.</p>
+    <p class="text-xs holo-text-dim">Chọn kho càng đúng, câu trả lời càng nhanh và chính xác hơn. Để trống = tìm trên toàn bộ kho bạn có quyền xem.</p>
     <div class="flex flex-wrap gap-3">
       <template x-for="lib in libraries" :key="lib.LibraryID">
         <label class="text-sm flex items-center gap-1">
@@ -21,15 +21,15 @@
     <template x-for="(msg, idx) in chatMessages" :key="idx">
       <div :class="msg.role === 'user' ? 'text-right' : 'text-left'">
         <div class="inline-block px-3 py-2 rounded text-sm max-w-md"
-             :class="msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800'"
+             :class="msg.role === 'user' ? 'holo-bubble-user' : 'bg-gray-100 dark:bg-gray-800'"
              x-text="msg.text"></div>
         <template x-if="msg.sources && msg.sources.length > 0">
-          <p class="text-xs text-gray-500 mt-1">Nguồn: <template x-for="s in msg.sources" :key="s.documentId"><span x-text="s.title + ' '"></span></template></p>
+          <p class="text-xs holo-text-dim mt-1">Nguồn: <template x-for="s in msg.sources" :key="s.documentId"><span x-text="s.title + ' '"></span></template></p>
         </template>
       </div>
     </template>
     <template x-if="chatAsking">
-      <p class="text-sm text-gray-500">Đang trả lời...</p>
+      <p class="text-sm holo-text-dim">Đang trả lời...</p>
     </template>
   </div>
 

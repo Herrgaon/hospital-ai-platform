@@ -33,7 +33,7 @@
     <button @click="syncSchemaAction()" :disabled="syncingSchema" class="holo-btn-outline px-3 py-1 text-sm disabled:opacity-50">
       <span x-text="syncingSchema ? 'Đang đồng bộ...' : 'Đồng bộ cấu trúc dữ liệu'"></span>
     </button>
-    <span class="text-xs text-gray-500">Chạy sau khi có bản cập nhật mã nguồn thêm cột/sheet mới — không mất dữ liệu cũ.</span>
+    <span class="text-xs holo-text-dim">Chạy sau khi có bản cập nhật mã nguồn thêm cột/sheet mới — không mất dữ liệu cũ.</span>
   </div>
   <div class="flex items-center gap-2 mb-4">
     <label class="text-xs">Giới hạn tải lên hàng loạt (1-20 tài liệu/lần):</label>
@@ -112,7 +112,7 @@
     </div>
 
     <template x-if="activeAiConfig">
-      <p class="text-sm text-gray-500">
+      <p class="text-sm holo-text-dim">
         Đang dùng: <span x-text="activeAiConfig.ProviderID"></span> / <span x-text="activeAiConfig.ModelName"></span>
         (Key: <span x-text="activeAiConfig.ApiKeyMasked"></span>)
       </p>
@@ -138,7 +138,7 @@
   <!-- Tab: Mẫu văn bản -->
   <div x-show="adminTab === 'templates'" class="space-y-2">
     <h2 class="text-sm font-medium">Tạo mẫu văn bản mới</h2>
-    <p class="text-xs text-gray-500">Tải lên 1 file Google Doc/Word đã chèn sẵn placeholder dạng [tenField], sau đó liệt kê tên các field (phân tách bằng dấu phẩy).</p>
+    <p class="text-xs holo-text-dim">Tải lên 1 file Google Doc/Word đã chèn sẵn placeholder dạng [tenField], sau đó liệt kê tên các field (phân tách bằng dấu phẩy).</p>
     <div class="grid grid-cols-2 gap-2 max-w-md">
       <input type="text" x-model="templateForm.name" placeholder="Tên mẫu" class="border rounded px-2 py-1 text-sm col-span-2 dark:bg-gray-800 dark:border-gray-600">
       <select x-model="templateForm.libraryId" class="border rounded px-2 py-1 text-sm col-span-2 dark:bg-gray-800 dark:border-gray-600">

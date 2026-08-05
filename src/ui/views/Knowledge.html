@@ -6,8 +6,9 @@
     <div class="w-56 shrink-0 space-y-2">
       <template x-for="lib in libraries" :key="lib.LibraryID">
         <button @click="selectLibrary(lib.LibraryID)"
-                class="w-full text-left px-3 py-2 rounded text-sm"
-                :class="selectedLibraryId === lib.LibraryID ? 'bg-blue-100 dark:bg-blue-900 font-medium' : 'hover:bg-gray-100 dark:hover:bg-gray-800'"
+                class="w-full text-left px-3 py-2 rounded text-sm border-l-2"
+                :class="selectedLibraryId === lib.LibraryID ? 'font-medium' : 'border-transparent hover:bg-gray-100 dark:hover:bg-gray-800'"
+                :style="selectedLibraryId === lib.LibraryID ? 'background-color: var(--holo-panel-alt); color: var(--holo-accent); border-left-color: var(--holo-accent); text-shadow: 0 0 8px currentColor;' : ''"
                 x-text="lib.LibraryName"></button>
       </template>
 
@@ -109,7 +110,7 @@
 
       <!-- Tab: Danh mục (cần chọn Library trước) -->
       <div x-show="knowledgeTab === 'categories'" class="space-y-2">
-        <p x-show="!selectedLibraryId" class="text-sm text-gray-500">Chọn một kho tri thức bên trái để xem/thêm danh mục.</p>
+        <p x-show="!selectedLibraryId" class="text-sm holo-text-dim">Chọn một kho tri thức bên trái để xem/thêm danh mục.</p>
         <template x-if="selectedLibraryId">
           <div class="space-y-2">
             <div class="flex flex-wrap gap-2">
@@ -129,7 +130,7 @@
       <div x-show="knowledgeTab === 'upload'" x-init="loadMaxBulkUploadCount()" class="space-y-4 max-w-lg">
         <template x-if="!stagingResult && stagingBatch.length === 0">
           <div class="space-y-2">
-            <p class="text-xs text-gray-500">Không cần chọn sẵn kho/danh mục — hệ thống sẽ tự phân loại (theo quy tắc, AI bù phần chưa xác định) và cho bạn xác nhận trước khi lưu. Chọn được nhiều file cùng lúc, tối đa <span x-text="maxBulkUploadCount"></span> file/lần.</p>
+            <p class="text-xs holo-text-dim">Không cần chọn sẵn kho/danh mục — hệ thống sẽ tự phân loại (theo quy tắc, AI bù phần chưa xác định) và cho bạn xác nhận trước khi lưu. Chọn được nhiều file cùng lúc, tối đa <span x-text="maxBulkUploadCount"></span> file/lần.</p>
             <input type="file" multiple @change="onFileSelected($event)" class="text-sm">
             <p x-show="pendingFiles.length > maxBulkUploadCount" class="text-xs text-red-600">
               Bạn đang chọn <span x-text="pendingFiles.length"></span> tài liệu, vượt giới hạn <span x-text="maxBulkUploadCount"></span> tài liệu/lần. Vui lòng chia thành nhiều đợt tải lên.
@@ -158,7 +159,7 @@
                 <p x-show="stagingResult.ocrStatus === 'FAILED'" class="text-xs text-red-600">OCR thất bại — không đọc được nội dung, chỉ phân loại được theo tên file (không có gợi ý từ AI).</p>
 
                 <div class="space-y-1">
-                  <label class="text-xs font-medium">Kho tri thức <span x-show="uploadForm._libraryConfidence !== undefined" class="text-gray-400" x-text="'(' + uploadForm._libraryConfidence + '%)'"></span></label>
+                  <label class="text-xs font-medium">Kho tri thức <span x-show="uploadForm._libraryConfidence !== undefined" class="holo-text-dim" x-text="'(' + uploadForm._libraryConfidence + '%)'"></span></label>
                   <select x-model="uploadForm.libraryId" class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
                     <option value="">-- Chọn kho --</option>
                     <template x-for="lib in stagingResult.availableLibraries" :key="lib.LibraryID">
@@ -180,7 +181,7 @@
                   <input type="text" x-model="uploadForm.applicableDepartmentsCsv" class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
                 </div>
 
-                <button @click="showAdvancedMetadata = !showAdvancedMetadata" class="text-xs text-blue-600 underline">
+                <button @click="showAdvancedMetadata = !showAdvancedMetadata" class="text-xs holo-text-accent underline">
                   <span x-text="showAdvancedMetadata ? 'Ẩn Metadata nâng cao' : 'Hiển thị Metadata nâng cao'"></span>
                 </button>
 
@@ -222,9 +223,9 @@
                   <button @click="saveClassifiedDocument()" :disabled="savingClassification || !uploadForm.libraryId" class="holo-btn-success px-4 py-2 text-sm disabled:opacity-50">
                     <span x-text="savingClassification ? 'Đang lưu...' : 'Lưu vào kho tri thức'"></span>
                   </button>
-                  <button @click="cancelStagedUpload()" class="text-gray-500 underline text-sm">Huỷ</button>
+                  <button @click="cancelStagedUpload()" class="holo-text-dim underline text-sm">Huỷ</button>
                 </div>
-                <p class="text-xs text-gray-500">Sau khi lưu, tài liệu ở trạng thái "Chờ duyệt tri thức" — người phụ trách kho cần duyệt trước khi AI dùng để trả lời.</p>
+                <p class="text-xs holo-text-dim">Sau khi lưu, tài liệu ở trạng thái "Chờ duyệt tri thức" — người phụ trách kho cần duyệt trước khi AI dùng để trả lời.</p>
               </div>
             </template>
           </div>
@@ -289,10 +290,10 @@
               <button @click="saveAllSelected()" :disabled="savingClassification" class="holo-btn-success px-4 py-2 text-sm disabled:opacity-50">
                 <span x-text="savingClassification ? 'Đang lưu...' : 'Lưu các mục đã chọn'"></span>
               </button>
-              <button @click="cancelBulkUpload()" class="text-gray-500 underline text-sm">Huỷ tất cả</button>
+              <button @click="cancelBulkUpload()" class="holo-text-dim underline text-sm">Huỷ tất cả</button>
             </div>
             <template x-if="bulkSaveResults.length > 0">
-              <p class="text-xs text-gray-500">Đã lưu <span x-text="bulkSaveResults.filter(r => r.success).length"></span>/<span x-text="bulkSaveResults.length"></span>.</p>
+              <p class="text-xs holo-text-dim">Đã lưu <span x-text="bulkSaveResults.filter(r => r.success).length"></span>/<span x-text="bulkSaveResults.length"></span>.</p>
             </template>
           </div>
         </template>
@@ -301,17 +302,17 @@
       <!-- Tab: Chờ duyệt tri thức -->
       <div x-show="knowledgeTab === 'review'" class="space-y-3">
         <template x-if="pendingKnowledgeReviews.length === 0">
-          <p class="text-sm text-gray-500">Không có tài liệu nào chờ bạn duyệt.</p>
+          <p class="text-sm holo-text-dim">Không có tài liệu nào chờ bạn duyệt.</p>
         </template>
         <template x-for="doc in pendingKnowledgeReviews" :key="doc.DocumentID">
           <div class="border rounded p-3 space-y-2 dark:border-gray-700">
             <p class="font-medium text-sm" x-text="doc.Title"></p>
-            <p class="text-xs text-gray-500">
+            <p class="text-xs holo-text-dim">
               <span x-text="'Loại: ' + (doc.DocumentType || '(chưa rõ)')"></span> ·
               <span x-text="'Danh mục: ' + (doc.SubCategory || '(chưa rõ)')"></span>
             </p>
-            <p class="text-xs text-gray-500" x-show="doc.Summary" x-text="doc.Summary"></p>
-            <p class="text-xs text-gray-500" x-show="doc.Tags" x-text="'Tags: ' + doc.Tags"></p>
+            <p class="text-xs holo-text-dim" x-show="doc.Summary" x-text="doc.Summary"></p>
+            <p class="text-xs holo-text-dim" x-show="doc.Tags" x-text="'Tags: ' + doc.Tags"></p>
             <a :href="'https://docs.google.com/document/d/' + doc.DriveFileID + '/edit'" target="_blank" class="holo-text-accent underline text-xs inline-block">Xem tài liệu</a>
             <textarea x-model="reviewComments[doc.DocumentID]" placeholder="Ý kiến (bắt buộc nếu từ chối)" class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600" rows="2"></textarea>
             <div class="flex gap-2">
@@ -325,7 +326,7 @@
 
       <!-- Tab: Phân quyền (chỉ hiện khi bạn quản lý được kho này) -->
       <div x-show="knowledgeTab === 'permissions' && canManageSelectedLibrary" class="space-y-4">
-        <p class="text-xs text-gray-500">Cấp quyền Thêm/Sửa/Xoá cho nhân viên trong kho tri thức này. Mọi người vẫn xem được kho này dù chưa được cấp quyền — chỉ Thêm/Sửa/Xoá mới cần cấp riêng.</p>
+        <p class="text-xs holo-text-dim">Cấp quyền Thêm/Sửa/Xoá cho nhân viên trong kho tri thức này. Mọi người vẫn xem được kho này dù chưa được cấp quyền — chỉ Thêm/Sửa/Xoá mới cần cấp riêng.</p>
 
         <table class="w-full text-sm border-collapse">
           <thead>

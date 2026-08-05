@@ -127,6 +127,10 @@
   .holo-text-accent { color: var(--holo-accent); }
   .holo-text-dim { color: var(--holo-text-dim); }
 
+  /* Bong bóng chat của người dùng (AiChat.html) — dùng màu accent theo biến thể ngày/đêm thay vì
+     xanh Tailwind cố định, để nhất quán với phần còn lại của giao diện khi đổi theme. */
+  .holo-bubble-user { background-color: var(--holo-accent); color: var(--holo-panel); }
+
   .nav-item {
     display: flex; align-items: center; gap: 0.5rem;
     padding: 0.55rem 0.75rem; font-size: 0.85rem;

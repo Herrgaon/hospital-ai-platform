@@ -20,14 +20,14 @@
   <!-- Tab: Của tôi -->
   <div x-show="docTab === 'mine'" class="space-y-2">
     <template x-if="myDocuments.length === 0">
-      <p class="text-sm text-gray-500">Chưa có văn bản nào.</p>
+      <p class="text-sm holo-text-dim">Chưa có văn bản nào.</p>
     </template>
     <ul class="space-y-1">
       <template x-for="doc in myDocuments" :key="doc.DocumentID">
         <li class="text-sm flex items-center justify-between border rounded px-3 py-2 dark:border-gray-700">
           <span x-text="doc.Title"></span>
           <span class="flex items-center gap-3">
-            <span class="text-xs text-gray-500" x-text="doc.Status"></span>
+            <span class="text-xs holo-text-dim" x-text="doc.Status"></span>
             <button @click="resumeDocument(doc)" class="holo-text-accent underline text-xs">Mở</button>
             <button @click="deleteDocumentAction(doc)" class="text-red-500 underline text-xs">Xoá</button>
           </span>
@@ -71,8 +71,8 @@
     <template x-if="currentDocument">
       <div class="space-y-3 border-t pt-4 dark:border-gray-700">
         <div class="flex items-center justify-between">
-          <p class="text-sm">Văn bản: <strong x-text="currentDocument.Title"></strong> <span class="text-xs text-gray-500" x-text="'(' + currentDocument.Status + ')'"></span></p>
-          <button @click="closeCurrentDocument()" class="text-xs text-gray-500 underline">Đóng</button>
+          <p class="text-sm">Văn bản: <strong x-text="currentDocument.Title"></strong> <span class="text-xs holo-text-dim" x-text="'(' + currentDocument.Status + ')'"></span></p>
+          <button @click="closeCurrentDocument()" class="text-xs holo-text-dim underline">Đóng</button>
         </div>
 
         <a :href="'https://docs.google.com/document/d/' + currentDocument.DriveFileID + '/edit'" target="_blank" class="holo-text-accent underline text-sm inline-block">
@@ -91,7 +91,7 @@
             <p class="text-sm font-medium">Rà soát căn cứ pháp lý (AI)</p>
             <button @click="suggestReviewLibraries()" class="text-xs holo-text-accent underline">Gợi ý kho phù hợp</button>
           </div>
-          <p class="text-xs text-gray-500">Chọn kho tri thức chứa văn bản pháp lý liên quan để đối chiếu — chỉ chọn kho phù hợp (ví dụ "Đấu thầu") sẽ cho kết quả nhanh và chính xác hơn quét toàn bộ hệ thống.</p>
+          <p class="text-xs holo-text-dim">Chọn kho tri thức chứa văn bản pháp lý liên quan để đối chiếu — chỉ chọn kho phù hợp (ví dụ "Đấu thầu") sẽ cho kết quả nhanh và chính xác hơn quét toàn bộ hệ thống.</p>
           <div class="flex flex-wrap gap-3">
             <template x-for="lib in libraries" :key="lib.LibraryID">
               <label class="text-sm flex items-center gap-1">
