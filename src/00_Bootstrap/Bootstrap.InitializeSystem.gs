@@ -19,6 +19,7 @@ function initializeSystem() {
 
   setConfig(CONFIG_KEYS.AI_ENABLED, 'false');
   setConfig(CONFIG_KEYS.AI_CLASSIFICATION_THRESHOLD, '90');
+  setConfig(CONFIG_KEYS.MAX_BULK_UPLOAD_COUNT, '15');
   ensureBackupTrigger_();
 
   const adminUser = promoteInitializingUserToAdmin_();

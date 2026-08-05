@@ -77,6 +77,20 @@ function api_stageUploadForClassification(fileName, mimeType, base64Data) {
   return stageUploadForClassification(user, fileName, mimeType, base64Data);
 }
 
+function api_stageBulkUpload(files) {
+  const user = getCurrentUser();
+  return stageBulkUpload(user, files);
+}
+
+function api_getMaxBulkUploadCount() {
+  return getMaxBulkUploadCount();
+}
+
+function api_setMaxBulkUploadCount(value) {
+  const user = getCurrentUser();
+  return setMaxBulkUploadCount(user, value);
+}
+
 function api_confirmClassificationAndSave(fileId, fileName, parserCategory, metadata, ocrStatus, finalFields, originalFields) {
   const user = getCurrentUser();
   return confirmClassificationAndSave(user, fileId, fileName, parserCategory, metadata, ocrStatus, finalFields, originalFields);

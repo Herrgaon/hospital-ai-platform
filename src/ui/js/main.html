@@ -51,8 +51,12 @@
       showAdvancedMetadata: false,
       categories: [],
       newCategoryName: '',
-      pendingFile: null,
+      pendingFiles: [],
       stagingResult: null,
+      stagingBatch: [],
+      bulkApplyLibraryId: '',
+      bulkSaveResults: [],
+      maxBulkUploadCount: 15,
       uploadForm: {},
       classifying: false,
       savingClassification: false,
@@ -443,33 +447,132 @@
       },
 
       onFileSelected(event) {
-        const file = event.target.files[0];
-        if (!file) { this.pendingFile = null; return; }
-        const reader = new FileReader();
-        reader.onload = () => {
-          this.pendingFile = {
-            fileName: file.name,
-            mimeType: file.type || 'application/octet-stream',
-            base64: reader.result.split(',')[1]
+        const files = Array.from(event.target.files || []);
+        this.pendingFiles = [];
+        if (files.length === 0) return;
+        files.forEach((file) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            this.pendingFiles.push({
+              fileName: file.name,
+              mimeType: file.type || 'application/octet-stream',
+              base64: reader.result.split(',')[1]
+            });
           };
-        };
-        reader.readAsDataURL(file);
+          reader.readAsDataURL(file);
+        });
+      },
+
+      get pendingFile() {
+        return this.pendingFiles[0] || null;
+      },
+
+      loadMaxBulkUploadCount() {
+        google.script.run
+          .withSuccessHandler((count) => { this.maxBulkUploadCount = count; })
+          .withFailureHandler(() => {})
+          .api_getMaxBulkUploadCount();
       },
 
       // --- Tải lên có phân loại tự động (Rule Engine + AI + xác nhận người dùng) ---
+      // 1 file: dùng luồng đơn (stagingResult). Nhiều file: dùng luồng hàng loạt (stagingBatch)
+      // — xem docs/10-knowledge-design.md mục 13 (Bulk Document Import Policy).
       runClassification() {
         this.classifying = true;
+        if (this.pendingFiles.length <= 1) {
+          google.script.run
+            .withSuccessHandler((staging) => {
+              this.classifying = false;
+              this.stagingResult = staging;
+              this.uploadForm = this.buildUploadFormFromStaging(staging);
+            })
+            .withFailureHandler((e) => {
+              this.classifying = false;
+              this.errorMessage = e.message;
+            })
+            .api_stageUploadForClassification(this.pendingFiles[0].fileName, this.pendingFiles[0].mimeType, this.pendingFiles[0].base64);
+          return;
+        }
+
         google.script.run
-          .withSuccessHandler((staging) => {
+          .withSuccessHandler((results) => {
             this.classifying = false;
-            this.stagingResult = staging;
-            this.uploadForm = this.buildUploadFormFromStaging(staging);
+            this.stagingBatch = results.map((r) => {
+              if (!r.success) return r;
+              return Object.assign({}, r, { form: this.buildUploadFormFromStaging(r.staging), selected: true, skip: false });
+            });
           })
           .withFailureHandler((e) => {
             this.classifying = false;
             this.errorMessage = e.message;
           })
-          .api_stageUploadForClassification(this.pendingFile.fileName, this.pendingFile.mimeType, this.pendingFile.base64);
+          .api_stageBulkUpload(this.pendingFiles);
+      },
+
+      get bulkSummary() {
+        const items = this.stagingBatch;
+        return {
+          total: items.length,
+          failed: items.filter((i) => !i.success).length,
+          duplicates: items.filter((i) => i.success && i.staging.duplicateOf && !i.skip).length,
+          ready: items.filter((i) => i.success && (!i.staging.duplicateOf || i.skip)).length
+        };
+      },
+
+      applyBulkLibrary() {
+        if (!this.bulkApplyLibraryId) return;
+        this.stagingBatch.forEach((item) => {
+          if (item.success && item.selected) item.form.libraryId = this.bulkApplyLibraryId;
+        });
+      },
+
+      saveAllSelected() {
+        const queue = this.stagingBatch.filter((item) => item.success && item.selected && item.form.libraryId && (!item.staging.duplicateOf || item.skip));
+        if (queue.length === 0) return;
+        this.savingClassification = true;
+        this.bulkSaveResults = [];
+        this.saveNextInQueue_(queue, 0);
+      },
+
+      saveNextInQueue_(queue, index) {
+        if (index >= queue.length) {
+          this.savingClassification = false;
+          this.stagingBatch = this.stagingBatch.filter((item) => !queue.includes(item) || this.bulkSaveResults.some((r) => r.fileName === item.fileName && !r.success));
+          this.knowledgeTab = 'search';
+          this.runSearch();
+          return;
+        }
+        const item = queue[index];
+        const csvToArray = (csv) => (csv || '').split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+        const f = item.form;
+        const finalFields = {
+          libraryId: f.libraryId, category: f.category, subCategory: f.subCategory,
+          documentType: f.documentType, issuer: f.issuer, importance: f.importance, summary: f.summary,
+          tags: csvToArray(f.tagsCsv), keywords: csvToArray(f.keywordsCsv), applicableDepartments: csvToArray(f.applicableDepartmentsCsv)
+        };
+        google.script.run
+          .withSuccessHandler(() => {
+            this.bulkSaveResults.push({ fileName: item.fileName, success: true });
+            this.saveNextInQueue_(queue, index + 1);
+          })
+          .withFailureHandler((e) => {
+            this.bulkSaveResults.push({ fileName: item.fileName, success: false, error: e.message });
+            this.saveNextInQueue_(queue, index + 1);
+          })
+          .api_confirmClassificationAndSave(
+            item.staging.fileId, item.staging.fileName, item.staging.parserCategory,
+            item.staging.metadata, item.staging.ocrStatus, finalFields, item.staging.allFields
+          );
+      },
+
+      cancelBulkUpload() {
+        this.stagingBatch.forEach((item) => {
+          if (item.success) {
+            google.script.run.withFailureHandler((e) => { this.errorMessage = e.message; }).api_discardStagedUpload(item.staging.fileId);
+          }
+        });
+        this.stagingBatch = [];
+        this.pendingFiles = [];
       },
 
       buildUploadFormFromStaging(staging) {
@@ -501,7 +604,7 @@
         }
         this.stagingResult = null;
         this.uploadForm = {};
-        this.pendingFile = null;
+        this.pendingFiles = [];
         this.showAdvancedMetadata = false;
       },
 
@@ -525,7 +628,7 @@
             this.savingClassification = false;
             this.stagingResult = null;
             this.uploadForm = {};
-            this.pendingFile = null;
+            this.pendingFiles = [];
             this.showAdvancedMetadata = false;
             this.knowledgeTab = 'search';
             this.runSearch();
@@ -602,6 +705,13 @@
           .api_compareDocumentVersions(documentId, this.compareVersionA, this.compareVersionB);
       },
 
+      saveMaxBulkUploadCount() {
+        google.script.run
+          .withSuccessHandler((clamped) => { this.maxBulkUploadCount = clamped; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_setMaxBulkUploadCount(this.maxBulkUploadCount);
+      },
+
       syncSchemaAction() {
         this.syncingSchema = true;
         google.script.run
@@ -624,6 +734,7 @@
         google.script.run.withSuccessHandler((providers) => { this.aiProviders = providers; }).withFailureHandler((e) => { this.errorMessage = e.message; }).api_listAIProviders();
         google.script.run.withSuccessHandler((enabled) => { this.aiEnabled = enabled; }).withFailureHandler((e) => { this.errorMessage = e.message; }).api_isAiEnabled();
         google.script.run.withSuccessHandler((config) => { this.activeAiConfig = config; }).withFailureHandler((e) => { this.errorMessage = e.message; }).api_getActiveAIProviderConfig();
+        this.loadMaxBulkUploadCount();
       },
 
       saveUserRole(u) {

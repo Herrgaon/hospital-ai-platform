@@ -112,7 +112,18 @@ Product Owner mô tả một quy trình đầy đủ (Uploader → nhiều Revie
 - Mỗi Library có cờ `RequiresReview` (Admin cấu hình khi tạo kho) — kho rủi ro thấp có thể bỏ qua bước duyệt, Published ngay khi Uploader xác nhận.
 - Quality Score / Trust Level / multi-reviewer / Rule Improvement Candidate tự động đề xuất: **chưa xây**, ghi nhận là điểm mở rộng tương lai khi có nhu cầu thực tế.
 
-## 12. Liên hệ thiết kế khác
+## 13. Tải lên hàng loạt (Bulk Document Import)
+
+Product Owner xác nhận 2026-08-05: ưu tiên đơn giản/ổn định hơn quy mô lớn — **không xây Batch Queue hay Job Scheduler**.
+
+- Giới hạn tối đa 1 lần tải lên: mặc định **15 tài liệu**, Admin chỉnh được 1-20 (`Core.Config.gs#getMaxBulkUploadCount`, Admin → mục cấu hình hệ thống). Vượt giới hạn bị chặn ngay tại client, không gửi request.
+- Xử lý **tuần tự** từng file (`Knowledge.Ingest.gs#stageBulkUpload`) — Apps Script vốn đơn luồng nên đây là hành vi tự nhiên, không cần cơ chế điều phối riêng.
+- 1 file lỗi (OCR thất bại, ngoại lệ khi phân loại...) không chặn các file còn lại — mỗi kết quả độc lập, tổng hợp thành số liệu "X sẵn sàng / Y trùng lặp / Z lỗi" hiển thị cho người dùng.
+- Áp dụng thuộc tính hàng loạt: chọn nhiều tài liệu trong danh sách kết quả, gán chung 1 Kho tri thức cùng lúc — các trường khác (Category, Tags...) vẫn chỉnh riêng từng tài liệu.
+- Duplicate Check chạy độc lập cho từng tài liệu (Level 1 — Hash, xem mục 10), không ảnh hưởng các tài liệu khác trong cùng đợt.
+- Vẫn đi qua đúng Knowledge Governance (mục 11) theo từng Library — **không có đường tắt tự động Published hàng loạt**.
+
+## 14. Liên hệ thiết kế khác
 
 - Phân quyền theo Library: [11-permission-design.md](11-permission-design.md).
 - Kiểm tra thể thức khi tài liệu là văn bản hành chính: [08-rule-engine.md](08-rule-engine.md).

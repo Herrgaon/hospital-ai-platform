@@ -125,13 +125,16 @@
       </div>
 
       <!-- Tab: Tải lên — hệ thống tự phân loại (Rule Engine trước, AI bù chỗ Rule chưa xác định) -->
-      <div x-show="knowledgeTab === 'upload'" class="space-y-4 max-w-lg">
-        <template x-if="!stagingResult">
+      <div x-show="knowledgeTab === 'upload'" x-init="loadMaxBulkUploadCount()" class="space-y-4 max-w-lg">
+        <template x-if="!stagingResult && stagingBatch.length === 0">
           <div class="space-y-2">
-            <p class="text-xs text-gray-500">Không cần chọn sẵn kho/danh mục — hệ thống sẽ tự phân loại (theo quy tắc, AI bù phần chưa xác định) và cho bạn xác nhận trước khi lưu.</p>
-            <input type="file" @change="onFileSelected($event)" class="text-sm">
-            <button @click="runClassification()" :disabled="classifying || !pendingFile" class="bg-blue-600 text-white px-4 py-2 rounded text-sm disabled:opacity-50">
-              <span x-text="classifying ? 'Đang phân loại...' : 'Phân loại tài liệu'"></span>
+            <p class="text-xs text-gray-500">Không cần chọn sẵn kho/danh mục — hệ thống sẽ tự phân loại (theo quy tắc, AI bù phần chưa xác định) và cho bạn xác nhận trước khi lưu. Chọn được nhiều file cùng lúc, tối đa <span x-text="maxBulkUploadCount"></span> file/lần.</p>
+            <input type="file" multiple @change="onFileSelected($event)" class="text-sm">
+            <p x-show="pendingFiles.length > maxBulkUploadCount" class="text-xs text-red-600">
+              Bạn đang chọn <span x-text="pendingFiles.length"></span> tài liệu, vượt giới hạn <span x-text="maxBulkUploadCount"></span> tài liệu/lần. Vui lòng chia thành nhiều đợt tải lên.
+            </p>
+            <button @click="runClassification()" :disabled="classifying || pendingFiles.length === 0 || pendingFiles.length > maxBulkUploadCount" class="bg-blue-600 text-white px-4 py-2 rounded text-sm disabled:opacity-50">
+              <span x-text="classifying ? 'Đang phân loại...' : ('Phân loại ' + (pendingFiles.length > 1 ? pendingFiles.length + ' tài liệu' : 'tài liệu'))"></span>
             </button>
           </div>
         </template>
@@ -222,6 +225,73 @@
                 </div>
                 <p class="text-xs text-gray-500">Sau khi lưu, tài liệu ở trạng thái "Chờ duyệt tri thức" — người phụ trách kho cần duyệt trước khi AI dùng để trả lời.</p>
               </div>
+            </template>
+          </div>
+        </template>
+
+        <!-- Kết quả tải lên hàng loạt (nhiều file) -->
+        <template x-if="stagingBatch.length > 0">
+          <div class="space-y-3">
+            <div class="bg-gray-50 dark:bg-gray-800 border rounded p-2 text-xs dark:border-gray-700">
+              <span x-text="bulkSummary.total"></span> tài liệu ·
+              <span x-text="bulkSummary.ready"></span> sẵn sàng ·
+              <span x-text="bulkSummary.duplicates"></span> trùng lặp ·
+              <span x-text="bulkSummary.failed"></span> lỗi
+            </div>
+
+            <div class="flex gap-2 items-center border-b pb-3 dark:border-gray-700">
+              <select x-model="bulkApplyLibraryId" class="border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
+                <option value="">-- Áp dụng kho cho các mục đã chọn --</option>
+                <template x-for="lib in libraries" :key="lib.LibraryID">
+                  <option :value="lib.LibraryID" x-text="lib.LibraryName"></option>
+                </template>
+              </select>
+              <button @click="applyBulkLibrary()" :disabled="!bulkApplyLibraryId" class="bg-gray-700 text-white px-3 py-1 rounded text-sm disabled:opacity-50">Áp dụng</button>
+            </div>
+
+            <div class="space-y-2 max-h-96 overflow-auto">
+              <template x-for="(item, idx) in stagingBatch" :key="idx">
+                <div class="border rounded p-2 text-sm dark:border-gray-700" :class="!item.success ? 'bg-red-50 dark:bg-red-950' : ''">
+                  <template x-if="!item.success">
+                    <p class="text-red-600 text-xs"><strong x-text="item.fileName"></strong>: lỗi — <span x-text="item.error"></span></p>
+                  </template>
+                  <template x-if="item.success">
+                    <div class="space-y-1">
+                      <div class="flex items-center gap-2">
+                        <input type="checkbox" x-model="item.selected">
+                        <strong class="text-xs" x-text="item.fileName"></strong>
+                      </div>
+                      <template x-if="item.staging.duplicateOf && !item.skip">
+                        <p class="text-xs text-yellow-700 dark:text-yellow-400">
+                          ⚠ Có thể trùng "<span x-text="item.staging.duplicateOf.title"></span>".
+                          <button @click="item.skip = true" class="underline">Vẫn tiếp tục</button>
+                        </p>
+                      </template>
+                      <template x-if="!item.staging.duplicateOf || item.skip">
+                        <div class="grid grid-cols-2 gap-2">
+                          <select x-model="item.form.libraryId" class="border rounded px-2 py-1 text-xs dark:bg-gray-800 dark:border-gray-600">
+                            <option value="">-- Kho --</option>
+                            <template x-for="lib in item.staging.availableLibraries" :key="lib.LibraryID">
+                              <option :value="lib.LibraryID" x-text="lib.LibraryName"></option>
+                            </template>
+                          </select>
+                          <input type="text" x-model="item.form.category" placeholder="Danh mục" class="border rounded px-2 py-1 text-xs dark:bg-gray-800 dark:border-gray-600">
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+                </div>
+              </template>
+            </div>
+
+            <div class="flex gap-2">
+              <button @click="saveAllSelected()" :disabled="savingClassification" class="bg-green-600 text-white px-4 py-2 rounded text-sm disabled:opacity-50">
+                <span x-text="savingClassification ? 'Đang lưu...' : 'Lưu các mục đã chọn'"></span>
+              </button>
+              <button @click="cancelBulkUpload()" class="text-gray-500 underline text-sm">Huỷ tất cả</button>
+            </div>
+            <template x-if="bulkSaveResults.length > 0">
+              <p class="text-xs text-gray-500">Đã lưu <span x-text="bulkSaveResults.filter(r => r.success).length"></span>/<span x-text="bulkSaveResults.length"></span>.</p>
             </template>
           </div>
         </template>

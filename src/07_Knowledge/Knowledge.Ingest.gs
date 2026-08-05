@@ -4,6 +4,24 @@
 // (2) confirmClassificationAndSave: sau khi người dùng xác nhận/sửa, chuyển file vào đúng Library
 //     và ghi bản ghi Document chính thức, trạng thái PENDING_REVIEW (chờ duyệt tri thức).
 
+// Tải lên hàng loạt — xem docs/10-knowledge-design.md mục 13 (Bulk Document Import Policy).
+// Xử lý TUẦN TỰ từng file (Apps Script vốn đơn luồng, không có xử lý song song thật để cân nhắc bỏ),
+// 1 file lỗi không dừng các file còn lại — mỗi kết quả trả về độc lập cho client tổng hợp.
+function stageBulkUpload(user, files) {
+  const maxCount = getMaxBulkUploadCount();
+  if (files.length > maxCount) {
+    throw new Error('Bạn đang tải lên ' + files.length + ' tài liệu, vượt giới hạn ' + maxCount + ' tài liệu/lần. Vui lòng chia thành nhiều đợt.');
+  }
+
+  return files.map(function (f) {
+    try {
+      return { success: true, fileName: f.fileName, staging: stageUploadForClassification(user, f.fileName, f.mimeType, f.base64Data) };
+    } catch (e) {
+      return { success: false, fileName: f.fileName, error: e.message };
+    }
+  });
+}
+
 function stageUploadForClassification(user, fileName, mimeType, base64Data) {
   const decoded = Utilities.base64Decode(base64Data);
   const blob = Utilities.newBlob(decoded, mimeType, fileName);
