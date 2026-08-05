@@ -1,19 +1,30 @@
-<div x-show="currentView === 'workflow'" x-init="$watch('currentView', v => { if (v === 'workflow') loadPendingApprovals(); })" class="max-w-2xl space-y-4">
-  <h1 class="font-display text-lg holo-text-accent" style="text-shadow: 0 0 10px currentColor;">CHỜ PHÊ DUYỆT</h1>
+<div x-show="currentView === 'workflow'" x-init="$watch('currentView', v => { if (v === 'workflow') loadPendingApprovals(); })" class="max-w-3xl">
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-header-icon">▧</div>
+      <div>
+        <h1 class="page-title-text">CHỜ PHÊ DUYỆT</h1>
+        <p class="page-subtitle">Văn bản đang chờ bạn phê duyệt</p>
+      </div>
+    </div>
+  </div>
 
-  <template x-if="pendingApprovals.length === 0">
-    <p class="text-sm holo-text-dim">Không có văn bản nào đang chờ bạn duyệt.</p>
-  </template>
+  <p x-show="pendingApprovals.length === 0" class="text-sm holo-text-dim">Không có văn bản nào đang chờ bạn duyệt.</p>
 
   <template x-for="row in pendingApprovals" :key="row.instance.InstanceID">
-    <div class="border rounded p-4 space-y-2 dark:border-gray-700">
-      <p class="font-medium" x-text="row.document.Title"></p>
-      <p class="text-xs holo-text-dim" x-text="'Gửi lúc: ' + row.instance.StartedAt"></p>
-      <a :href="'https://docs.google.com/document/d/' + row.document.DriveFileID + '/edit'" target="_blank" class="holo-text-accent underline text-xs inline-block">Xem tài liệu</a>
-      <textarea x-model="approvalComments[row.instance.InstanceID]" placeholder="Ý kiến (bắt buộc nếu từ chối)" class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600" rows="2"></textarea>
-      <div class="flex gap-2">
-        <button @click="approveInstance(row.instance.InstanceID)" class="holo-btn-success px-3 py-1.5 text-sm">Duyệt</button>
-        <button @click="rejectInstance(row.instance.InstanceID)" class="holo-btn-danger px-3 py-1.5 text-sm">Từ chối</button>
+    <div class="card">
+      <div class="card-body space-y-2">
+        <div class="flex items-start justify-between gap-2">
+          <p class="font-medium text-sm" x-text="row.document.Title"></p>
+          <span class="badge badge-orange">Chờ duyệt</span>
+        </div>
+        <p class="text-xs holo-text-dim" x-text="'Gửi lúc: ' + row.instance.StartedAt"></p>
+        <a :href="'https://docs.google.com/document/d/' + row.document.DriveFileID + '/edit'" target="_blank" class="holo-text-accent underline text-xs inline-block">Xem tài liệu</a>
+        <textarea x-model="approvalComments[row.instance.InstanceID]" placeholder="Ý kiến (bắt buộc nếu từ chối)" class="form-control" rows="2"></textarea>
+        <div class="flex gap-2">
+          <button @click="approveInstance(row.instance.InstanceID)" class="btn btn-success btn-sm">Duyệt</button>
+          <button @click="rejectInstance(row.instance.InstanceID)" class="btn btn-danger btn-sm">Từ chối</button>
+        </div>
       </div>
     </div>
   </template>

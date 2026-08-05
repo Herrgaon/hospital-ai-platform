@@ -1,291 +1,393 @@
-<div x-show="currentView === 'admin' && isAdmin" x-init="$watch('currentView', v => { if (v === 'admin' && isAdmin && allUsers.length === 0) loadAdminData(); })" class="max-w-4xl">
-  <h1 class="font-display text-lg holo-text-accent mb-4" style="text-shadow: 0 0 10px currentColor;">QUẢN TRỊ HỆ THỐNG</h1>
-
-  <!-- Tab bar -->
-  <div class="flex gap-1 border-b dark:border-gray-700 mb-6">
-    <button @click="adminTab = 'users'" class="px-4 py-2 text-sm border-b-2 -mb-px"
-            :class="adminTab === 'users' ? 'holo-border-strong holo-text-accent font-medium' : 'border-transparent holo-text-dim'">
-      Người dùng & Vai trò
-    </button>
-    <button @click="adminTab = 'ai'" class="px-4 py-2 text-sm border-b-2 -mb-px"
-            :class="adminTab === 'ai' ? 'holo-border-strong holo-text-accent font-medium' : 'border-transparent holo-text-dim'">
-      Cấu hình AI
-    </button>
-    <button @click="adminTab = 'templates'" class="px-4 py-2 text-sm border-b-2 -mb-px"
-            :class="adminTab === 'templates' ? 'holo-border-strong holo-text-accent font-medium' : 'border-transparent holo-text-dim'">
-      Mẫu văn bản
-    </button>
-    <button @click="adminTab = 'log'" class="px-4 py-2 text-sm border-b-2 -mb-px"
-            :class="adminTab === 'log' ? 'holo-border-strong holo-text-accent font-medium' : 'border-transparent holo-text-dim'">
-      Audit Log
-    </button>
-    <button @click="adminTab = 'accuracy'; if (!accuracyReport) loadAccuracyReport()" class="px-4 py-2 text-sm border-b-2 -mb-px"
-            :class="adminTab === 'accuracy' ? 'holo-border-strong holo-text-accent font-medium' : 'border-transparent holo-text-dim'">
-      Độ chính xác AI
-    </button>
-    <button @click="adminTab = 'archived'; loadArchivedDocuments()" class="px-4 py-2 text-sm border-b-2 -mb-px"
-            :class="adminTab === 'archived' ? 'holo-border-strong holo-text-accent font-medium' : 'border-transparent holo-text-dim'">
-      Tài liệu đã xoá
-    </button>
+<div x-show="currentView === 'admin' && isAdmin" x-init="$watch('currentView', v => { if (v === 'admin' && isAdmin && allUsers.length === 0) loadAdminData(); })" class="max-w-5xl">
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-header-icon">⚙</div>
+      <div>
+        <h1 class="page-title-text">QUẢN TRỊ HỆ THỐNG</h1>
+        <p class="page-subtitle">Người dùng, AI, mẫu văn bản, nhật ký &amp; dữ liệu hệ thống</p>
+      </div>
+    </div>
+    <div class="page-header-actions">
+      <button @click="syncSchemaAction()" :disabled="syncingSchema" class="btn btn-secondary btn-sm">
+        <span x-text="syncingSchema ? 'Đang đồng bộ...' : '⟳ Đồng bộ cấu trúc dữ liệu'"></span>
+      </button>
+    </div>
   </div>
 
-  <div class="flex items-center gap-2 mb-2">
-    <button @click="syncSchemaAction()" :disabled="syncingSchema" class="holo-btn-outline px-3 py-1 text-sm disabled:opacity-50">
-      <span x-text="syncingSchema ? 'Đang đồng bộ...' : 'Đồng bộ cấu trúc dữ liệu'"></span>
-    </button>
-    <span class="text-xs holo-text-dim">Chạy sau khi có bản cập nhật mã nguồn thêm cột/sheet mới — không mất dữ liệu cũ.</span>
-  </div>
-  <div class="flex items-center gap-2 mb-4">
-    <label class="text-xs">Giới hạn tải lên hàng loạt (1-20 tài liệu/lần):</label>
-    <input type="number" min="1" max="20" x-model.number="maxBulkUploadCount" class="w-16 border rounded px-2 py-0.5 text-sm dark:bg-gray-800 dark:border-gray-600">
-    <button @click="saveMaxBulkUploadCount()" class="holo-btn-outline px-2 py-0.5 text-xs">Lưu</button>
-  </div>
   <template x-if="schemaSyncResult">
-    <div class="bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded p-2 text-xs mb-4">
-      <template x-if="schemaSyncResult.changes.length === 0"><span>Cấu trúc dữ liệu đã cập nhật, không có gì thay đổi.</span></template>
-      <template x-for="c in schemaSyncResult.changes" :key="c"><p x-text="c"></p></template>
+    <div class="notice notice-info mb-4">
+      <span class="notice-icon">ℹ</span>
+      <div>
+        <template x-if="schemaSyncResult.changes.length === 0"><span>Cấu trúc dữ liệu đã cập nhật, không có gì thay đổi.</span></template>
+        <template x-for="c in schemaSyncResult.changes" :key="c"><p x-text="c"></p></template>
+      </div>
     </div>
   </template>
 
-  <!-- Tab: Người dùng & vai trò -->
-  <div x-show="adminTab === 'users'" class="space-y-4">
-    <table class="w-full text-sm border-collapse">
-      <thead>
-        <tr class="text-left border-b dark:border-gray-700">
-          <th class="py-1"></th>
-          <th class="py-1">Email</th>
-          <th class="py-1">Tên hiển thị</th>
-          <th class="py-1">Phòng ban</th>
-          <th class="py-1">Vai trò</th>
-          <th class="py-1"></th>
-        </tr>
-      </thead>
-      <tbody>
-        <template x-for="u in allUsers" :key="u.UserID">
-          <tr class="border-b dark:border-gray-800">
-            <td class="py-1">
-              <img x-show="u.AvatarUrl" :src="u.AvatarUrl" class="w-6 h-6 rounded-full object-cover holo-border">
-              <div x-show="!u.AvatarUrl" class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-tech holo-border" :style="avatarColorStyle(u)" x-text="initials(u)"></div>
-            </td>
-            <td class="py-1" x-text="u.Email"></td>
-            <td class="py-1"><input type="text" x-model="u.FullName" class="border rounded px-2 py-0.5 text-sm w-32 dark:bg-gray-800 dark:border-gray-600"></td>
-            <td class="py-1"><input type="text" x-model="u.Department" class="border rounded px-2 py-0.5 text-sm w-28 dark:bg-gray-800 dark:border-gray-600"></td>
-            <td class="py-1">
-              <select x-model="u.Role" class="border rounded px-2 py-0.5 text-sm dark:bg-gray-800 dark:border-gray-600">
-                <template x-for="r in allRoles" :key="r.RoleID">
-                  <option :value="r.RoleID" x-text="r.RoleName"></option>
-                </template>
-              </select>
-            </td>
-            <td class="py-1">
-              <button @click="saveUserRole(u)" class="holo-text-accent underline text-xs">Lưu</button>
-            </td>
-          </tr>
-        </template>
-      </tbody>
-    </table>
+  <!-- Tab bar -->
+  <div class="tabs">
+    <button @click="adminTab = 'users'" class="tab" :class="adminTab === 'users' ? 'active' : ''">Người dùng &amp; Vai trò</button>
+    <button @click="adminTab = 'ai'" class="tab" :class="adminTab === 'ai' ? 'active' : ''">Cấu hình AI</button>
+    <button @click="adminTab = 'templates'" class="tab" :class="adminTab === 'templates' ? 'active' : ''">Mẫu văn bản</button>
+    <button @click="adminTab = 'log'" class="tab" :class="adminTab === 'log' ? 'active' : ''">Audit Log</button>
+    <button @click="adminTab = 'accuracy'; if (!accuracyReport) loadAccuracyReport()" class="tab" :class="adminTab === 'accuracy' ? 'active' : ''">Độ chính xác AI</button>
+    <button @click="adminTab = 'archived'; loadArchivedDocuments()" class="tab" :class="adminTab === 'archived' ? 'active' : ''">Tài liệu đã xoá</button>
+  </div>
 
-    <div class="holo-panel p-4 space-y-2 max-w-lg">
-      <p class="holo-label">Thêm người dùng mới</p>
-      <p class="text-xs holo-text-dim">Tạo trước tài khoản cho nhân viên chưa từng đăng nhập — khi họ đăng nhập lần đầu, hệ thống nhận đúng Vai trò/Phòng ban đã gán sẵn ở đây.</p>
-      <div class="grid grid-cols-2 gap-2">
-        <input type="email" x-model="newUserForm.email" placeholder="Email (@domain bệnh viện)" class="border rounded px-2 py-1 text-sm col-span-2 dark:bg-gray-800 dark:border-gray-600">
-        <input type="text" x-model="newUserForm.fullName" placeholder="Tên hiển thị" class="border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
-        <input type="text" x-model="newUserForm.department" placeholder="Phòng ban" class="border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
-        <select x-model="newUserForm.role" class="border rounded px-2 py-1 text-sm col-span-2 dark:bg-gray-800 dark:border-gray-600">
-          <template x-for="r in allRoles" :key="r.RoleID">
-            <option :value="r.RoleID" x-text="r.RoleName"></option>
-          </template>
-        </select>
+  <!-- Tab: Người dùng & vai trò -->
+  <div x-show="adminTab === 'users'">
+    <div class="card">
+      <div class="card-header">
+        <h3>Danh sách người dùng</h3>
+        <button @click="openModal('addUser')" class="btn btn-primary btn-sm">+ Thêm người dùng</button>
       </div>
-      <button @click="createUserAction()" :disabled="creatingUser || !newUserForm.email" class="holo-btn px-4 py-2 text-sm disabled:opacity-50">
-        <span x-text="creatingUser ? 'Đang thêm...' : '+ Thêm người dùng'"></span>
-      </button>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Email</th>
+              <th>Tên hiển thị</th>
+              <th>Phòng ban</th>
+              <th>Vai trò</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="u in allUsers" :key="u.UserID">
+              <tr>
+                <td>
+                  <img x-show="u.AvatarUrl" :src="u.AvatarUrl" class="w-7 h-7 rounded-full object-cover">
+                  <div x-show="!u.AvatarUrl" class="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-tech text-white" :style="avatarColorStyle(u)" x-text="initials(u)"></div>
+                </td>
+                <td x-text="u.Email"></td>
+                <td><input type="text" x-model="u.FullName" class="form-control form-control-sm"></td>
+                <td><input type="text" x-model="u.Department" class="form-control form-control-sm"></td>
+                <td>
+                  <select x-model="u.Role" class="form-control form-control-sm">
+                    <template x-for="r in allRoles" :key="r.RoleID">
+                      <option :value="r.RoleID" x-text="r.RoleName"></option>
+                    </template>
+                  </select>
+                </td>
+                <td><button @click="saveUserRole(u)" class="btn-link">Lưu</button></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 
   <!-- Tab: Cấu hình AI -->
-  <div x-show="adminTab === 'ai'" class="space-y-2">
-    <div class="flex items-center gap-2">
-      <input type="checkbox" x-model="aiEnabled" @change="toggleAi()" id="aiEnabledToggle">
-      <label for="aiEnabledToggle" class="text-sm">Bật AI cho toàn hệ thống</label>
-    </div>
+  <div x-show="adminTab === 'ai'">
+    <div class="card">
+      <div class="card-body space-y-4">
+        <div class="toggle-wrap">
+          <div class="toggle" :class="aiEnabled ? 'on' : ''" @click="aiEnabled = !aiEnabled; toggleAi()"></div>
+          <span class="toggle-label">Bật AI cho toàn hệ thống</span>
+        </div>
 
-    <template x-if="activeAiConfig">
-      <p class="text-sm holo-text-dim">
-        Đang dùng: <span x-text="activeAiConfig.ProviderID"></span> / <span x-text="activeAiConfig.ModelName"></span>
-        (Key: <span x-text="activeAiConfig.ApiKeyMasked"></span>)
-      </p>
-    </template>
-
-    <div class="grid grid-cols-2 gap-2 max-w-md">
-      <select x-model="aiForm.providerId" class="border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
-        <template x-for="p in aiProviders" :key="p.ProviderID">
-          <option :value="p.ProviderID" x-text="p.ProviderName"></option>
+        <template x-if="activeAiConfig">
+          <p class="text-sm holo-text-dim">
+            Đang dùng: <strong x-text="activeAiConfig.ProviderID"></strong> / <span x-text="activeAiConfig.ModelName"></span>
+            (Key: <span class="font-tech" x-text="activeAiConfig.ApiKeyMasked"></span>)
+          </p>
         </template>
-      </select>
-      <input type="text" x-model="aiForm.modelName" placeholder="Model (ví dụ: claude-sonnet-5)" class="border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
-      <input type="password" x-model="aiForm.apiKey" placeholder="API Key" class="border rounded px-2 py-1 text-sm col-span-2 dark:bg-gray-800 dark:border-gray-600">
-      <input type="number" step="0.1" min="0" max="1" x-model.number="aiForm.temperature" placeholder="Temperature" class="border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
-      <input type="number" x-model.number="aiForm.maxTokens" placeholder="Max Tokens" class="border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
-      <input type="number" x-model.number="aiForm.timeout" placeholder="Timeout (giây)" class="border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
+
+        <div class="form-grid-2 max-w-lg">
+          <div class="form-group">
+            <label>Nhà cung cấp</label>
+            <select x-model="aiForm.providerId" class="form-control">
+              <template x-for="p in aiProviders" :key="p.ProviderID">
+                <option :value="p.ProviderID" x-text="p.ProviderName"></option>
+              </template>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Model</label>
+            <input type="text" x-model="aiForm.modelName" placeholder="claude-sonnet-5" class="form-control">
+          </div>
+          <div class="form-group" style="grid-column: 1 / -1;">
+            <label>API Key</label>
+            <input type="password" x-model="aiForm.apiKey" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Temperature</label>
+            <input type="number" step="0.1" min="0" max="1" x-model.number="aiForm.temperature" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Max Tokens</label>
+            <input type="number" x-model.number="aiForm.maxTokens" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Timeout (giây)</label>
+            <input type="number" x-model.number="aiForm.timeout" class="form-control">
+          </div>
+        </div>
+        <button @click="saveAiConfig()" :disabled="savingAiConfig" class="btn btn-primary">
+          <span x-text="savingAiConfig ? 'Đang lưu...' : 'Lưu cấu hình AI'"></span>
+        </button>
+      </div>
     </div>
-    <button @click="saveAiConfig()" :disabled="savingAiConfig" class="holo-btn px-4 py-2 text-sm disabled:opacity-50">
-      <span x-text="savingAiConfig ? 'Đang lưu...' : 'Lưu cấu hình AI'"></span>
-    </button>
   </div>
 
   <!-- Tab: Mẫu văn bản -->
-  <div x-show="adminTab === 'templates'" class="space-y-2">
-    <h2 class="text-sm font-medium">Tạo mẫu văn bản mới</h2>
-    <p class="text-xs holo-text-dim">Tải lên 1 file Google Doc/Word đã chèn sẵn placeholder dạng [tenField], sau đó liệt kê tên các field (phân tách bằng dấu phẩy).</p>
-    <div class="grid grid-cols-2 gap-2 max-w-md">
-      <input type="text" x-model="templateForm.name" placeholder="Tên mẫu" class="border rounded px-2 py-1 text-sm col-span-2 dark:bg-gray-800 dark:border-gray-600">
-      <select x-model="templateForm.libraryId" class="border rounded px-2 py-1 text-sm col-span-2 dark:bg-gray-800 dark:border-gray-600">
-        <option value="">-- Chọn kho tri thức --</option>
-        <template x-for="lib in libraries" :key="lib.LibraryID">
-          <option :value="lib.LibraryID" x-text="lib.LibraryName"></option>
-        </template>
-      </select>
-      <input type="text" x-model="templateForm.fieldsCsv" placeholder="Các field, ví dụ: coQuanBanHanh, docNumber, noiDung" class="border rounded px-2 py-1 text-sm col-span-2 dark:bg-gray-800 dark:border-gray-600">
-      <input type="file" @change="onTemplateFileSelected($event)" class="text-sm col-span-2">
+  <div x-show="adminTab === 'templates'">
+    <div class="card">
+      <div class="card-header">
+        <h3>Mẫu văn bản</h3>
+        <button @click="openModal('addTemplate')" class="btn btn-primary btn-sm">+ Tạo mẫu mới</button>
+      </div>
+      <div class="card-body">
+        <p class="text-sm holo-text-dim">Dùng nút "Tạo mẫu mới" để tải lên 1 file Google Doc/Word đã chèn sẵn placeholder dạng [tenField].</p>
+      </div>
     </div>
-    <button @click="createTemplateAction()" :disabled="creatingTemplate || !templateForm.name || !templateForm.libraryId || !pendingTemplateFile" class="holo-btn px-4 py-2 text-sm disabled:opacity-50">
-      <span x-text="creatingTemplate ? 'Đang tạo...' : 'Tạo mẫu'"></span>
-    </button>
   </div>
 
   <!-- Tab: Audit Log -->
-  <div x-show="adminTab === 'log'" class="space-y-2">
-    <div class="flex gap-2">
-      <button @click="loadAuditLog()" class="holo-btn-outline px-3 py-1 text-sm">Tải nhật ký</button>
-      <button @click="exportAuditLogAction()" :disabled="exportingAuditLog" class="holo-btn-outline px-3 py-1 text-sm disabled:opacity-50">
-        <span x-text="exportingAuditLog ? 'Đang xuất...' : 'Xuất Excel'"></span>
-      </button>
-      <template x-if="auditExportResult">
-        <a :href="auditExportResult.url" target="_blank" class="holo-text-accent underline text-sm self-center">Mở file Excel</a>
-      </template>
+  <div x-show="adminTab === 'log'">
+    <div class="card">
+      <div class="card-header">
+        <h3>Nhật ký hệ thống</h3>
+        <div class="flex gap-2 items-center">
+          <button @click="loadAuditLog()" class="btn btn-secondary btn-sm">Tải nhật ký</button>
+          <button @click="exportAuditLogAction()" :disabled="exportingAuditLog" class="btn btn-secondary btn-sm">
+            <span x-text="exportingAuditLog ? 'Đang xuất...' : 'Xuất Excel'"></span>
+          </button>
+          <a x-show="auditExportResult" :href="auditExportResult && auditExportResult.url" target="_blank" class="btn-link">Mở file Excel</a>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Thời gian</th>
+              <th>Hành động</th>
+              <th>Đối tượng</th>
+              <th>Chi tiết</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="log in auditLogs" :key="log.LogID">
+              <tr>
+                <td class="whitespace-nowrap" x-text="log.Timestamp"></td>
+                <td><span class="badge badge-gray" x-text="log.Action"></span></td>
+                <td x-text="log.TargetType + ' ' + log.TargetID"></td>
+                <td x-text="log.Detail"></td>
+              </tr>
+            </template>
+            <template x-if="auditLogs.length === 0">
+              <tr><td colspan="4" class="text-xs holo-text-dim py-4">Chưa tải nhật ký — bấm "Tải nhật ký".</td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
     </div>
-    <table class="w-full text-sm border-collapse">
-      <thead>
-        <tr class="text-left border-b dark:border-gray-700">
-          <th class="py-1">Thời gian</th>
-          <th class="py-1">Hành động</th>
-          <th class="py-1">Đối tượng</th>
-          <th class="py-1">Chi tiết</th>
-        </tr>
-      </thead>
-      <tbody>
-        <template x-for="log in auditLogs" :key="log.LogID">
-          <tr class="border-b dark:border-gray-800">
-            <td class="py-1" x-text="log.Timestamp"></td>
-            <td class="py-1" x-text="log.Action"></td>
-            <td class="py-1" x-text="log.TargetType + ' ' + log.TargetID"></td>
-            <td class="py-1" x-text="log.Detail"></td>
-          </tr>
-        </template>
-      </tbody>
-    </table>
   </div>
 
   <!-- Tab: Độ chính xác AI -->
   <div x-show="adminTab === 'accuracy'" class="space-y-4">
-    <p class="text-xs holo-text-dim">
-      Suy ra từ số lần người dùng THỰC SỰ sửa lại đề xuất phân loại (Rule/AI) khi xác nhận tài liệu.
-      Không tính là "sai" nếu người dùng giữ nguyên đề xuất.
-    </p>
-    <button @click="loadAccuracyReport()" :disabled="loadingAccuracyReport" class="holo-btn-outline px-3 py-1 text-sm disabled:opacity-50">
-      <span x-text="loadingAccuracyReport ? 'Đang tải...' : 'Tải lại báo cáo'"></span>
-    </button>
+    <div class="notice notice-info">
+      <span class="notice-icon">ℹ</span>
+      <span>Suy ra từ số lần người dùng THỰC SỰ sửa lại đề xuất phân loại (Rule/AI) khi xác nhận tài liệu. Không tính là "sai" nếu người dùng giữ nguyên đề xuất.</span>
+    </div>
 
-    <template x-if="accuracyReport">
-      <div class="space-y-4">
-        <div class="flex gap-6 text-sm">
-          <p>Tổng tài liệu đã phân loại: <span class="holo-text-accent font-medium" x-text="accuracyReport.totalClassified"></span></p>
-          <p>Tổng số lần bị sửa: <span class="holo-text-accent font-medium" x-text="accuracyReport.totalCorrections"></span></p>
-        </div>
-
+    <div class="stats-grid" x-show="accuracyReport" style="grid-template-columns: repeat(2, minmax(0,1fr)); max-width: 480px;">
+      <div class="stat-card" style="cursor:default;">
+        <div class="stat-card-icon cyan">▤</div>
         <div>
-          <p class="holo-label mb-1">Độ chính xác theo trường dữ liệu</p>
-          <table class="w-full text-sm border-collapse">
-            <thead>
-              <tr class="text-left border-b dark:border-gray-700">
-                <th class="py-1">Trường</th>
-                <th class="py-1">Số lần bị sửa</th>
-                <th class="py-1">Tỷ lệ chính xác ước tính</th>
-              </tr>
-            </thead>
-            <tbody>
-              <template x-for="row in accuracyReport.byField" :key="row.field">
-                <tr class="border-b dark:border-gray-800">
-                  <td class="py-1" x-text="row.field"></td>
-                  <td class="py-1" x-text="row.corrections"></td>
-                  <td class="py-1" x-text="row.accuracyRate !== null ? row.accuracyRate + '%' : '—'"></td>
-                </tr>
-              </template>
-              <template x-if="accuracyReport.byField.length === 0">
-                <tr><td colspan="3" class="py-2 text-xs holo-text-dim">Chưa có lần sửa nào được ghi nhận.</td></tr>
-              </template>
-            </tbody>
-          </table>
-        </div>
-
-        <div>
-          <p class="holo-label mb-1">Kiểu sửa lặp lại nhiều nhất (gợi ý cần chỉnh Rule/Prompt)</p>
-          <table class="w-full text-sm border-collapse">
-            <thead>
-              <tr class="text-left border-b dark:border-gray-700">
-                <th class="py-1">Trường</th>
-                <th class="py-1">AI/Rule đề xuất</th>
-                <th class="py-1">Người dùng sửa thành</th>
-                <th class="py-1">Số lần</th>
-              </tr>
-            </thead>
-            <tbody>
-              <template x-for="p in accuracyReport.topPatterns" :key="p.field + p.suggested + p.final">
-                <tr class="border-b dark:border-gray-800">
-                  <td class="py-1" x-text="p.field"></td>
-                  <td class="py-1" x-text="p.suggested"></td>
-                  <td class="py-1" x-text="p.final"></td>
-                  <td class="py-1" x-text="p.count"></td>
-                </tr>
-              </template>
-              <template x-if="accuracyReport.topPatterns.length === 0">
-                <tr><td colspan="4" class="py-2 text-xs holo-text-dim">Chưa có dữ liệu.</td></tr>
-              </template>
-            </tbody>
-          </table>
+          <div class="stat-card-label">Tổng tài liệu đã phân loại</div>
+          <div class="stat-card-value" x-text="accuracyReport && accuracyReport.totalClassified"></div>
         </div>
       </div>
-    </template>
+      <div class="stat-card" style="cursor:default;">
+        <div class="stat-card-icon orange">✎</div>
+        <div>
+          <div class="stat-card-label">Tổng số lần bị sửa</div>
+          <div class="stat-card-value" x-text="accuracyReport && accuracyReport.totalCorrections"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>Độ chính xác theo trường dữ liệu</h3>
+        <button @click="loadAccuracyReport()" :disabled="loadingAccuracyReport" class="btn btn-secondary btn-sm">
+          <span x-text="loadingAccuracyReport ? 'Đang tải...' : 'Tải lại'"></span>
+        </button>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>Trường</th><th>Số lần bị sửa</th><th>Tỷ lệ chính xác ước tính</th></tr>
+          </thead>
+          <tbody>
+            <template x-if="accuracyReport" x-for="row in accuracyReport.byField" :key="row.field">
+              <tr>
+                <td x-text="row.field"></td>
+                <td x-text="row.corrections"></td>
+                <td x-text="row.accuracyRate !== null ? row.accuracyRate + '%' : '—'"></td>
+              </tr>
+            </template>
+            <template x-if="!accuracyReport || accuracyReport.byField.length === 0">
+              <tr><td colspan="3" class="text-xs holo-text-dim py-4">Chưa có lần sửa nào được ghi nhận.</td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3>Kiểu sửa lặp lại nhiều nhất (gợi ý cần chỉnh Rule/Prompt)</h3></div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>Trường</th><th>AI/Rule đề xuất</th><th>Người dùng sửa thành</th><th>Số lần</th></tr>
+          </thead>
+          <tbody>
+            <template x-if="accuracyReport" x-for="p in accuracyReport.topPatterns" :key="p.field + p.suggested + p.final">
+              <tr>
+                <td x-text="p.field"></td>
+                <td x-text="p.suggested"></td>
+                <td x-text="p.final"></td>
+                <td x-text="p.count"></td>
+              </tr>
+            </template>
+            <template x-if="!accuracyReport || accuracyReport.topPatterns.length === 0">
+              <tr><td colspan="4" class="text-xs holo-text-dim py-4">Chưa có dữ liệu.</td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <!-- Tab: Tài liệu đã xoá -->
-  <div x-show="adminTab === 'archived'" class="space-y-2">
-    <p class="text-xs holo-text-dim">File Drive đang ở Thùng rác (khôi phục được trong 30 ngày kể từ lúc xoá). Khôi phục sẽ đưa tài liệu về trạng thái Bản nháp (DRAFT).</p>
-    <button @click="loadArchivedDocuments()" class="holo-btn-outline px-3 py-1 text-sm">Tải lại danh sách</button>
-    <table class="w-full text-sm border-collapse">
-      <thead>
-        <tr class="text-left border-b dark:border-gray-700">
-          <th class="py-1">Tiêu đề</th>
-          <th class="py-1">Kho tri thức</th>
-          <th class="py-1">Cập nhật lúc</th>
-          <th class="py-1"></th>
-        </tr>
-      </thead>
-      <tbody>
-        <template x-for="doc in archivedDocuments" :key="doc.DocumentID">
-          <tr class="border-b dark:border-gray-800">
-            <td class="py-1" x-text="doc.Title"></td>
-            <td class="py-1" x-text="libraryNameById(doc.LibraryID)"></td>
-            <td class="py-1" x-text="doc.UpdatedAt"></td>
-            <td class="py-1"><button @click="restoreDocumentAction(doc)" class="holo-text-accent underline text-xs">Khôi phục</button></td>
-          </tr>
-        </template>
-        <template x-if="archivedDocuments.length === 0">
-          <tr><td colspan="4" class="py-2 text-xs holo-text-dim">Không có tài liệu nào đã xoá.</td></tr>
-        </template>
-      </tbody>
-    </table>
+  <div x-show="adminTab === 'archived'">
+    <div class="card">
+      <div class="card-header">
+        <h3>Tài liệu đã xoá</h3>
+        <button @click="loadArchivedDocuments()" class="btn btn-secondary btn-sm">Tải lại danh sách</button>
+      </div>
+      <div class="card-body !pb-2 !pt-3">
+        <p class="text-xs holo-text-dim">File Drive đang ở Thùng rác (khôi phục được trong 30 ngày kể từ lúc xoá). Khôi phục sẽ đưa tài liệu về trạng thái Bản nháp (DRAFT).</p>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>Tiêu đề</th><th>Kho tri thức</th><th>Cập nhật lúc</th><th></th></tr>
+          </thead>
+          <tbody>
+            <template x-for="doc in archivedDocuments" :key="doc.DocumentID">
+              <tr>
+                <td x-text="doc.Title"></td>
+                <td x-text="libraryNameById(doc.LibraryID)"></td>
+                <td class="whitespace-nowrap" x-text="doc.UpdatedAt"></td>
+                <td><button @click="restoreDocumentAction(doc)" class="btn-link">Khôi phục</button></td>
+              </tr>
+            </template>
+            <template x-if="archivedDocuments.length === 0">
+              <tr><td colspan="4" class="text-xs holo-text-dim py-4">Không có tài liệu nào đã xoá.</td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cấu hình chung (đặt cuối, ít dùng) -->
+  <div class="card mt-4">
+    <div class="card-header"><h3>Cấu hình chung</h3></div>
+    <div class="card-body">
+      <div class="form-group max-w-xs">
+        <label>Giới hạn tải lên hàng loạt (1-20 tài liệu/lần)</label>
+        <div class="flex gap-2 items-center">
+          <input type="number" min="1" max="20" x-model.number="maxBulkUploadCount" class="form-control form-control-sm w-20">
+          <button @click="saveMaxBulkUploadCount()" class="btn btn-secondary btn-xs">Lưu</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Thêm người dùng mới -->
+  <div x-show="modalOpen === 'addUser'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Thêm người dùng mới</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="text-xs holo-text-dim mb-3">Tạo trước tài khoản cho nhân viên chưa từng đăng nhập — khi họ đăng nhập lần đầu, hệ thống nhận đúng Vai trò/Phòng ban đã gán sẵn ở đây.</p>
+        <div class="form-group">
+          <label class="required">Email (@domain bệnh viện)</label>
+          <input type="email" x-model="newUserForm.email" class="form-control">
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label>Tên hiển thị</label>
+            <input type="text" x-model="newUserForm.fullName" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Phòng ban</label>
+            <input type="text" x-model="newUserForm.department" class="form-control">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Vai trò</label>
+          <select x-model="newUserForm.role" class="form-control">
+            <template x-for="r in allRoles" :key="r.RoleID">
+              <option :value="r.RoleID" x-text="r.RoleName"></option>
+            </template>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="createUserAction()" :disabled="creatingUser || !newUserForm.email" class="btn btn-primary">
+          <span x-text="creatingUser ? 'Đang thêm...' : '+ Thêm người dùng'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Tạo mẫu văn bản mới -->
+  <div x-show="modalOpen === 'addTemplate'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Tạo mẫu văn bản mới</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="required">Tên mẫu</label>
+          <input type="text" x-model="templateForm.name" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="required">Kho tri thức</label>
+          <select x-model="templateForm.libraryId" class="form-control">
+            <option value="">-- Chọn kho tri thức --</option>
+            <template x-for="lib in libraries" :key="lib.LibraryID">
+              <option :value="lib.LibraryID" x-text="lib.LibraryName"></option>
+            </template>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Các field (phân tách bằng dấu phẩy)</label>
+          <input type="text" x-model="templateForm.fieldsCsv" placeholder="coQuanBanHanh, docNumber, noiDung" class="form-control">
+          <p class="form-hint">Đúng tên placeholder [tenField] đã chèn sẵn trong file mẫu.</p>
+        </div>
+        <div class="form-group">
+          <label class="required">File mẫu (Google Doc / Word)</label>
+          <input type="file" @change="onTemplateFileSelected($event)" class="form-control">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="createTemplateAction()" :disabled="creatingTemplate || !templateForm.name || !templateForm.libraryId || !pendingTemplateFile" class="btn btn-primary">
+          <span x-text="creatingTemplate ? 'Đang tạo...' : 'Tạo mẫu'"></span>
+        </button>
+      </div>
+    </div>
   </div>
 </div>

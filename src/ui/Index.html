@@ -5,63 +5,76 @@
   <?!= include('ui/css/main') ?>
 </head>
 <body>
-  <div x-data="appShell()" x-init="init()" class="flex h-screen overflow-hidden">
+  <div x-data="appShell()" x-init="init()" class="app-shell">
 
     <!-- Sidebar -->
-    <aside class="w-60 shrink-0 flex flex-col holo-panel m-2 mr-0">
-      <div class="px-4 py-4 holo-border-b">
-        <div class="font-display text-base holo-text-accent" style="text-shadow: 0 0 10px currentColor;">AI OFFICE</div>
-        <div class="holo-label mt-0.5">Platform v1</div>
+    <aside class="app-sidebar">
+      <div class="app-sidebar-logo">
+        <div class="app-sidebar-logo-icon">⬡</div>
+        <div>
+          <div class="app-sidebar-title font-display">AI OFFICE</div>
+          <div class="app-sidebar-sub">Platform v1</div>
+        </div>
       </div>
-      <nav class="flex-1 px-2 py-3 space-y-1">
-        <a href="#dashboard" @click.prevent="go('dashboard')" class="nav-item" :class="active('dashboard')"><span>◈</span> Dashboard</a>
-        <a href="#documents" @click.prevent="go('documents')" class="nav-item" :class="active('documents')"><span>◈</span> Văn bản</a>
-        <a href="#knowledge" @click.prevent="go('knowledge')" class="nav-item" :class="active('knowledge')"><span>◈</span> Tri thức</a>
-        <a href="#aichat" @click.prevent="go('aichat')" class="nav-item" :class="active('aichat')"><span>◈</span> AI Chat</a>
-        <a href="#workflow" @click.prevent="go('workflow')" class="nav-item" :class="active('workflow')"><span>◈</span> Workflow</a>
-        <a href="#admin" @click.prevent="go('admin')" class="nav-item" x-show="isAdmin" :class="active('admin')"><span>◈</span> Admin</a>
+      <nav class="app-sidebar-menu">
+        <a href="#dashboard" @click.prevent="go('dashboard')" class="app-nav-item" :class="active('dashboard')"><span class="app-nav-icon">▣</span> Dashboard</a>
+        <a href="#documents" @click.prevent="go('documents')" class="app-nav-item" :class="active('documents')"><span class="app-nav-icon">▤</span> Văn bản</a>
+        <a href="#knowledge" @click.prevent="go('knowledge')" class="app-nav-item" :class="active('knowledge')"><span class="app-nav-icon">▥</span> Tri thức</a>
+        <a href="#aichat" @click.prevent="go('aichat')" class="app-nav-item" :class="active('aichat')"><span class="app-nav-icon">◈</span> AI Chat</a>
+        <a href="#workflow" @click.prevent="go('workflow')" class="app-nav-item" :class="active('workflow')"><span class="app-nav-icon">▧</span> Workflow</a>
+        <a href="#admin" @click.prevent="go('admin')" class="app-nav-item" x-show="isAdmin" :class="active('admin')"><span class="app-nav-icon">⚙</span> Admin</a>
       </nav>
-      <div class="px-4 py-3 holo-border-b border-t holo-label" x-text="'STATUS: ONLINE'"></div>
+      <div class="app-sidebar-footer">● STATUS: ONLINE</div>
     </aside>
 
     <!-- Main -->
-    <div class="flex-1 flex flex-col overflow-hidden p-2">
-      <header class="h-14 shrink-0 holo-panel flex items-center justify-between px-4 mb-2">
-        <input type="search" x-model="globalSearchKeyword" @keyup.enter="runGlobalSearch()" placeholder="TÌM KIẾM TÀI LIỆU... (ENTER)"
-               class="font-tech text-xs bg-transparent border-b holo-border px-2 py-1 w-80 focus:outline-none" style="border-color: var(--holo-border-strong); color: var(--holo-text);">
-        <div class="flex items-center gap-4 relative">
-          <button @click="toggleTheme()" class="holo-btn-outline px-3 py-1 text-xs">☀/☾</button>
+    <div class="app-main">
+      <header class="app-header">
+        <div class="app-header-search">
+          <span class="app-header-search-icon">🔍</span>
+          <input type="search" x-model="globalSearchKeyword" @keyup.enter="runGlobalSearch()" placeholder="Tìm kiếm tài liệu...">
+        </div>
+        <div class="app-header-right relative">
+          <button @click="toggleTheme()" class="btn btn-secondary btn-sm">☀/☾</button>
 
-          <button @click="showProfileMenu = !showProfileMenu" class="flex items-center gap-2">
+          <div class="app-header-bell" @click="go('workflow')">
+            🔔
+            <span x-show="pendingCount > 0" class="app-header-bell-badge" x-text="pendingCount > 9 ? '9+' : pendingCount"></span>
+          </div>
+
+          <button @click="showProfileMenu = !showProfileMenu" class="app-header-user">
             <img x-show="currentUser.AvatarUrl" :src="currentUser.AvatarUrl" class="w-8 h-8 rounded-full object-cover holo-border-strong">
             <div x-show="!currentUser.AvatarUrl" class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-tech holo-border-strong" :style="avatarColorStyle(currentUser)" x-text="initials(currentUser)"></div>
-            <span class="font-tech text-xs holo-text-dim" x-text="currentUser.FullName || userEmail"></span>
+            <div class="app-header-user-info hidden sm:block">
+              <div class="app-header-user-name" x-text="currentUser.FullName || userEmail"></div>
+              <div class="app-header-user-role" x-text="currentUser.Role || ''"></div>
+            </div>
           </button>
 
-          <div x-show="showProfileMenu" @click.outside="showProfileMenu = false" class="absolute right-0 top-12 w-72 holo-panel holo-panel-strong p-4 space-y-3 z-10">
+          <div x-show="showProfileMenu" @click.outside="showProfileMenu = false" x-cloak class="modal absolute right-0 top-12 w-72 p-4 space-y-3 z-10">
             <p class="holo-label">Hồ sơ của tôi</p>
             <div class="flex items-center gap-3">
               <img x-show="currentUser.AvatarUrl" :src="currentUser.AvatarUrl" class="w-12 h-12 rounded-full object-cover holo-border-strong">
               <div x-show="!currentUser.AvatarUrl" class="w-12 h-12 rounded-full flex items-center justify-center text-sm font-tech holo-border-strong" :style="avatarColorStyle(currentUser)" x-text="initials(currentUser)"></div>
               <div>
-                <label class="holo-btn-outline px-2 py-1 text-xs cursor-pointer inline-block">
+                <label class="btn btn-secondary btn-xs cursor-pointer inline-block">
                   <span x-text="uploadingAvatar ? 'Đang tải...' : 'Đổi ảnh đại diện'"></span>
                   <input type="file" accept="image/*" @change="onAvatarFileSelected($event)" class="hidden">
                 </label>
               </div>
             </div>
-            <div class="space-y-1">
-              <label class="text-xs holo-text-dim">Tên hiển thị</label>
-              <input type="text" x-model="profileForm.fullName" class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
+            <div class="form-group !mb-2">
+              <label>Tên hiển thị</label>
+              <input type="text" x-model="profileForm.fullName" class="form-control">
             </div>
             <p class="text-xs holo-text-dim" x-text="userEmail"></p>
-            <button @click="saveProfileAction()" :disabled="savingProfile" class="holo-btn px-3 py-1.5 text-xs w-full disabled:opacity-50">
+            <button @click="saveProfileAction()" :disabled="savingProfile" class="btn btn-primary btn-sm w-full">
               <span x-text="savingProfile ? 'Đang lưu...' : 'Lưu thay đổi'"></span>
             </button>
           </div>
         </div>
       </header>
-      <main class="flex-1 overflow-auto holo-panel p-6">
+      <main id="page-content">
         <template x-if="currentView === 'admin' && !isAdmin">
           <p class="holo-text-dim">Màn hình này sẽ được lập trình ở giai đoạn sau — xem docs/16-development-roadmap.md.</p>
         </template>
@@ -72,6 +85,13 @@
         <?!= include('ui/views/AiChat') ?>
         <?!= include('ui/views/Admin') ?>
       </main>
+    </div>
+
+    <!-- Toasts -->
+    <div class="toast-stack">
+      <template x-for="t in toasts" :key="t.id">
+        <div class="toast" :class="'toast-' + t.type" x-text="t.message"></div>
+      </template>
     </div>
   </div>
 

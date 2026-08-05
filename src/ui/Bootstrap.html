@@ -6,7 +6,7 @@
 </head>
 <body>
   <div x-data="bootstrapScreen()" class="flex items-center justify-center h-screen p-4">
-    <div class="max-w-md w-full holo-panel holo-panel-strong p-6 space-y-4">
+    <div class="modal w-full p-6 space-y-4">
       <p class="holo-label">System Bootstrap</p>
       <h1 class="font-display text-lg holo-text-accent" style="text-shadow: 0 0 10px currentColor;">AI OFFICE PLATFORM</h1>
       <p class="text-sm holo-text-dim">
@@ -16,11 +16,11 @@
       </p>
 
       <template x-if="errorMessage">
-        <div class="bg-red-50 text-red-700 border border-red-200 rounded p-3 text-sm" x-text="errorMessage"></div>
+        <div class="notice notice-warning" x-text="errorMessage"></div>
       </template>
 
       <template x-if="!done">
-        <button @click="run()" :disabled="running" class="holo-btn px-4 py-2 text-sm disabled:opacity-50 w-full">
+        <button @click="run()" :disabled="running" class="btn btn-primary w-full">
           <span x-text="running ? 'ĐANG KHỞI TẠO...' : '▶ INITIALIZE SYSTEM'"></span>
         </button>
       </template>

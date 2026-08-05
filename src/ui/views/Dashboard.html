@@ -1,51 +1,88 @@
-<div x-show="currentView === 'dashboard'" x-init="$watch('currentView', v => { if (v === 'dashboard') loadDashboard(); }); loadDashboard()" class="max-w-4xl space-y-8">
-  <div>
-    <p class="holo-label">Hệ thống tri thức & văn bản</p>
-    <h1 class="font-display text-xl holo-text-accent" style="text-shadow: 0 0 10px currentColor;">XIN CHÀO, <span x-text="userEmail.toUpperCase()"></span></h1>
+<div x-show="currentView === 'dashboard'" x-init="$watch('currentView', v => { if (v === 'dashboard') loadDashboard(); }); loadDashboard()" class="max-w-5xl">
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-header-icon">⬡</div>
+      <div>
+        <h1 class="page-title-text">XIN CHÀO, <span x-text="(currentUser.FullName || userEmail).toUpperCase()"></span></h1>
+        <p class="page-subtitle">Hệ thống tri thức &amp; văn bản — Bệnh viện Đa khoa Đông Sơn</p>
+      </div>
+    </div>
+    <div class="page-header-actions">
+      <button @click="go('documents'); openCreateDocumentModal()" class="btn btn-primary">+ Tạo văn bản mới</button>
+    </div>
   </div>
 
-  <div class="grid grid-cols-2 gap-4">
-    <button @click="go('workflow')" class="holo-panel holo-panel-strong p-5 text-left flex items-center gap-4 hover:opacity-90">
-      <div class="relative shrink-0" style="width:96px;height:96px;">
-        <svg class="holo-ring" width="96" height="96" viewBox="0 0 96 96">
-          <circle class="holo-ring-track" cx="48" cy="48" r="40"></circle>
-          <circle class="holo-ring-value" cx="48" cy="48" r="40" stroke-dasharray="176 251"></circle>
-        </svg>
-        <div class="absolute inset-0 flex items-center justify-center font-display text-2xl holo-text-accent" x-text="dashboard.pendingApprovals.length"></div>
-      </div>
+  <div class="stats-grid">
+    <div class="stat-card" @click="go('workflow')">
+      <div class="stat-card-icon cyan">▧</div>
       <div>
-        <p class="holo-label">01 · Approval Queue</p>
-        <p class="text-sm mt-1">Văn bản đang chờ bạn duyệt</p>
+        <div class="stat-card-label">Chờ bạn duyệt</div>
+        <div class="stat-card-value" x-text="dashboard.pendingApprovals.length"></div>
+        <div class="stat-card-detail">Văn bản đang chờ phê duyệt</div>
       </div>
-    </button>
+    </div>
 
-    <button @click="go('documents')" class="holo-panel holo-panel-strong p-5 text-left flex items-center gap-4 hover:opacity-90">
-      <div class="relative shrink-0" style="width:96px;height:96px;">
-        <svg class="holo-ring" width="96" height="96" viewBox="0 0 96 96">
-          <circle class="holo-ring-track" cx="48" cy="48" r="40"></circle>
-          <circle class="holo-ring-value" cx="48" cy="48" r="40" stroke-dasharray="220 251"></circle>
-        </svg>
-        <div class="absolute inset-0 flex items-center justify-center font-display text-2xl holo-text-accent" x-text="dashboard.myRecentDocuments.length"></div>
-      </div>
+    <div class="stat-card" @click="go('knowledge'); knowledgeTab = 'review'; loadPendingKnowledgeReviews()">
+      <div class="stat-card-icon orange">▥</div>
       <div>
-        <p class="holo-label">02 · Document Log</p>
-        <p class="text-sm mt-1">Văn bản gần đây của bạn</p>
+        <div class="stat-card-label">Tri thức chờ duyệt</div>
+        <div class="stat-card-value" x-text="pendingKnowledgeReviews.length"></div>
+        <div class="stat-card-detail">Tài liệu chờ công bố vào kho</div>
       </div>
-    </button>
+    </div>
+
+    <div class="stat-card" @click="go('documents')">
+      <div class="stat-card-icon green">▤</div>
+      <div>
+        <div class="stat-card-label">Văn bản gần đây</div>
+        <div class="stat-card-value" x-text="dashboard.myRecentDocuments.length"></div>
+        <div class="stat-card-detail">Do bạn tạo, 10 văn bản mới nhất</div>
+      </div>
+    </div>
   </div>
 
-  <div class="holo-panel p-5 space-y-3">
-    <p class="holo-label">03 · Recent Activity</p>
-    <template x-if="dashboard.myRecentDocuments.length === 0">
-      <p class="text-sm holo-text-dim">Chưa có văn bản nào. Vào mục "Văn bản" để soạn văn bản đầu tiên.</p>
-    </template>
-    <ul class="space-y-2">
-      <template x-for="doc in dashboard.myRecentDocuments" :key="doc.DocumentID">
-        <li class="text-sm flex items-center justify-between px-3 py-2 holo-border">
-          <span x-text="doc.Title"></span>
-          <span class="font-tech text-xs holo-text-accent" x-text="'[ ' + doc.Status + ' ]'"></span>
-        </li>
+  <div class="card">
+    <div class="card-header"><h3>Truy cập nhanh</h3></div>
+    <div class="card-body">
+      <div class="quick-grid">
+        <button @click="go('documents')" class="quick-card">
+          <span class="quick-card-icon">▤</span>
+          <span class="quick-card-label">Văn bản</span>
+        </button>
+        <button @click="go('knowledge')" class="quick-card">
+          <span class="quick-card-icon">▥</span>
+          <span class="quick-card-label">Kho tri thức</span>
+        </button>
+        <button @click="go('aichat')" class="quick-card">
+          <span class="quick-card-icon">◈</span>
+          <span class="quick-card-label">AI Chat</span>
+        </button>
+        <button @click="go('workflow')" class="quick-card">
+          <span class="quick-card-icon">▧</span>
+          <span class="quick-card-label">Workflow</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><h3>Hoạt động gần đây</h3></div>
+    <div class="card-body !p-0">
+      <template x-if="dashboard.myRecentDocuments.length === 0">
+        <p class="text-sm holo-text-dim p-5">Chưa có văn bản nào. Vào mục "Văn bản" để soạn văn bản đầu tiên.</p>
       </template>
-    </ul>
+      <div class="table-wrap" x-show="dashboard.myRecentDocuments.length > 0">
+        <table class="data-table">
+          <tbody>
+            <template x-for="doc in dashboard.myRecentDocuments" :key="doc.DocumentID">
+              <tr>
+                <td x-text="doc.Title"></td>
+                <td class="text-right"><span class="badge badge-cyan" x-text="doc.Status"></span></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </div>

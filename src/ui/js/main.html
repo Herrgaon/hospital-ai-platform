@@ -105,6 +105,11 @@
       creatingTemplate: false,
 
       init() {
+        // errorMessage được gán ở ~40 chỗ khắp app (withFailureHandler) nhưng trước đây chỉ 1-2 màn
+        // hình thực sự hiển thị nó — theo dõi tập trung ở đây để MỌI lỗi tự động hiện thành toast,
+        // không cần sửa lại từng chỗ gọi.
+        this.$watch('errorMessage', (value) => { if (value) this.toast('error', value); });
+
         this.currentView = (location.hash || '#dashboard').replace('#', '');
         if (!document.documentElement.classList.contains('theme-loaded')) {
           document.documentElement.classList.add('theme-loaded');
@@ -128,10 +133,14 @@
           .withSuccessHandler((templates) => { this.templates = templates; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_listTemplates(null);
+
+        // Nạp trước cho badge chuông thông báo ở header — hiển thị được dù chưa vào đúng màn hình.
+        this.loadPendingApprovals();
+        this.loadPendingKnowledgeReviews();
       },
 
       active(view) {
-        return this.currentView === view ? 'bg-gray-200 dark:bg-gray-700 font-medium' : '';
+        return this.currentView === view ? 'active' : '';
       },
 
       // Điều hướng thuần JS — KHÔNG dùng <a href="#..."> điều hướng gốc, vì <base target="_top">
@@ -147,6 +156,23 @@
       toggleTheme() {
         document.documentElement.classList.toggle('dark');
         localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+      },
+
+      // --- Toast & Modal (dùng chung toàn app) ---
+      toasts: [],
+      toastSeq: 0,
+      toast(type, message) {
+        const id = ++this.toastSeq;
+        this.toasts.push({ id, type, message });
+        setTimeout(() => { this.toasts = this.toasts.filter((t) => t.id !== id); }, 3500);
+      },
+
+      modalOpen: null,
+      openModal(name) { this.modalOpen = name; },
+      closeModal() { this.modalOpen = null; },
+
+      get pendingCount() {
+        return this.pendingApprovals.length + this.pendingKnowledgeReviews.length;
       },
 
       // --- Avatar (dùng chung: bảng người dùng, danh bạ, top bar) ---
@@ -279,6 +305,12 @@
           .api_reviewDocumentAgainstLibraries(this.currentDocument.DocumentID, this.reviewLibraryIds);
       },
 
+      openCreateDocumentModal() {
+        this.selectedTemplateId = '';
+        this.selectedTemplateFields = [];
+        this.openModal('createDocument');
+      },
+
       onTemplateChange() {
         this.currentDocument = null;
         this.ruleCheckResult = null;
@@ -299,6 +331,7 @@
           .withSuccessHandler((doc) => {
             this.creating = false;
             this.currentDocument = doc;
+            this.closeModal();
             this.loadMyDocuments();
           })
           .withFailureHandler((e) => {
@@ -395,11 +428,21 @@
       },
 
       // --- AI Chat ---
+      chatScopeOpen: false,
+
+      scrollChatToBottom() {
+        this.$nextTick(() => {
+          const el = this.$refs.chatScroll;
+          if (el) el.scrollTop = el.scrollHeight;
+        });
+      },
+
       sendChatMessage() {
         const question = this.chatInput;
         this.chatMessages.push({ role: 'user', text: question });
         this.chatInput = '';
         this.chatAsking = true;
+        this.scrollChatToBottom();
         google.script.run
           .withSuccessHandler((result) => {
             this.chatAsking = false;
@@ -411,6 +454,7 @@
                 : ('Lỗi: ' + result.error);
               this.chatMessages.push({ role: 'assistant', text: reason });
             }
+            this.scrollChatToBottom();
           })
           .withFailureHandler((e) => {
             this.chatAsking = false;
@@ -519,6 +563,8 @@
           .withSuccessHandler(() => {
             this.creatingLibrary = false;
             this.newLibraryName = '';
+            this.closeModal();
+            this.toast('success', 'Đã tạo kho tri thức mới.');
             this.loadLibraries();
           })
           .withFailureHandler((e) => {
@@ -853,6 +899,8 @@
           .withSuccessHandler(() => {
             this.creatingUser = false;
             this.newUserForm = { email: '', fullName: '', department: '', role: 'Guest' };
+            this.closeModal();
+            this.toast('success', 'Đã thêm người dùng mới.');
             this.loadAdminData();
           })
           .withFailureHandler((e) => {
@@ -964,6 +1012,8 @@
             this.creatingTemplate = false;
             this.templateForm = { name: '', libraryId: '', fieldsCsv: '' };
             this.pendingTemplateFile = null;
+            this.closeModal();
+            this.toast('success', 'Đã tạo mẫu văn bản mới.');
             google.script.run.withSuccessHandler((templates) => { this.templates = templates; }).api_listTemplates(null);
           })
           .withFailureHandler((e) => {
