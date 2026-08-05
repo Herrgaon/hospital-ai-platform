@@ -8,6 +8,12 @@
       currentView: 'dashboard',
       userEmail: '',
       isAdmin: false,
+      currentUser: {},
+      showProfileMenu: false,
+      profileForm: { fullName: '' },
+      savingProfile: false,
+      pendingAvatarFile: null,
+      uploadingAvatar: false,
 
       docTab: 'create',
       myDocuments: [],
@@ -72,6 +78,8 @@
       comparing: false,
 
       adminTab: 'users',
+      newUserForm: { email: '', fullName: '', department: '', role: 'Guest' },
+      creatingUser: false,
       syncingSchema: false,
       schemaSyncResult: null,
       allUsers: [],
@@ -104,6 +112,8 @@
           .withSuccessHandler((user) => {
             this.userEmail = user.Email;
             this.isAdmin = user.Role === 'Admin';
+            this.currentUser = user;
+            this.profileForm.fullName = user.FullName;
           })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_getCurrentUser();
@@ -131,6 +141,64 @@
       toggleTheme() {
         document.documentElement.classList.toggle('dark');
         localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+      },
+
+      // --- Avatar (dùng chung: bảng người dùng, danh bạ, top bar) ---
+      initials(user) {
+        const label = (user && (user.FullName || user.Email)) || '?';
+        const parts = label.trim().split(/\s+/);
+        if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        return label.substring(0, 2).toUpperCase();
+      },
+
+      avatarColorStyle(user) {
+        const key = (user && (user.UserID || user.Email)) || '?';
+        const palette = ['#0891b2', '#0e7490', '#7c3aed', '#be185d', '#b45309', '#15803d', '#1d4ed8'];
+        let hash = 0;
+        for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+        const color = palette[hash % palette.length];
+        return 'background-color:' + color + '; color:#ffffff;';
+      },
+
+      saveProfileAction() {
+        this.savingProfile = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.savingProfile = false;
+            this.currentUser.FullName = this.profileForm.fullName;
+          })
+          .withFailureHandler((e) => {
+            this.savingProfile = false;
+            this.errorMessage = e.message;
+          })
+          .api_updateMyProfile(this.profileForm.fullName);
+      },
+
+      onAvatarFileSelected(event) {
+        const file = event.target.files[0];
+        if (!file) { this.pendingAvatarFile = null; return; }
+        const reader = new FileReader();
+        reader.onload = () => {
+          this.pendingAvatarFile = { mimeType: file.type || 'image/png', base64: reader.result.split(',')[1] };
+          this.uploadAvatarAction();
+        };
+        reader.readAsDataURL(file);
+      },
+
+      uploadAvatarAction() {
+        if (!this.pendingAvatarFile) return;
+        this.uploadingAvatar = true;
+        google.script.run
+          .withSuccessHandler((updated) => {
+            this.uploadingAvatar = false;
+            this.pendingAvatarFile = null;
+            this.currentUser.AvatarUrl = updated.AvatarUrl;
+          })
+          .withFailureHandler((e) => {
+            this.uploadingAvatar = false;
+            this.errorMessage = e.message;
+          })
+          .api_updateMyAvatar(this.pendingAvatarFile.base64, this.pendingAvatarFile.mimeType);
       },
 
       loadMyDocuments() {
@@ -751,6 +819,24 @@
         google.script.run
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_assignRole(u.UserID, u.Role);
+        google.script.run
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_updateUserProfile(u.UserID, u.FullName, u.Department);
+      },
+
+      createUserAction() {
+        this.creatingUser = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.creatingUser = false;
+            this.newUserForm = { email: '', fullName: '', department: '', role: 'Guest' };
+            this.loadAdminData();
+          })
+          .withFailureHandler((e) => {
+            this.creatingUser = false;
+            this.errorMessage = e.message;
+          })
+          .api_createUser(this.newUserForm.email, this.newUserForm.fullName, this.newUserForm.role, this.newUserForm.department);
       },
 
       toggleAi() {

@@ -20,3 +20,8 @@ function getUploadsInboxFolder() {
   const uploadsRoot = getOrCreateSubfolder(getRootFolder_(), DRIVE_FOLDERS.UPLOADS);
   return getOrCreateSubfolder(uploadsRoot, DRIVE_FOLDERS.UPLOADS_INBOX);
 }
+
+function getAvatarsFolder() {
+  const systemFolder = getOrCreateSubfolder(getRootFolder_(), DRIVE_FOLDERS.SYSTEM);
+  return getOrCreateSubfolder(systemFolder, DRIVE_FOLDERS.SYSTEM_AVATARS);
+}

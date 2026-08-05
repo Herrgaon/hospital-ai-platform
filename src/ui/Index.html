@@ -29,9 +29,36 @@
       <header class="h-14 shrink-0 holo-panel flex items-center justify-between px-4 mb-2">
         <input type="search" x-model="globalSearchKeyword" @keyup.enter="runGlobalSearch()" placeholder="TÌM KIẾM TÀI LIỆU... (ENTER)"
                class="font-tech text-xs bg-transparent border-b holo-border px-2 py-1 w-80 focus:outline-none" style="border-color: var(--holo-border-strong); color: var(--holo-text);">
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-4 relative">
           <button @click="toggleTheme()" class="holo-btn-outline px-3 py-1 text-xs">☀/☾</button>
-          <span class="font-tech text-xs holo-text-dim" x-text="userEmail"></span>
+
+          <button @click="showProfileMenu = !showProfileMenu" class="flex items-center gap-2">
+            <img x-show="currentUser.AvatarUrl" :src="currentUser.AvatarUrl" class="w-8 h-8 rounded-full object-cover holo-border-strong">
+            <div x-show="!currentUser.AvatarUrl" class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-tech holo-border-strong" :style="avatarColorStyle(currentUser)" x-text="initials(currentUser)"></div>
+            <span class="font-tech text-xs holo-text-dim" x-text="currentUser.FullName || userEmail"></span>
+          </button>
+
+          <div x-show="showProfileMenu" @click.outside="showProfileMenu = false" class="absolute right-0 top-12 w-72 holo-panel holo-panel-strong p-4 space-y-3 z-10">
+            <p class="holo-label">Hồ sơ của tôi</p>
+            <div class="flex items-center gap-3">
+              <img x-show="currentUser.AvatarUrl" :src="currentUser.AvatarUrl" class="w-12 h-12 rounded-full object-cover holo-border-strong">
+              <div x-show="!currentUser.AvatarUrl" class="w-12 h-12 rounded-full flex items-center justify-center text-sm font-tech holo-border-strong" :style="avatarColorStyle(currentUser)" x-text="initials(currentUser)"></div>
+              <div>
+                <label class="holo-btn-outline px-2 py-1 text-xs cursor-pointer inline-block">
+                  <span x-text="uploadingAvatar ? 'Đang tải...' : 'Đổi ảnh đại diện'"></span>
+                  <input type="file" accept="image/*" @change="onAvatarFileSelected($event)" class="hidden">
+                </label>
+              </div>
+            </div>
+            <div class="space-y-1">
+              <label class="text-xs holo-text-dim">Tên hiển thị</label>
+              <input type="text" x-model="profileForm.fullName" class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
+            </div>
+            <p class="text-xs holo-text-dim" x-text="userEmail"></p>
+            <button @click="saveProfileAction()" :disabled="savingProfile" class="holo-btn px-3 py-1.5 text-xs w-full disabled:opacity-50">
+              <span x-text="savingProfile ? 'Đang lưu...' : 'Lưu thay đổi'"></span>
+            </button>
+          </div>
         </div>
       </header>
       <main class="flex-1 overflow-auto holo-panel p-6">

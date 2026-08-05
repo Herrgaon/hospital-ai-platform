@@ -23,7 +23,7 @@ const SHEETS = {
 };
 
 const SCHEMA = {
-  [SHEETS.USERS]: ['UserID', 'Email', 'FullName', 'Role', 'Department', 'Status', 'CreatedAt', 'UpdatedAt'],
+  [SHEETS.USERS]: ['UserID', 'Email', 'FullName', 'Role', 'Department', 'Status', 'CreatedAt', 'UpdatedAt', 'AvatarUrl'],
   [SHEETS.ROLES]: ['RoleID', 'RoleName', 'Description'],
   [SHEETS.PERMISSIONS]: ['PermissionID', 'RoleID', 'UserID', 'LibraryID', 'CanView', 'CanCreate', 'CanEdit', 'CanDelete', 'CanApprove', 'CanManage'],
   // RequiresReview: false = tài liệu nạp vào kho này Published ngay, không cần chờ duyệt tri thức
@@ -77,6 +77,7 @@ const DRIVE_FOLDERS = {
   SYSTEM_RULES: 'Rules',
   SYSTEM_LOGS: 'Logs',
   SYSTEM_BACKUPS: 'Backups',
+  SYSTEM_AVATARS: 'Avatars',
   UPLOADS: 'Uploads',
   UPLOADS_INBOX: '_Inbox'
 };

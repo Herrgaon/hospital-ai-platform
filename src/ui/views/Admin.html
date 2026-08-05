@@ -40,11 +40,14 @@
   </template>
 
   <!-- Tab: Người dùng & vai trò -->
-  <div x-show="adminTab === 'users'" class="space-y-2">
+  <div x-show="adminTab === 'users'" class="space-y-4">
     <table class="w-full text-sm border-collapse">
       <thead>
         <tr class="text-left border-b dark:border-gray-700">
+          <th class="py-1"></th>
           <th class="py-1">Email</th>
+          <th class="py-1">Tên hiển thị</th>
+          <th class="py-1">Phòng ban</th>
           <th class="py-1">Vai trò</th>
           <th class="py-1"></th>
         </tr>
@@ -52,7 +55,13 @@
       <tbody>
         <template x-for="u in allUsers" :key="u.UserID">
           <tr class="border-b dark:border-gray-800">
+            <td class="py-1">
+              <img x-show="u.AvatarUrl" :src="u.AvatarUrl" class="w-6 h-6 rounded-full object-cover holo-border">
+              <div x-show="!u.AvatarUrl" class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-tech holo-border" :style="avatarColorStyle(u)" x-text="initials(u)"></div>
+            </td>
             <td class="py-1" x-text="u.Email"></td>
+            <td class="py-1"><input type="text" x-model="u.FullName" class="border rounded px-2 py-0.5 text-sm w-32 dark:bg-gray-800 dark:border-gray-600"></td>
+            <td class="py-1"><input type="text" x-model="u.Department" class="border rounded px-2 py-0.5 text-sm w-28 dark:bg-gray-800 dark:border-gray-600"></td>
             <td class="py-1">
               <select x-model="u.Role" class="border rounded px-2 py-0.5 text-sm dark:bg-gray-800 dark:border-gray-600">
                 <template x-for="r in allRoles" :key="r.RoleID">
@@ -67,6 +76,24 @@
         </template>
       </tbody>
     </table>
+
+    <div class="holo-panel p-4 space-y-2 max-w-lg">
+      <p class="holo-label">Thêm người dùng mới</p>
+      <p class="text-xs holo-text-dim">Tạo trước tài khoản cho nhân viên chưa từng đăng nhập — khi họ đăng nhập lần đầu, hệ thống nhận đúng Vai trò/Phòng ban đã gán sẵn ở đây.</p>
+      <div class="grid grid-cols-2 gap-2">
+        <input type="email" x-model="newUserForm.email" placeholder="Email (@domain bệnh viện)" class="border rounded px-2 py-1 text-sm col-span-2 dark:bg-gray-800 dark:border-gray-600">
+        <input type="text" x-model="newUserForm.fullName" placeholder="Tên hiển thị" class="border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
+        <input type="text" x-model="newUserForm.department" placeholder="Phòng ban" class="border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
+        <select x-model="newUserForm.role" class="border rounded px-2 py-1 text-sm col-span-2 dark:bg-gray-800 dark:border-gray-600">
+          <template x-for="r in allRoles" :key="r.RoleID">
+            <option :value="r.RoleID" x-text="r.RoleName"></option>
+          </template>
+        </select>
+      </div>
+      <button @click="createUserAction()" :disabled="creatingUser || !newUserForm.email" class="holo-btn px-4 py-2 text-sm disabled:opacity-50">
+        <span x-text="creatingUser ? 'Đang thêm...' : '+ Thêm người dùng'"></span>
+      </button>
+    </div>
   </div>
 
   <!-- Tab: Cấu hình AI -->

@@ -8,13 +8,61 @@ function listAllUsers(actingUser) {
   return getSheetRepository(SHEETS.USERS).findAll();
 }
 
+// Admin tạo trước tài khoản cho nhân viên chưa từng đăng nhập (ví dụ để gán Role/Department sẵn
+// trước khi họ dùng lần đầu). getCurrentUser() (Auth.Session.gs) tìm theo Email nên khi người đó
+// đăng nhập thật, hệ thống nhận đúng bản ghi này thay vì tự tạo mới với Role=Guest.
+function createUser(actingUser, email, fullName, role, department) {
+  if (actingUser.Role !== ROLE_NAMES.ADMIN) {
+    throw new Error('Chỉ Admin được thêm người dùng.');
+  }
+  const normalizedEmail = String(email).trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    throw new Error('Email không hợp lệ.');
+  }
+
+  const usersRepo = getSheetRepository(SHEETS.USERS);
+  const existing = usersRepo.findAll().find(function (u) { return u.Email.toLowerCase() === normalizedEmail; });
+  if (existing) {
+    throw new Error('Người dùng với email này đã tồn tại.');
+  }
+
+  const user = usersRepo.append({
+    UserID: generateId('USR'),
+    Email: normalizedEmail,
+    FullName: fullName || normalizedEmail,
+    Role: role || ROLE_NAMES.GUEST,
+    Department: department || '',
+    Status: 'Active',
+    CreatedAt: nowIso(),
+    UpdatedAt: nowIso(),
+    AvatarUrl: ''
+  });
+  logAudit(actingUser.UserID, 'USER_CREATED', 'User', user.UserID, normalizedEmail);
+  return user;
+}
+
+// Admin sửa thông tin mô tả (tên hiển thị, phòng ban) của BẤT KỲ user nào — khác assignRole (chỉ
+// đổi Role hệ thống) và updateMyProfile bên dưới (user tự sửa hồ sơ của chính mình).
+function updateUserProfile(actingUser, targetUserId, fullName, department) {
+  if (actingUser.Role !== ROLE_NAMES.ADMIN) {
+    throw new Error('Chỉ Admin được sửa hồ sơ người dùng khác.');
+  }
+  const updated = getSheetRepository(SHEETS.USERS).updateById('UserID', targetUserId, {
+    FullName: fullName,
+    Department: department,
+    UpdatedAt: nowIso()
+  });
+  logAudit(actingUser.UserID, 'USER_PROFILE_CHANGED', 'User', targetUserId, fullName);
+  return updated;
+}
+
 // Danh bạ rút gọn (không có Role) — dùng để chọn người nhận quyền trong 1 Library cụ thể.
 // Mở cho mọi người dùng đã đăng nhập vì bản thân việc biết tên/email đồng nghiệp trong cùng
 // bệnh viện không nhạy cảm, và Trưởng khoa/phòng cần danh sách này để cấp quyền cho nhân viên
 // của mình (xem setUserPermissionOverride bên dưới).
 function listUserDirectory() {
   return getSheetRepository(SHEETS.USERS).findAll().map(function (u) {
-    return { UserID: u.UserID, Email: u.Email, FullName: u.FullName };
+    return { UserID: u.UserID, Email: u.Email, FullName: u.FullName, AvatarUrl: u.AvatarUrl, Department: u.Department };
   });
 }
 

@@ -5,7 +5,30 @@
 
 function api_getCurrentUser() {
   const user = getCurrentUser();
-  return { UserID: user.UserID, Email: user.Email, FullName: user.FullName, Role: user.Role };
+  return {
+    UserID: user.UserID, Email: user.Email, FullName: user.FullName, Role: user.Role,
+    Department: user.Department, AvatarUrl: user.AvatarUrl
+  };
+}
+
+function api_updateMyProfile(fullName) {
+  const user = getCurrentUser();
+  return updateMyProfile(user, fullName);
+}
+
+function api_updateMyAvatar(base64Data, mimeType) {
+  const user = getCurrentUser();
+  return updateMyAvatar(user, base64Data, mimeType);
+}
+
+function api_createUser(email, fullName, role, department) {
+  const user = getCurrentUser();
+  return createUser(user, email, fullName, role, department);
+}
+
+function api_updateUserProfile(targetUserId, fullName, department) {
+  const user = getCurrentUser();
+  return updateUserProfile(user, targetUserId, fullName, department);
 }
 
 function api_listMyDocuments() {
