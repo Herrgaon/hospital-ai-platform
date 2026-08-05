@@ -68,8 +68,36 @@ function syncSchemaWithSpreadsheet(user) {
     report.push('Rules: gán lại RuleType cho ' + backfillCount + ' dòng cũ (dữ liệu tạo trước khi có cột RuleType)');
   }
 
+  if (ensureClassificationRuleSeeded_()) {
+    report.push('Rules: bổ sung Rule phân loại tài liệu (Rule_Classification.json) — hệ thống này được Initialize System trước khi tính năng phân loại tồn tại nên chưa có sẵn');
+  }
+
   logAudit(user.UserID, 'SCHEMA_SYNCED', 'System', spreadsheet.getId(), report.join(' | ') || 'Không có thay đổi');
   return { changes: report };
+}
+
+// Bù dữ liệu mặc định phát sinh THÊM sau khi hệ thống đã Initialize System (khác backfillRuleType,
+// vốn chỉ sửa cột cho dòng ĐÃ CÓ — đây là tạo mới nguyên 1 dòng+file còn thiếu hẳn). Idempotent —
+// không tạo trùng nếu đã có RuleType=CLASSIFICATION.
+function ensureClassificationRuleSeeded_() {
+  const alreadyExists = getSheetRepository(SHEETS.RULES).findAll().some(function (r) { return r.RuleType === RULE_TYPES.CLASSIFICATION; });
+  if (alreadyExists) return false;
+
+  const rootFolder = getRootFolder_();
+  const systemFolder = getOrCreateSubfolder(rootFolder, DRIVE_FOLDERS.SYSTEM);
+  const rulesFolder = getOrCreateSubfolder(systemFolder, DRIVE_FOLDERS.SYSTEM_RULES);
+  const file = rulesFolder.createFile('Rule_Classification.json', getDefaultClassificationRuleSetContent_(), MimeType.PLAIN_TEXT);
+
+  getSheetRepository(SHEETS.RULES).append({
+    RuleID: generateId('RULE'),
+    RuleSetName: CLASSIFICATION_RULE_SET_NAME,
+    RuleType: RULE_TYPES.CLASSIFICATION,
+    LibraryID: '*',
+    DriveFileID: file.getId(),
+    Version: 1,
+    Status: 'Active'
+  });
+  return true;
 }
 
 // Sửa dữ liệu cũ: các dòng Rules tạo trước khi có cột RuleType (xem RuleEngine.Core.gs và
