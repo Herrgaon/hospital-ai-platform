@@ -65,6 +65,7 @@
                 <span class="flex gap-3">
                   <button @click="openVersions(doc.DocumentID)" class="holo-text-accent underline text-xs">Lịch sử phiên bản</button>
                   <button @click="extractTextAction(doc.DocumentID)" class="holo-text-accent underline text-xs">Trích văn bản (OCR)</button>
+                  <button @click="deleteDocumentAction(doc)" class="text-red-500 underline text-xs">Xoá</button>
                 </span>
               </div>
               <template x-if="ocrResults[doc.DocumentID]">
@@ -316,6 +317,7 @@
             <div class="flex gap-2">
               <button @click="approveKnowledgeDocAction(doc.DocumentID)" class="holo-btn-success px-3 py-1.5 text-sm">Duyệt (Published)</button>
               <button @click="rejectKnowledgeDocAction(doc.DocumentID)" class="holo-btn-danger px-3 py-1.5 text-sm">Từ chối</button>
+              <button @click="deleteDocumentAction(doc)" class="text-red-500 underline text-xs self-center">Xoá</button>
             </div>
           </div>
         </template>

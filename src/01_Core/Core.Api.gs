@@ -71,7 +71,7 @@ function api_checkDocumentRules(documentId) {
 function api_listDocuments(libraryId) {
   const user = getCurrentUser();
   const documents = libraryId ? listDocumentsByLibrary(libraryId) : getSheetRepository(SHEETS.DOCUMENTS).findAll();
-  return documents.filter(function (d) { return hasPermission(user, d.LibraryID, 'CanView'); });
+  return documents.filter(function (d) { return d.Status !== 'ARCHIVED' && hasPermission(user, d.LibraryID, 'CanView'); });
 }
 
 function api_getDocument(documentId) {
@@ -79,6 +79,11 @@ function api_getDocument(documentId) {
   const document = getDocumentById(documentId);
   requirePermission(user, document.LibraryID, 'CanView');
   return document;
+}
+
+function api_deleteDocument(documentId) {
+  const user = getCurrentUser();
+  return deleteDocument(user, documentId);
 }
 
 function api_listCategories(libraryId) {

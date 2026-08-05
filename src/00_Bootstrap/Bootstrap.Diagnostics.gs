@@ -22,7 +22,7 @@ function diagListUsers() {
 
 function diagFileInfo(fileId) {
   const file = DriveApp.getFileById(fileId);
-  return { name: file.getName(), size: file.getSize(), mimeType: file.getMimeType() };
+  return { name: file.getName(), size: file.getSize(), mimeType: file.getMimeType(), isTrashed: file.isTrashed() };
 }
 
 function diagMailQuota() {

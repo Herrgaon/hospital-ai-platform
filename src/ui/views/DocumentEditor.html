@@ -29,6 +29,7 @@
           <span class="flex items-center gap-3">
             <span class="text-xs text-gray-500" x-text="doc.Status"></span>
             <button @click="resumeDocument(doc)" class="holo-text-accent underline text-xs">Mở</button>
+            <button @click="deleteDocumentAction(doc)" class="text-red-500 underline text-xs">Xoá</button>
           </span>
         </li>
       </template>

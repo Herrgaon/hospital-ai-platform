@@ -50,9 +50,25 @@ function listDocumentsByLibrary(libraryId) {
 
 function listDocumentsByOwner(ownerUserId) {
   return getSheetRepository(SHEETS.DOCUMENTS).findAll()
-    .filter(function (d) { return d.OwnerUserID === ownerUserId; })
+    .filter(function (d) { return d.OwnerUserID === ownerUserId && d.Status !== 'ARCHIVED'; })
     .sort(function (a, b) { return new Date(b.UpdatedAt) - new Date(a.UpdatedAt); })
     .slice(0, 10);
+}
+
+// Xoá mềm — chuyển file Drive vào Thùng rác (khôi phục được trong 30 ngày, giống
+// Knowledge.Ingest.gs#discardStagedUpload) và giữ nguyên dòng Document (Status=ARCHIVED) để không
+// mất dấu vết audit. KHÔNG xoá cứng dòng dữ liệu — hồ sơ hành chính bệnh viện cần lưu vết.
+function deleteDocument(user, documentId) {
+  const document = getDocumentById(documentId);
+  requirePermission(user, document.LibraryID, 'CanDelete');
+
+  DriveApp.getFileById(document.DriveFileID).setTrashed(true);
+  const updated = getSheetRepository(SHEETS.DOCUMENTS).updateById('DocumentID', documentId, {
+    Status: 'ARCHIVED',
+    UpdatedAt: nowIso()
+  });
+  logAudit(user.UserID, 'DOCUMENT_DELETED', 'Document', documentId, document.Title);
+  return updated;
 }
 
 // KHÔNG tự kiểm tra quyền ở đây — nơi gọi (RuleEngine.Core.gs#checkDocument dùng CanEdit,

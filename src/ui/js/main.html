@@ -210,6 +210,18 @@
           .api_listMyDocuments();
       },
 
+      deleteDocumentAction(doc) {
+        if (!confirm('Xoá văn bản "' + doc.Title + '"? File sẽ được chuyển vào Thùng rác, có thể khôi phục trong 30 ngày.')) return;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.myDocuments = this.myDocuments.filter(d => d.DocumentID !== doc.DocumentID);
+            this.searchResults = this.searchResults.filter(d => d.DocumentID !== doc.DocumentID);
+            this.pendingKnowledgeReviews = this.pendingKnowledgeReviews.filter(d => d.DocumentID !== doc.DocumentID);
+          })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_deleteDocument(doc.DocumentID);
+      },
+
       resumeDocument(doc) {
         this.currentDocument = doc;
         this.ruleCheckResult = null;
