@@ -19,3 +19,8 @@ function diagListTemplates() {
 function diagListUsers() {
   return getSheetRepository(SHEETS.USERS).findAll();
 }
+
+function diagFileInfo(fileId) {
+  const file = DriveApp.getFileById(fileId);
+  return { name: file.getName(), size: file.getSize(), mimeType: file.getMimeType() };
+}
