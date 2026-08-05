@@ -1,7 +1,10 @@
-<!-- Alpine.js qua CDN — xem docs/06-ui-specification.md mục 2.
-     TODO trước khi lên Production: ghim phiên bản cụ thể (ví dụ alpinejs@3.x.x) và thêm
-     thuộc tính integrity (SRI) theo docs/13-security.md mục 7. -->
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<!-- Alpine.js qua CDN — xem docs/06-ui-specification.md mục 2. Ghim phiên bản cụ thể (không dùng
+     range @3.x.x thả nổi) + SRI theo docs/13-security.md mục 7 — hash tính từ chính file đã tải về
+     và đối chiếu khớp với hash công bố trên jsdelivr trước khi ghim. Nâng phiên bản: đổi cả version
+     trong URL lẫn hash integrity cùng lúc. -->
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.15.12/dist/cdn.min.js"
+        integrity="sha384-pb6hrQvo4s23cEUFtj0CZkzGE3jyK3pj26RIupXXxhSrrcUA/Cn0lZgcCrGH0t6L"
+        crossorigin="anonymous"></script>
 <script>
   function appShell() {
     return {

@@ -1,8 +1,10 @@
-<!-- Tailwind CSS qua CDN — xem docs/06-ui-specification.md mục 2.
-     TODO trước khi lên Production: chuyển sang bản build tĩnh có ghim phiên bản + thêm
-     thuộc tính integrity (SRI) theo docs/13-security.md mục 7 (Play CDN hiện tại của Tailwind
-     không hỗ trợ SRI vì nội dung sinh động theo class dùng trong trang). -->
-<script src="https://cdn.tailwindcss.com"></script>
+<!-- Tailwind CSS qua CDN — xem docs/06-ui-specification.md mục 2. Ghim phiên bản cụ thể (không
+     dùng URL không phiên bản, vốn tự động trỏ tới bản mới nhất và có thể đổi ngầm bất cứ lúc nào)
+     theo docs/13-security.md mục 7. KHÔNG thêm integrity (SRI) được — Play CDN sinh CSS động theo
+     class thực tế dùng trong trang nên nội dung file không cố định giữa các lần tải, SRI sẽ chặn
+     nhầm. Nâng phiên bản: đổi số phiên bản trong URL, xác nhận cấu hình darkMode:'class' bên dưới
+     vẫn hoạt động đúng (API cấu hình JS này thuộc Tailwind v3 — không áp dụng nguyên bản cho v4). -->
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <script>
   // BẮT BUỘC: Tailwind CDN mặc định theo prefers-color-scheme của hệ điều hành. App tự bật/tắt
   // dark mode bằng cách gắn/gỡ class "dark" trên <html> (xem ui/js/main.html#toggleTheme) — thiếu
