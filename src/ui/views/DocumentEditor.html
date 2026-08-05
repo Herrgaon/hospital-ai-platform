@@ -1,5 +1,5 @@
 <div x-show="currentView === 'documents'" x-init="$watch('currentView', v => { if (v === 'documents') { loadMyDocuments(); if (libraries.length === 0) loadLibraries(); } })" class="max-w-2xl space-y-6">
-  <h1 class="text-xl font-semibold">Văn bản</h1>
+  <h1 class="font-display text-lg holo-text-accent" style="text-shadow: 0 0 10px currentColor;">VĂN BẢN</h1>
 
   <template x-if="errorMessage">
     <div class="bg-red-50 text-red-700 border border-red-200 rounded p-3 text-sm" x-text="errorMessage"></div>
@@ -8,11 +8,11 @@
   <!-- Tab bar -->
   <div class="flex gap-1 border-b dark:border-gray-700">
     <button @click="docTab = 'create'" class="px-4 py-2 text-sm border-b-2 -mb-px"
-            :class="docTab === 'create' ? 'border-blue-600 text-blue-600 font-medium' : 'border-transparent text-gray-500'">
+            :class="docTab === 'create' ? 'holo-border-strong holo-text-accent font-medium' : 'border-transparent holo-text-dim'">
       Tạo mới / Đang xử lý
     </button>
     <button @click="docTab = 'mine'" class="px-4 py-2 text-sm border-b-2 -mb-px"
-            :class="docTab === 'mine' ? 'border-blue-600 text-blue-600 font-medium' : 'border-transparent text-gray-500'">
+            :class="docTab === 'mine' ? 'holo-border-strong holo-text-accent font-medium' : 'border-transparent holo-text-dim'">
       Văn bản của tôi
     </button>
   </div>
@@ -28,7 +28,7 @@
           <span x-text="doc.Title"></span>
           <span class="flex items-center gap-3">
             <span class="text-xs text-gray-500" x-text="doc.Status"></span>
-            <button @click="resumeDocument(doc)" class="text-blue-600 underline text-xs">Mở</button>
+            <button @click="resumeDocument(doc)" class="holo-text-accent underline text-xs">Mở</button>
           </span>
         </li>
       </template>
@@ -60,7 +60,7 @@
             <input x-show="!f.multiline" type="text" x-model="fieldValues[f.name]" class="w-full border rounded px-3 py-2 dark:bg-gray-800 dark:border-gray-600">
           </div>
         </template>
-        <button @click="createDocument()" :disabled="creating" class="bg-blue-600 text-white px-4 py-2 rounded text-sm disabled:opacity-50">
+        <button @click="createDocument()" :disabled="creating" class="holo-btn px-4 py-2 text-sm disabled:opacity-50">
           <span x-text="creating ? 'Đang tạo...' : 'Tạo văn bản'"></span>
         </button>
       </div>
@@ -74,12 +74,12 @@
           <button @click="closeCurrentDocument()" class="text-xs text-gray-500 underline">Đóng</button>
         </div>
 
-        <a :href="'https://docs.google.com/document/d/' + currentDocument.DriveFileID + '/edit'" target="_blank" class="text-blue-600 underline text-sm inline-block">
+        <a :href="'https://docs.google.com/document/d/' + currentDocument.DriveFileID + '/edit'" target="_blank" class="holo-text-accent underline text-sm inline-block">
           Mở để chỉnh sửa nội dung (Google Docs)
         </a>
 
         <div>
-          <button @click="checkRules()" :disabled="checking" class="bg-gray-700 text-white px-4 py-2 rounded text-sm disabled:opacity-50">
+          <button @click="checkRules()" :disabled="checking" class="holo-btn-outline px-4 py-2 text-sm disabled:opacity-50">
             <span x-text="checking ? 'Đang kiểm tra...' : 'Kiểm tra thể thức'"></span>
           </button>
         </div>
@@ -88,7 +88,7 @@
         <div class="border rounded p-3 space-y-2 dark:border-gray-700">
           <div class="flex items-center justify-between">
             <p class="text-sm font-medium">Rà soát căn cứ pháp lý (AI)</p>
-            <button @click="suggestReviewLibraries()" class="text-xs text-blue-600 underline">Gợi ý kho phù hợp</button>
+            <button @click="suggestReviewLibraries()" class="text-xs holo-text-accent underline">Gợi ý kho phù hợp</button>
           </div>
           <p class="text-xs text-gray-500">Chọn kho tri thức chứa văn bản pháp lý liên quan để đối chiếu — chỉ chọn kho phù hợp (ví dụ "Đấu thầu") sẽ cho kết quả nhanh và chính xác hơn quét toàn bộ hệ thống.</p>
           <div class="flex flex-wrap gap-3">
@@ -99,7 +99,7 @@
               </label>
             </template>
           </div>
-          <button @click="runLegalReview()" :disabled="reviewing || reviewLibraryIds.length === 0" class="bg-gray-700 text-white px-4 py-2 rounded text-sm disabled:opacity-50">
+          <button @click="runLegalReview()" :disabled="reviewing || reviewLibraryIds.length === 0" class="holo-btn-outline px-4 py-2 text-sm disabled:opacity-50">
             <span x-text="reviewing ? 'Đang rà soát...' : 'Chạy rà soát'"></span>
           </button>
           <template x-if="reviewResult">
@@ -127,22 +127,22 @@
             </template>
 
             <div x-show="ruleCheckResult.passed && !submittedForApproval" class="flex gap-2">
-              <button @click="exportWord()" :disabled="exporting" class="bg-green-600 text-white px-4 py-2 rounded text-sm disabled:opacity-50">
+              <button @click="exportWord()" :disabled="exporting" class="holo-btn-success px-4 py-2 text-sm disabled:opacity-50">
                 <span x-text="exporting ? 'Đang xuất...' : 'Xuất Word trực tiếp'"></span>
               </button>
-              <button @click="submitForApprovalAction()" :disabled="submittingApproval" class="bg-blue-600 text-white px-4 py-2 rounded text-sm disabled:opacity-50">
+              <button @click="submitForApprovalAction()" :disabled="submittingApproval" class="holo-btn px-4 py-2 text-sm disabled:opacity-50">
                 <span x-text="submittingApproval ? 'Đang gửi...' : 'Gửi duyệt'"></span>
               </button>
             </div>
 
             <template x-if="exportResult">
               <p class="text-sm">
-                <a :href="exportResult.url" target="_blank" class="text-blue-600 underline">Mở file Word đã xuất</a>
+                <a :href="exportResult.url" target="_blank" class="holo-text-accent underline">Mở file Word đã xuất</a>
               </p>
             </template>
 
             <template x-if="submittedForApproval">
-              <p class="text-sm text-blue-600">Đã gửi duyệt — xem trạng thái tại mục "Workflow".</p>
+              <p class="text-sm holo-text-accent">Đã gửi duyệt — xem trạng thái tại mục "Workflow".</p>
             </template>
           </div>
         </template>

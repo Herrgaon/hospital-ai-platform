@@ -1,7 +1,12 @@
-// Đồng bộ cấu trúc Sheet với SCHEMA hiện tại (Storage.Schema.gs) — dùng khi mã nguồn thêm cột/sheet
-// mới SAU KHI hệ thống đã Initialize System. KHÔNG xoá cột/dữ liệu cũ, chỉ thêm cột/sheet còn thiếu
-// — an toàn để chạy nhiều lần (idempotent). Admin chạy tay 1 lần mỗi khi cập nhật mã nguồn có đổi
-// schema, thay vì phải Initialize lại từ đầu (sẽ mất toàn bộ dữ liệu đã có).
+// Đồng bộ cấu trúc Sheet với SCHEMA hiện tại (Storage.Schema.gs) — dùng khi mã nguồn thêm/đổi vị trí
+// cột/sheet SAU KHI hệ thống đã Initialize System. KHÔNG mất dữ liệu cũ — đọc toàn bộ dữ liệu hiện có
+// theo header CŨ (so khớp theo TÊN cột, không theo vị trí), rồi ghi lại đúng thứ tự header MỚI. An
+// toàn để chạy nhiều lần (idempotent).
+//
+// LỊCH SỬ: phiên bản đầu chỉ "thêm cột còn thiếu vào CUỐI sheet" — sai khi cột mới được chèn ở GIỮA
+// mảng SCHEMA (ví dụ RuleType), vì lúc đó vị trí cột trong SCHEMA không còn khớp vị trí cột vật lý
+// trong Sheet, khiến toàn bộ giá trị các cột phía sau bị đọc/ghi lệch. Bản này sửa triệt để bằng cách
+// luôn ghi lại theo đúng tên cột, không phụ thuộc vị trí.
 function syncSchemaWithSpreadsheet(user) {
   if (user.Role !== ROLE_NAMES.ADMIN) {
     throw new Error('Chỉ Admin được đồng bộ cấu trúc dữ liệu.');
@@ -20,22 +25,42 @@ function syncSchemaWithSpreadsheet(user) {
       sheet.setFrozenRows(1);
       report.push(sheetName + ': tạo sheet mới (' + expectedHeaders.length + ' cột)');
     } else {
+      const lastRow = sheet.getLastRow();
       const existingWidth = Math.max(sheet.getLastColumn(), 1);
       const existingHeaders = sheet.getRange(1, 1, 1, existingWidth).getValues()[0];
-      const missing = expectedHeaders.filter(function (h) { return existingHeaders.indexOf(h) === -1; });
 
-      if (missing.length > 0) {
-        sheet.getRange(1, existingWidth + 1, 1, missing.length).setValues([missing]);
-        report.push(sheetName + ': thêm cột ' + missing.join(', '));
+      const headersMatch = existingHeaders.length === expectedHeaders.length &&
+        existingHeaders.every(function (h, i) { return h === expectedHeaders[i]; });
+
+      if (!headersMatch) {
+        let existingRows = [];
+        if (lastRow > 1) {
+          existingRows = sheet.getRange(2, 1, lastRow - 1, existingWidth).getValues();
+        }
+
+        // So khớp theo TÊN cột — cột mới (chưa từng có) sẽ nhận giá trị rỗng, cột bị đổi vị trí
+        // vẫn giữ đúng giá trị cũ.
+        const remappedRows = existingRows.map(function (row) {
+          const rowObj = {};
+          existingHeaders.forEach(function (h, i) { if (h) rowObj[h] = row[i]; });
+          return expectedHeaders.map(function (h) { return rowObj[h] !== undefined ? rowObj[h] : ''; });
+        });
+
+        sheet.clearContents();
+        sheet.getRange(1, 1, 1, expectedHeaders.length).setValues([expectedHeaders]);
+        if (remappedRows.length > 0) {
+          sheet.getRange(2, 1, remappedRows.length, expectedHeaders.length).setValues(remappedRows);
+        }
+        sheet.setFrozenRows(1);
+        report.push(sheetName + ': sắp xếp lại đúng thứ tự cột (' + remappedRows.length + ' dòng dữ liệu được giữ nguyên)');
       }
     }
 
-    const finalWidth = Math.max(sheet.getLastColumn(), expectedHeaders.length);
     const rangeName = 'RNG_' + sheetName;
     spreadsheet.getNamedRanges()
       .filter(function (nr) { return nr.getName() === rangeName; })
       .forEach(function (nr) { nr.remove(); });
-    spreadsheet.setNamedRange(rangeName, sheet.getRange(1, 1, Math.max(sheet.getMaxRows(), 2), finalWidth));
+    spreadsheet.setNamedRange(rangeName, sheet.getRange(1, 1, Math.max(sheet.getMaxRows(), 2), expectedHeaders.length));
   });
 
   const backfillCount = backfillRuleTypeForExistingRows_();

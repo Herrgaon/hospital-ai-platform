@@ -4,11 +4,12 @@
   <base target="_top">
   <?!= include('ui/css/main') ?>
 </head>
-<body class="bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100">
-  <div x-data="bootstrapScreen()" class="flex items-center justify-center h-screen">
-    <div class="max-w-md w-full border rounded-lg p-6 space-y-4 dark:border-gray-700">
-      <h1 class="text-lg font-semibold">Khởi tạo hệ thống AI Office Platform</h1>
-      <p class="text-sm text-gray-600 dark:text-gray-400">
+<body>
+  <div x-data="bootstrapScreen()" class="flex items-center justify-center h-screen p-4">
+    <div class="max-w-md w-full holo-panel holo-panel-strong p-6 space-y-4">
+      <p class="holo-label">System Bootstrap</p>
+      <h1 class="font-display text-lg holo-text-accent" style="text-shadow: 0 0 10px currentColor;">AI OFFICE PLATFORM</h1>
+      <p class="text-sm holo-text-dim">
         Chưa phát hiện dữ liệu hệ thống. Bấm nút bên dưới để tự động tạo Spreadsheet, thư mục Drive,
         vai trò, quyền, quy tắc và mẫu văn bản mặc định — xem chi tiết tại UC-06 (docs/04-use-cases.md).
         Người bấm nút này sẽ trở thành Quản trị viên (Admin) đầu tiên của hệ thống.
@@ -19,14 +20,14 @@
       </template>
 
       <template x-if="!done">
-        <button @click="run()" :disabled="running" class="bg-blue-600 text-white px-4 py-2 rounded text-sm disabled:opacity-50">
-          <span x-text="running ? 'Đang khởi tạo...' : 'Initialize System'"></span>
+        <button @click="run()" :disabled="running" class="holo-btn px-4 py-2 text-sm disabled:opacity-50 w-full">
+          <span x-text="running ? 'ĐANG KHỞI TẠO...' : '▶ INITIALIZE SYSTEM'"></span>
         </button>
       </template>
 
       <template x-if="done">
         <div class="space-y-2">
-          <p class="text-sm text-green-600">Khởi tạo thành công. Đang chuyển vào hệ thống...</p>
+          <p class="text-sm holo-text-accent">✓ Khởi tạo thành công. Đang chuyển vào hệ thống...</p>
         </div>
       </template>
     </div>

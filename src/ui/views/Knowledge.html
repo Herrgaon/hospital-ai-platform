@@ -1,5 +1,5 @@
 <div x-show="currentView === 'knowledge'" x-init="$watch('currentView', v => { if (v === 'knowledge' && libraries.length === 0) loadLibraries(); })" class="max-w-4xl space-y-6">
-  <h1 class="text-xl font-semibold">Kho tri thức</h1>
+  <h1 class="font-display text-lg holo-text-accent" style="text-shadow: 0 0 10px currentColor;">KHO TRI THỨC</h1>
 
   <div class="flex gap-6">
     <!-- Danh sách Library -->
@@ -18,7 +18,7 @@
             <input type="checkbox" x-model="newLibraryRequiresReview">
             <span>Yêu cầu duyệt tri thức trước khi AI dùng</span>
           </label>
-          <button @click="createLibraryAction()" :disabled="creatingLibrary || !newLibraryName" class="w-full bg-blue-600 text-white px-3 py-1.5 rounded text-sm disabled:opacity-50">
+          <button @click="createLibraryAction()" :disabled="creatingLibrary || !newLibraryName" class="w-full holo-btn px-3 py-1.5 text-sm disabled:opacity-50">
             + Tạo kho tri thức
           </button>
         </div>
@@ -30,23 +30,23 @@
       <!-- Tab bar -->
       <div class="flex gap-1 border-b dark:border-gray-700 mb-4">
         <button @click="knowledgeTab = 'search'" class="px-4 py-2 text-sm border-b-2 -mb-px"
-                :class="knowledgeTab === 'search' ? 'border-blue-600 text-blue-600 font-medium' : 'border-transparent text-gray-500'">
+                :class="knowledgeTab === 'search' ? 'holo-border-strong holo-text-accent font-medium' : 'border-transparent holo-text-dim'">
           Tìm kiếm & tài liệu
         </button>
         <button @click="knowledgeTab = 'categories'" class="px-4 py-2 text-sm border-b-2 -mb-px"
-                :class="knowledgeTab === 'categories' ? 'border-blue-600 text-blue-600 font-medium' : 'border-transparent text-gray-500'">
+                :class="knowledgeTab === 'categories' ? 'holo-border-strong holo-text-accent font-medium' : 'border-transparent holo-text-dim'">
           Danh mục
         </button>
         <button @click="knowledgeTab = 'upload'" class="px-4 py-2 text-sm border-b-2 -mb-px"
-                :class="knowledgeTab === 'upload' ? 'border-blue-600 text-blue-600 font-medium' : 'border-transparent text-gray-500'">
+                :class="knowledgeTab === 'upload' ? 'holo-border-strong holo-text-accent font-medium' : 'border-transparent holo-text-dim'">
           Tải lên tài liệu
         </button>
         <button @click="knowledgeTab = 'review'; loadPendingKnowledgeReviews()" class="px-4 py-2 text-sm border-b-2 -mb-px"
-                :class="knowledgeTab === 'review' ? 'border-blue-600 text-blue-600 font-medium' : 'border-transparent text-gray-500'">
+                :class="knowledgeTab === 'review' ? 'holo-border-strong holo-text-accent font-medium' : 'border-transparent holo-text-dim'">
           Chờ duyệt tri thức <span x-show="pendingKnowledgeReviews.length > 0" x-text="'(' + pendingKnowledgeReviews.length + ')'"></span>
         </button>
         <button x-show="canManageSelectedLibrary" @click="knowledgeTab = 'permissions'" class="px-4 py-2 text-sm border-b-2 -mb-px"
-                :class="knowledgeTab === 'permissions' ? 'border-blue-600 text-blue-600 font-medium' : 'border-transparent text-gray-500'">
+                :class="knowledgeTab === 'permissions' ? 'holo-border-strong holo-text-accent font-medium' : 'border-transparent holo-text-dim'">
           Phân quyền
         </button>
       </div>
@@ -55,7 +55,7 @@
       <div x-show="knowledgeTab === 'search'" class="space-y-4">
         <div class="flex gap-2">
           <input type="text" x-model="searchKeyword" @keyup.enter="runSearch()" placeholder="Nhập từ khoá..." class="border rounded px-2 py-1 text-sm flex-1 dark:bg-gray-800 dark:border-gray-600">
-          <button @click="runSearch()" class="bg-gray-700 text-white px-3 py-1 rounded text-sm">Tìm</button>
+          <button @click="runSearch()" class="holo-btn-outline px-3 py-1 text-sm">Tìm</button>
         </div>
         <ul class="space-y-1">
           <template x-for="doc in searchResults" :key="doc.DocumentID">
@@ -63,8 +63,8 @@
               <div class="flex items-center justify-between">
                 <span x-text="doc.Title"></span>
                 <span class="flex gap-3">
-                  <button @click="openVersions(doc.DocumentID)" class="text-blue-600 underline text-xs">Lịch sử phiên bản</button>
-                  <button @click="extractTextAction(doc.DocumentID)" class="text-blue-600 underline text-xs">Trích văn bản (OCR)</button>
+                  <button @click="openVersions(doc.DocumentID)" class="holo-text-accent underline text-xs">Lịch sử phiên bản</button>
+                  <button @click="extractTextAction(doc.DocumentID)" class="holo-text-accent underline text-xs">Trích văn bản (OCR)</button>
                 </span>
               </div>
               <template x-if="ocrResults[doc.DocumentID]">
@@ -90,7 +90,7 @@
                   <option :value="v.VersionID" x-text="'v' + v.VersionNumber"></option>
                 </template>
               </select>
-              <button @click="compareVersionsAction()" :disabled="comparing" class="bg-gray-700 text-white px-3 py-1 rounded text-sm">So sánh</button>
+              <button @click="compareVersionsAction()" :disabled="comparing" class="holo-btn-outline px-3 py-1 text-sm">So sánh</button>
             </div>
 
             <template x-if="compareResult">
@@ -118,7 +118,7 @@
             </div>
             <div class="flex gap-2">
               <input type="text" x-model="newCategoryName" placeholder="Tên danh mục mới" class="border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
-              <button @click="createCategoryAction()" :disabled="!newCategoryName" class="bg-gray-700 text-white px-3 py-1 rounded text-sm disabled:opacity-50">Thêm</button>
+              <button @click="createCategoryAction()" :disabled="!newCategoryName" class="holo-btn-outline px-3 py-1 text-sm disabled:opacity-50">Thêm</button>
             </div>
           </div>
         </template>
@@ -133,7 +133,7 @@
             <p x-show="pendingFiles.length > maxBulkUploadCount" class="text-xs text-red-600">
               Bạn đang chọn <span x-text="pendingFiles.length"></span> tài liệu, vượt giới hạn <span x-text="maxBulkUploadCount"></span> tài liệu/lần. Vui lòng chia thành nhiều đợt tải lên.
             </p>
-            <button @click="runClassification()" :disabled="classifying || readingFiles || pendingFiles.length === 0 || pendingFiles.length > maxBulkUploadCount" class="bg-blue-600 text-white px-4 py-2 rounded text-sm disabled:opacity-50">
+            <button @click="runClassification()" :disabled="classifying || readingFiles || pendingFiles.length === 0 || pendingFiles.length > maxBulkUploadCount" class="holo-btn px-4 py-2 text-sm disabled:opacity-50">
               <span x-text="readingFiles ? 'Đang đọc file...' : (classifying ? 'Đang phân loại...' : ('Phân loại ' + (pendingFiles.length > 1 ? pendingFiles.length + ' tài liệu' : 'tài liệu')))"></span>
             </button>
           </div>
@@ -146,8 +146,8 @@
                 <p class="font-medium">⚠ Tài liệu này có thể đã tồn tại (trùng nội dung tuyệt đối)</p>
                 <p>Tên: <strong x-text="stagingResult.duplicateOf.title"></strong> — Phiên bản hiện tại: v<span x-text="stagingResult.duplicateOf.currentVersion"></span> — Tải lên lúc: <span x-text="stagingResult.duplicateOf.uploadedAt"></span></p>
                 <div class="flex gap-2">
-                  <button @click="cancelStagedUpload()" class="bg-gray-700 text-white px-3 py-1 rounded text-xs">Huỷ, không tải lên</button>
-                  <button @click="stagingResult.duplicateOf = null" class="bg-yellow-600 text-white px-3 py-1 rounded text-xs">Vẫn tiếp tục (là tài liệu khác)</button>
+                  <button @click="cancelStagedUpload()" class="holo-btn-outline px-3 py-1 text-xs">Huỷ, không tải lên</button>
+                  <button @click="stagingResult.duplicateOf = null" class="holo-btn-outline px-3 py-1 text-xs">Vẫn tiếp tục (là tài liệu khác)</button>
                 </div>
               </div>
             </template>
@@ -218,7 +218,7 @@
                 </div>
 
                 <div class="flex gap-2">
-                  <button @click="saveClassifiedDocument()" :disabled="savingClassification || !uploadForm.libraryId" class="bg-green-600 text-white px-4 py-2 rounded text-sm disabled:opacity-50">
+                  <button @click="saveClassifiedDocument()" :disabled="savingClassification || !uploadForm.libraryId" class="holo-btn-success px-4 py-2 text-sm disabled:opacity-50">
                     <span x-text="savingClassification ? 'Đang lưu...' : 'Lưu vào kho tri thức'"></span>
                   </button>
                   <button @click="cancelStagedUpload()" class="text-gray-500 underline text-sm">Huỷ</button>
@@ -246,7 +246,7 @@
                   <option :value="lib.LibraryID" x-text="lib.LibraryName"></option>
                 </template>
               </select>
-              <button @click="applyBulkLibrary()" :disabled="!bulkApplyLibraryId" class="bg-gray-700 text-white px-3 py-1 rounded text-sm disabled:opacity-50">Áp dụng</button>
+              <button @click="applyBulkLibrary()" :disabled="!bulkApplyLibraryId" class="holo-btn-outline px-3 py-1 text-sm disabled:opacity-50">Áp dụng</button>
             </div>
 
             <div class="space-y-2 max-h-96 overflow-auto">
@@ -285,7 +285,7 @@
             </div>
 
             <div class="flex gap-2">
-              <button @click="saveAllSelected()" :disabled="savingClassification" class="bg-green-600 text-white px-4 py-2 rounded text-sm disabled:opacity-50">
+              <button @click="saveAllSelected()" :disabled="savingClassification" class="holo-btn-success px-4 py-2 text-sm disabled:opacity-50">
                 <span x-text="savingClassification ? 'Đang lưu...' : 'Lưu các mục đã chọn'"></span>
               </button>
               <button @click="cancelBulkUpload()" class="text-gray-500 underline text-sm">Huỷ tất cả</button>
@@ -311,11 +311,11 @@
             </p>
             <p class="text-xs text-gray-500" x-show="doc.Summary" x-text="doc.Summary"></p>
             <p class="text-xs text-gray-500" x-show="doc.Tags" x-text="'Tags: ' + doc.Tags"></p>
-            <a :href="'https://docs.google.com/document/d/' + doc.DriveFileID + '/edit'" target="_blank" class="text-blue-600 underline text-xs inline-block">Xem tài liệu</a>
+            <a :href="'https://docs.google.com/document/d/' + doc.DriveFileID + '/edit'" target="_blank" class="holo-text-accent underline text-xs inline-block">Xem tài liệu</a>
             <textarea x-model="reviewComments[doc.DocumentID]" placeholder="Ý kiến (bắt buộc nếu từ chối)" class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600" rows="2"></textarea>
             <div class="flex gap-2">
-              <button @click="approveKnowledgeDocAction(doc.DocumentID)" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm">Duyệt (Published)</button>
-              <button @click="rejectKnowledgeDocAction(doc.DocumentID)" class="bg-red-600 text-white px-3 py-1.5 rounded text-sm">Từ chối</button>
+              <button @click="approveKnowledgeDocAction(doc.DocumentID)" class="holo-btn-success px-3 py-1.5 text-sm">Duyệt (Published)</button>
+              <button @click="rejectKnowledgeDocAction(doc.DocumentID)" class="holo-btn-danger px-3 py-1.5 text-sm">Từ chối</button>
             </div>
           </div>
         </template>
@@ -346,7 +346,7 @@
                 <td class="py-1 text-center"><input type="checkbox" x-model="perm.CanEdit"></td>
                 <td class="py-1 text-center"><input type="checkbox" x-model="perm.CanDelete"></td>
                 <td class="py-1 text-center"><input type="checkbox" x-model="perm.CanApprove"></td>
-                <td class="py-1"><button @click="savePermissionRow(perm)" class="text-blue-600 underline text-xs">Lưu</button></td>
+                <td class="py-1"><button @click="savePermissionRow(perm)" class="holo-text-accent underline text-xs">Lưu</button></td>
               </tr>
             </template>
           </tbody>
@@ -361,7 +361,7 @@
                 <option :value="u.UserID" x-text="u.Email"></option>
               </template>
             </select>
-            <button @click="addPermissionRow()" :disabled="!newPermissionUserId" class="bg-gray-700 text-white px-3 py-1 rounded text-sm disabled:opacity-50">Thêm vào danh sách</button>
+            <button @click="addPermissionRow()" :disabled="!newPermissionUserId" class="holo-btn-outline px-3 py-1 text-sm disabled:opacity-50">Thêm vào danh sách</button>
           </div>
         </div>
       </div>

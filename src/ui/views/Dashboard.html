@@ -1,27 +1,49 @@
-<div x-show="currentView === 'dashboard'" x-init="$watch('currentView', v => { if (v === 'dashboard') loadDashboard(); }); loadDashboard()" class="max-w-3xl space-y-8">
-  <h1 class="text-xl font-semibold">Xin chào, <span x-text="userEmail"></span></h1>
+<div x-show="currentView === 'dashboard'" x-init="$watch('currentView', v => { if (v === 'dashboard') loadDashboard(); }); loadDashboard()" class="max-w-4xl space-y-8">
+  <div>
+    <p class="holo-label">Hệ thống tri thức & văn bản</p>
+    <h1 class="font-display text-xl holo-text-accent" style="text-shadow: 0 0 10px currentColor;">XIN CHÀO, <span x-text="userEmail.toUpperCase()"></span></h1>
+  </div>
 
   <div class="grid grid-cols-2 gap-4">
-    <button @click="go('workflow')" class="border rounded p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-800 dark:border-gray-700">
-      <p class="text-2xl font-semibold" x-text="dashboard.pendingApprovals.length"></p>
-      <p class="text-sm text-gray-500">Văn bản đang chờ bạn duyệt</p>
+    <button @click="go('workflow')" class="holo-panel holo-panel-strong p-5 text-left flex items-center gap-4 hover:opacity-90">
+      <div class="relative shrink-0" style="width:96px;height:96px;">
+        <svg class="holo-ring" width="96" height="96" viewBox="0 0 96 96">
+          <circle class="holo-ring-track" cx="48" cy="48" r="40"></circle>
+          <circle class="holo-ring-value" cx="48" cy="48" r="40" stroke-dasharray="176 251"></circle>
+        </svg>
+        <div class="absolute inset-0 flex items-center justify-center font-display text-2xl holo-text-accent" x-text="dashboard.pendingApprovals.length"></div>
+      </div>
+      <div>
+        <p class="holo-label">01 · Approval Queue</p>
+        <p class="text-sm mt-1">Văn bản đang chờ bạn duyệt</p>
+      </div>
     </button>
-    <button @click="go('documents')" class="border rounded p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-800 dark:border-gray-700">
-      <p class="text-2xl font-semibold" x-text="dashboard.myRecentDocuments.length"></p>
-      <p class="text-sm text-gray-500">Văn bản gần đây của bạn</p>
+
+    <button @click="go('documents')" class="holo-panel holo-panel-strong p-5 text-left flex items-center gap-4 hover:opacity-90">
+      <div class="relative shrink-0" style="width:96px;height:96px;">
+        <svg class="holo-ring" width="96" height="96" viewBox="0 0 96 96">
+          <circle class="holo-ring-track" cx="48" cy="48" r="40"></circle>
+          <circle class="holo-ring-value" cx="48" cy="48" r="40" stroke-dasharray="220 251"></circle>
+        </svg>
+        <div class="absolute inset-0 flex items-center justify-center font-display text-2xl holo-text-accent" x-text="dashboard.myRecentDocuments.length"></div>
+      </div>
+      <div>
+        <p class="holo-label">02 · Document Log</p>
+        <p class="text-sm mt-1">Văn bản gần đây của bạn</p>
+      </div>
     </button>
   </div>
 
-  <div class="space-y-2">
-    <h2 class="text-sm font-medium">Văn bản gần đây</h2>
+  <div class="holo-panel p-5 space-y-3">
+    <p class="holo-label">03 · Recent Activity</p>
     <template x-if="dashboard.myRecentDocuments.length === 0">
-      <p class="text-sm text-gray-500">Chưa có văn bản nào. Vào mục "Văn bản" để soạn văn bản đầu tiên.</p>
+      <p class="text-sm holo-text-dim">Chưa có văn bản nào. Vào mục "Văn bản" để soạn văn bản đầu tiên.</p>
     </template>
-    <ul class="space-y-1">
+    <ul class="space-y-2">
       <template x-for="doc in dashboard.myRecentDocuments" :key="doc.DocumentID">
-        <li class="text-sm flex items-center justify-between border rounded px-3 py-2 dark:border-gray-700">
+        <li class="text-sm flex items-center justify-between px-3 py-2 holo-border">
           <span x-text="doc.Title"></span>
-          <span class="text-xs text-gray-500" x-text="doc.Status"></span>
+          <span class="font-tech text-xs holo-text-accent" x-text="'[ ' + doc.Status + ' ]'"></span>
         </li>
       </template>
     </ul>

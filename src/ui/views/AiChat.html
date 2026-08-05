@@ -1,5 +1,5 @@
 <div x-show="currentView === 'aichat'" x-init="$watch('currentView', v => { if (v === 'aichat' && libraries.length === 0) loadLibraries(); })" class="max-w-2xl space-y-4 flex flex-col h-full">
-  <h1 class="text-xl font-semibold">AI Chat — Hỏi đáp theo tài liệu</h1>
+  <h1 class="font-display text-lg holo-text-accent" style="text-shadow: 0 0 10px currentColor;">AI CHAT — HỎI ĐÁP THEO TÀI LIỆU</h1>
 
   <div class="border rounded p-3 space-y-2 dark:border-gray-700">
     <div class="flex items-center justify-between">
@@ -35,6 +35,6 @@
 
   <div class="flex gap-2">
     <input type="text" x-model="chatInput" @keyup.enter="sendChatMessage()" placeholder="Nhập câu hỏi..." class="flex-1 border rounded px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-600">
-    <button @click="sendChatMessage()" :disabled="chatAsking || !chatInput" class="bg-blue-600 text-white px-4 py-2 rounded text-sm disabled:opacity-50">Gửi</button>
+    <button @click="sendChatMessage()" :disabled="chatAsking || !chatInput" class="holo-btn px-4 py-2 text-sm disabled:opacity-50">Gửi</button>
   </div>
 </div>

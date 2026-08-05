@@ -3,7 +3,146 @@
      thuộc tính integrity (SRI) theo docs/13-security.md mục 7 (Play CDN hiện tại của Tailwind
      không hỗ trợ SRI vì nội dung sinh động theo class dùng trong trang). -->
 <script src="https://cdn.tailwindcss.com"></script>
+<script>
+  // BẮT BUỘC: Tailwind CDN mặc định theo prefers-color-scheme của hệ điều hành. App tự bật/tắt
+  // dark mode bằng cách gắn/gỡ class "dark" trên <html> (xem ui/js/main.html#toggleTheme) — thiếu
+  // dòng này thì nút chuyển Sáng/Tối không có tác dụng gì với các lớp dark: trong toàn bộ giao diện.
+  tailwind.config = { darkMode: 'class' };
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
 <style>
-  .nav-item { display: block; padding: 0.5rem 0.75rem; border-radius: 0.375rem; font-size: 0.875rem; }
-  .nav-item:hover { background-color: rgba(0,0,0,0.05); }
+  /* ============================================================
+     Hệ thống thiết kế "Hologram / HUD" — Product Owner 2026-08-05.
+     2 biến thể cùng 1 ngôn ngữ thiết kế: :root (ban ngày, dịu) và
+     html.dark (ban đêm, đúng tinh thần ảnh tham chiếu — glow rõ).
+     Bảng dữ liệu/form/nội dung văn bản dài KHÔNG dùng nền tối/glow
+     nặng để đảm bảo đọc được — chỉ khung/điểm nhấn theo phong cách này.
+     ============================================================ */
+  :root {
+    --holo-bg: #eef3f7;
+    --holo-bg-grid: rgba(8, 47, 73, 0.05);
+    --holo-panel: #ffffff;
+    --holo-panel-alt: #f4f8fb;
+    --holo-border: #7dd3e8;
+    --holo-border-strong: #0891b2;
+    --holo-accent: #0891b2;
+    --holo-accent-2: #0e7490;
+    --holo-text: #0f172a;
+    --holo-text-dim: #475569;
+    --holo-glow: 0 0 0 1px rgba(8, 145, 178, 0.15);
+    --holo-glow-strong: 0 0 12px rgba(8, 145, 178, 0.25);
+  }
+  html.dark {
+    --holo-bg: #050b14;
+    --holo-bg-grid: rgba(34, 211, 238, 0.06);
+    --holo-panel: #0a1830;
+    --holo-panel-alt: #0d1f3d;
+    --holo-border: #155e75;
+    --holo-border-strong: #22d3ee;
+    --holo-accent: #22d3ee;
+    --holo-accent-2: #67e8f9;
+    --holo-text: #e0fbff;
+    --holo-text-dim: #7fb8cc;
+    --holo-glow: 0 0 0 1px rgba(34, 211, 238, 0.35);
+    --holo-glow-strong: 0 0 18px rgba(34, 211, 238, 0.45), 0 0 2px rgba(34, 211, 238, 0.8);
+  }
+
+  body {
+    background-color: var(--holo-bg);
+    color: var(--holo-text);
+    background-image:
+      linear-gradient(var(--holo-bg-grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--holo-bg-grid) 1px, transparent 1px);
+    background-size: 28px 28px;
+    transition: background-color 0.2s ease;
+  }
+
+  .font-display { font-family: 'Orbitron', ui-sans-serif, system-ui, sans-serif; letter-spacing: 0.04em; }
+  .font-tech { font-family: 'Share Tech Mono', ui-monospace, monospace; }
+
+  /* Khung HUD: góc vát 2 bên + viền phát sáng — dùng cho card/panel/sidebar/topbar. */
+  .holo-panel {
+    background-color: var(--holo-panel);
+    border: 1px solid var(--holo-border);
+    box-shadow: var(--holo-glow);
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  }
+  .holo-panel-strong {
+    box-shadow: var(--holo-glow-strong);
+    border-color: var(--holo-border-strong);
+  }
+
+  .holo-label {
+    font-family: 'Share Tech Mono', ui-monospace, monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--holo-accent);
+    font-size: 0.7rem;
+  }
+
+  .holo-btn {
+    font-family: 'Share Tech Mono', ui-monospace, monospace;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    background-color: var(--holo-accent);
+    color: var(--holo-panel);
+    border: 1px solid var(--holo-accent);
+    clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+    transition: box-shadow 0.15s ease, opacity 0.15s ease;
+  }
+  .holo-btn:hover:not(:disabled) { box-shadow: var(--holo-glow-strong); }
+  .holo-btn-outline {
+    font-family: 'Share Tech Mono', ui-monospace, monospace;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    background-color: transparent;
+    color: var(--holo-accent);
+    border: 1px solid var(--holo-border-strong);
+    clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  }
+  .holo-btn-outline:hover:not(:disabled) { box-shadow: var(--holo-glow); }
+
+  .holo-btn-success {
+    font-family: 'Share Tech Mono', ui-monospace, monospace;
+    letter-spacing: 0.05em; text-transform: uppercase;
+    background-color: #16a34a; color: #ffffff; border: 1px solid #16a34a;
+    clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  }
+  .holo-btn-success:hover:not(:disabled) { box-shadow: 0 0 14px rgba(22, 163, 74, 0.55); }
+  .holo-btn-danger {
+    font-family: 'Share Tech Mono', ui-monospace, monospace;
+    letter-spacing: 0.05em; text-transform: uppercase;
+    background-color: transparent; color: #f87171; border: 1px solid #dc2626;
+    clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  }
+  .holo-btn-danger:hover:not(:disabled) { box-shadow: 0 0 14px rgba(220, 38, 38, 0.45); background-color: rgba(220,38,38,0.08); }
+
+  .holo-border-b { border-bottom: 1px solid var(--holo-border); }
+  .holo-border { border: 1px solid var(--holo-border); }
+  .holo-text-accent { color: var(--holo-accent); }
+  .holo-text-dim { color: var(--holo-text-dim); }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.55rem 0.75rem; font-size: 0.85rem;
+    color: var(--holo-text-dim);
+    border-left: 2px solid transparent;
+    transition: all 0.15s ease;
+  }
+  .nav-item:hover { color: var(--holo-accent); background-color: var(--holo-panel-alt); }
+  .nav-item.active {
+    color: var(--holo-accent);
+    border-left-color: var(--holo-accent);
+    background-color: var(--holo-panel-alt);
+    text-shadow: 0 0 8px currentColor;
+  }
+
+  /* Vòng đồng hồ HUD trang trí cho Dashboard */
+  .holo-ring { transform: rotate(-90deg); }
+  .holo-ring circle { fill: none; stroke-width: 6; }
+  .holo-ring .holo-ring-track { stroke: var(--holo-border); opacity: 0.3; }
+  .holo-ring .holo-ring-value { stroke: var(--holo-accent); stroke-linecap: round; filter: drop-shadow(0 0 4px var(--holo-accent)); }
 </style>
