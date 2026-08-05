@@ -19,6 +19,10 @@
             :class="adminTab === 'log' ? 'holo-border-strong holo-text-accent font-medium' : 'border-transparent holo-text-dim'">
       Audit Log
     </button>
+    <button @click="adminTab = 'accuracy'; if (!accuracyReport) loadAccuracyReport()" class="px-4 py-2 text-sm border-b-2 -mb-px"
+            :class="adminTab === 'accuracy' ? 'holo-border-strong holo-text-accent font-medium' : 'border-transparent holo-text-dim'">
+      Độ chính xác AI
+    </button>
   </div>
 
   <div class="flex items-center gap-2 mb-2">
@@ -178,5 +182,77 @@
         </template>
       </tbody>
     </table>
+  </div>
+
+  <!-- Tab: Độ chính xác AI -->
+  <div x-show="adminTab === 'accuracy'" class="space-y-4">
+    <p class="text-xs holo-text-dim">
+      Suy ra từ số lần người dùng THỰC SỰ sửa lại đề xuất phân loại (Rule/AI) khi xác nhận tài liệu.
+      Không tính là "sai" nếu người dùng giữ nguyên đề xuất.
+    </p>
+    <button @click="loadAccuracyReport()" :disabled="loadingAccuracyReport" class="holo-btn-outline px-3 py-1 text-sm disabled:opacity-50">
+      <span x-text="loadingAccuracyReport ? 'Đang tải...' : 'Tải lại báo cáo'"></span>
+    </button>
+
+    <template x-if="accuracyReport">
+      <div class="space-y-4">
+        <div class="flex gap-6 text-sm">
+          <p>Tổng tài liệu đã phân loại: <span class="holo-text-accent font-medium" x-text="accuracyReport.totalClassified"></span></p>
+          <p>Tổng số lần bị sửa: <span class="holo-text-accent font-medium" x-text="accuracyReport.totalCorrections"></span></p>
+        </div>
+
+        <div>
+          <p class="holo-label mb-1">Độ chính xác theo trường dữ liệu</p>
+          <table class="w-full text-sm border-collapse">
+            <thead>
+              <tr class="text-left border-b dark:border-gray-700">
+                <th class="py-1">Trường</th>
+                <th class="py-1">Số lần bị sửa</th>
+                <th class="py-1">Tỷ lệ chính xác ước tính</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="row in accuracyReport.byField" :key="row.field">
+                <tr class="border-b dark:border-gray-800">
+                  <td class="py-1" x-text="row.field"></td>
+                  <td class="py-1" x-text="row.corrections"></td>
+                  <td class="py-1" x-text="row.accuracyRate !== null ? row.accuracyRate + '%' : '—'"></td>
+                </tr>
+              </template>
+              <template x-if="accuracyReport.byField.length === 0">
+                <tr><td colspan="3" class="py-2 text-xs holo-text-dim">Chưa có lần sửa nào được ghi nhận.</td></tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+
+        <div>
+          <p class="holo-label mb-1">Kiểu sửa lặp lại nhiều nhất (gợi ý cần chỉnh Rule/Prompt)</p>
+          <table class="w-full text-sm border-collapse">
+            <thead>
+              <tr class="text-left border-b dark:border-gray-700">
+                <th class="py-1">Trường</th>
+                <th class="py-1">AI/Rule đề xuất</th>
+                <th class="py-1">Người dùng sửa thành</th>
+                <th class="py-1">Số lần</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="p in accuracyReport.topPatterns" :key="p.field + p.suggested + p.final">
+                <tr class="border-b dark:border-gray-800">
+                  <td class="py-1" x-text="p.field"></td>
+                  <td class="py-1" x-text="p.suggested"></td>
+                  <td class="py-1" x-text="p.final"></td>
+                  <td class="py-1" x-text="p.count"></td>
+                </tr>
+              </template>
+              <template x-if="accuracyReport.topPatterns.length === 0">
+                <tr><td colspan="4" class="py-2 text-xs holo-text-dim">Chưa có dữ liệu.</td></tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </template>
   </div>
 </div>

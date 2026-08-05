@@ -79,3 +79,43 @@ function recordClassificationFeedback_(documentId, field, suggested, final, conf
     Timestamp: nowIso()
   });
 }
+
+// Báo cáo độ chính xác phân loại — chỉ dùng dữ liệu đã có sẵn (ClassificationFeedback chỉ ghi khi
+// người dùng THỰC SỰ sửa lại đề xuất, xem recordClassificationFeedback_ ở trên), nên "đúng" ở đây
+// suy ra từ (tổng tài liệu đã phân loại - số lần bị sửa), không cần thêm bảng ghi "khớp".
+function getClassificationAccuracyReport(user) {
+  if (user.Role !== ROLE_NAMES.ADMIN) {
+    throw new Error('Chỉ Admin được xem báo cáo độ chính xác phân loại.');
+  }
+
+  const totalClassified = getSheetRepository(SHEETS.DOCUMENTS).findAll()
+    .filter(function (d) { return !isBlank(d.AiConfidence); }).length;
+
+  const feedback = getSheetRepository(SHEETS.CLASSIFICATION_FEEDBACK).findAll();
+
+  const byField = {};
+  const patternCounts = {};
+  feedback.forEach(function (f) {
+    byField[f.Field] = (byField[f.Field] || 0) + 1;
+    const patternKey = f.Field + '||' + f.SuggestedValue + '||' + f.FinalValue;
+    patternCounts[patternKey] = patternCounts[patternKey] || { field: f.Field, suggested: f.SuggestedValue, final: f.FinalValue, count: 0 };
+    patternCounts[patternKey].count++;
+  });
+
+  const fieldReport = Object.keys(byField).map(function (field) {
+    const corrections = byField[field];
+    const accuracyRate = totalClassified > 0 ? Math.round(((totalClassified - corrections) / totalClassified) * 1000) / 10 : null;
+    return { field: field, corrections: corrections, accuracyRate: accuracyRate };
+  }).sort(function (a, b) { return b.corrections - a.corrections; });
+
+  const topPatterns = Object.values(patternCounts)
+    .sort(function (a, b) { return b.count - a.count; })
+    .slice(0, 15);
+
+  return {
+    totalClassified: totalClassified,
+    totalCorrections: feedback.length,
+    byField: fieldReport,
+    topPatterns: topPatterns
+  };
+}

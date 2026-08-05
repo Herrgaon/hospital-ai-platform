@@ -278,6 +278,11 @@ function api_searchAuditLog(filters) {
   return searchAuditLog(user, filters || {});
 }
 
+function api_getClassificationAccuracyReport() {
+  const user = getCurrentUser();
+  return getClassificationAccuracyReport(user);
+}
+
 function api_exportDocumentAsWord(documentId) {
   const user = getCurrentUser();
   return publishDocumentAsWord(user, documentId);

@@ -92,6 +92,8 @@
       auditLogs: [],
       exportingAuditLog: false,
       auditExportResult: null,
+      accuracyReport: null,
+      loadingAccuracyReport: false,
 
       ocrResults: {},
       templateForm: { name: '', libraryId: '', fieldsCsv: '' },
@@ -879,6 +881,20 @@
             this.errorMessage = e.message;
           })
           .api_exportAuditLogToExcel({});
+      },
+
+      loadAccuracyReport() {
+        this.loadingAccuracyReport = true;
+        google.script.run
+          .withSuccessHandler((report) => {
+            this.loadingAccuracyReport = false;
+            this.accuracyReport = report;
+          })
+          .withFailureHandler((e) => {
+            this.loadingAccuracyReport = false;
+            this.errorMessage = e.message;
+          })
+          .api_getClassificationAccuracyReport();
       },
 
       // --- OCR ---
