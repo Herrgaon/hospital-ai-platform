@@ -15,6 +15,11 @@ function approveKnowledgeDocument(user, documentId, comment) {
 
   const updated = updateDocumentStatus(user, documentId, 'PUBLISHED');
   logAudit(user.UserID, 'KNOWLEDGE_APPROVED', 'Document', documentId, comment || '');
+
+  notifyUser(document.OwnerUserID, 'Tài liệu đã được duyệt: ' + document.Title,
+    user.FullName + ' (' + user.Email + ') đã duyệt tài liệu "' + document.Title + '".' +
+    (comment ? ('\nÝ kiến: ' + comment) : '') + '\nTài liệu đã được công bố vào kho tri thức.');
+
   return updated;
 }
 
@@ -27,6 +32,10 @@ function rejectKnowledgeDocument(user, documentId, comment) {
 
   const updated = updateDocumentStatus(user, documentId, 'NEEDS_EDIT');
   logAudit(user.UserID, 'KNOWLEDGE_REJECTED', 'Document', documentId, comment);
+
+  notifyUser(document.OwnerUserID, 'Tài liệu cần chỉnh sửa: ' + document.Title,
+    user.FullName + ' (' + user.Email + ') đã từ chối tài liệu "' + document.Title + '".\nLý do: ' + comment);
+
   return updated;
 }
 
@@ -35,6 +44,10 @@ function resubmitKnowledgeDocument(user, documentId) {
   requirePermission(user, document.LibraryID, 'CanEdit');
   const updated = updateDocumentStatus(user, documentId, 'PENDING_REVIEW');
   logAudit(user.UserID, 'KNOWLEDGE_RESUBMITTED', 'Document', documentId, '');
+
+  notifyApprovers(user, document.LibraryID, 'Tài liệu chờ duyệt lại: ' + document.Title,
+    user.FullName + ' (' + user.Email + ') vừa gửi lại tài liệu "' + document.Title + '" sau khi chỉnh sửa, chờ bạn duyệt.');
+
   return updated;
 }
 

@@ -22,6 +22,11 @@ function submitForApproval(user, documentId) {
   updateDocumentStatus(user, documentId, 'PENDING_APPROVAL');
   logWorkflowStep_(user, instance.InstanceID, 'APPROVAL', 'SUBMITTED', '');
   logAudit(user.UserID, 'WORKFLOW_SUBMITTED', 'WorkflowInstance', instance.InstanceID, documentId);
+
+  notifyApprovers(user, document.LibraryID, 'Văn bản chờ bạn duyệt: ' + document.Title,
+    user.FullName + ' (' + user.Email + ') vừa gửi văn bản "' + document.Title + '" chờ bạn phê duyệt.\n' +
+    'Vào mục Workflow trong hệ thống để xử lý.');
+
   return instance;
 }
 

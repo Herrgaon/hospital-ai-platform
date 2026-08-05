@@ -123,6 +123,11 @@ function confirmClassificationAndSave(user, fileId, fileName, parserCategory, me
 
   recordAllClassificationFeedback_(doc.DocumentID, originalFields, finalFields);
 
+  if (initialStatus === 'PENDING_REVIEW') {
+    notifyApprovers(user, finalFields.libraryId, 'Tài liệu mới chờ duyệt: ' + fileName,
+      user.FullName + ' (' + user.Email + ') vừa nộp tài liệu "' + fileName + '" vào kho "' + library.LibraryName + '", chờ bạn duyệt.');
+  }
+
   return doc;
 }
 

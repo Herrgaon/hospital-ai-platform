@@ -24,3 +24,7 @@ function diagFileInfo(fileId) {
   const file = DriveApp.getFileById(fileId);
   return { name: file.getName(), size: file.getSize(), mimeType: file.getMimeType() };
 }
+
+function diagMailQuota() {
+  return MailApp.getRemainingDailyQuota();
+}

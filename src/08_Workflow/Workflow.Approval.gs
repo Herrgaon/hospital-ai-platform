@@ -17,6 +17,10 @@ function approveWorkflowInstance(user, instanceId, comment) {
   updateDocumentStatus(user, instance.DocumentID, 'PUBLISHED');
   logWorkflowStep_(user, instanceId, 'EXPORT', 'PUBLISHED', exportResult.fileId);
 
+  notifyUser(document.OwnerUserID, 'Văn bản đã được duyệt: ' + document.Title,
+    user.FullName + ' (' + user.Email + ') đã duyệt văn bản "' + document.Title + '".' +
+    (comment ? ('\nÝ kiến: ' + comment) : '') + '\nVăn bản đã được xuất Word tự động.');
+
   return { instanceId: instanceId, status: 'APPROVED', export: exportResult };
 }
 
@@ -32,6 +36,9 @@ function rejectWorkflowInstance(user, instanceId, comment) {
   });
   updateDocumentStatus(user, instance.DocumentID, 'NEEDS_EDIT');
   logWorkflowStep_(user, instanceId, 'APPROVAL', 'REJECTED', comment || '');
+
+  notifyUser(document.OwnerUserID, 'Văn bản bị từ chối: ' + document.Title,
+    user.FullName + ' (' + user.Email + ') đã từ chối văn bản "' + document.Title + '".\nLý do: ' + comment);
 
   return { instanceId: instanceId, status: 'REJECTED' };
 }
