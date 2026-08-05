@@ -9,6 +9,7 @@
     <div class="border rounded p-4 space-y-2 dark:border-gray-700">
       <p class="font-medium" x-text="row.document.Title"></p>
       <p class="text-xs text-gray-500" x-text="'Gửi lúc: ' + row.instance.StartedAt"></p>
+      <a :href="'https://docs.google.com/document/d/' + row.document.DriveFileID + '/edit'" target="_blank" class="holo-text-accent underline text-xs inline-block">Xem tài liệu</a>
       <textarea x-model="approvalComments[row.instance.InstanceID]" placeholder="Ý kiến (bắt buộc nếu từ chối)" class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600" rows="2"></textarea>
       <div class="flex gap-2">
         <button @click="approveInstance(row.instance.InstanceID)" class="holo-btn-success px-3 py-1.5 text-sm">Duyệt</button>
