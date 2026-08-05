@@ -94,6 +94,7 @@
       auditExportResult: null,
       accuracyReport: null,
       loadingAccuracyReport: false,
+      archivedDocuments: [],
 
       ocrResults: {},
       templateForm: { name: '', libraryId: '', fieldsCsv: '' },
@@ -478,6 +479,11 @@
       userEmailById(userId) {
         const u = this.userDirectory.find((x) => x.UserID === userId);
         return u ? u.Email : userId;
+      },
+
+      libraryNameById(libraryId) {
+        const lib = this.libraries.find((x) => x.LibraryID === libraryId);
+        return lib ? lib.LibraryName : libraryId;
       },
 
       addPermissionRow() {
@@ -907,6 +913,22 @@
             this.errorMessage = e.message;
           })
           .api_getClassificationAccuracyReport();
+      },
+
+      loadArchivedDocuments() {
+        google.script.run
+          .withSuccessHandler((docs) => { this.archivedDocuments = docs; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listArchivedDocuments();
+      },
+
+      restoreDocumentAction(doc) {
+        google.script.run
+          .withSuccessHandler(() => {
+            this.archivedDocuments = this.archivedDocuments.filter(d => d.DocumentID !== doc.DocumentID);
+          })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_restoreDocument(doc.DocumentID);
       },
 
       // --- OCR ---

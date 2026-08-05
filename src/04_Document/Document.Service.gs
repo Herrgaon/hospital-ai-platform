@@ -71,6 +71,29 @@ function deleteDocument(user, documentId) {
   return updated;
 }
 
+// Ai xoá được (CanDelete trên Library) thì cũng khôi phục được — đối xứng với deleteDocument.
+// Không lưu lại Status trước khi xoá (tránh thêm cột chỉ dùng cho 1 thao tác hiếm gặp) nên khôi phục
+// luôn về DRAFT — chủ tài liệu/kho tự quyết định gửi duyệt lại chứ không tự động PUBLISHED lại,
+// đúng nguyên tắc "AI/hệ thống không tự quyết định tri thức chính thức".
+function restoreDocument(user, documentId) {
+  const document = getDocumentById(documentId);
+  requirePermission(user, document.LibraryID, 'CanDelete');
+
+  DriveApp.getFileById(document.DriveFileID).setTrashed(false);
+  const updated = getSheetRepository(SHEETS.DOCUMENTS).updateById('DocumentID', documentId, {
+    Status: 'DRAFT',
+    UpdatedAt: nowIso()
+  });
+  logAudit(user.UserID, 'DOCUMENT_RESTORED', 'Document', documentId, document.Title);
+  return updated;
+}
+
+function listArchivedDocuments(user) {
+  return getSheetRepository(SHEETS.DOCUMENTS).findAll()
+    .filter(function (d) { return d.Status === 'ARCHIVED'; })
+    .filter(function (d) { return hasPermission(user, d.LibraryID, 'CanDelete'); });
+}
+
 // KHÔNG tự kiểm tra quyền ở đây — nơi gọi (RuleEngine.Core.gs#checkDocument dùng CanEdit,
 // Workflow.Approval.gs / Knowledge.Governance.gs dùng CanApprove...) đã tự xác định đúng quyền
 // cần thiết cho hành động cụ thể của họ trước khi gọi tới đây. Gộp chung 1 kiểm tra cứng (ví dụ

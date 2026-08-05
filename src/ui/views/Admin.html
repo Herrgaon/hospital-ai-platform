@@ -23,6 +23,10 @@
             :class="adminTab === 'accuracy' ? 'holo-border-strong holo-text-accent font-medium' : 'border-transparent holo-text-dim'">
       Độ chính xác AI
     </button>
+    <button @click="adminTab = 'archived'; loadArchivedDocuments()" class="px-4 py-2 text-sm border-b-2 -mb-px"
+            :class="adminTab === 'archived' ? 'holo-border-strong holo-text-accent font-medium' : 'border-transparent holo-text-dim'">
+      Tài liệu đã xoá
+    </button>
   </div>
 
   <div class="flex items-center gap-2 mb-2">
@@ -254,5 +258,34 @@
         </div>
       </div>
     </template>
+  </div>
+
+  <!-- Tab: Tài liệu đã xoá -->
+  <div x-show="adminTab === 'archived'" class="space-y-2">
+    <p class="text-xs holo-text-dim">File Drive đang ở Thùng rác (khôi phục được trong 30 ngày kể từ lúc xoá). Khôi phục sẽ đưa tài liệu về trạng thái Bản nháp (DRAFT).</p>
+    <button @click="loadArchivedDocuments()" class="holo-btn-outline px-3 py-1 text-sm">Tải lại danh sách</button>
+    <table class="w-full text-sm border-collapse">
+      <thead>
+        <tr class="text-left border-b dark:border-gray-700">
+          <th class="py-1">Tiêu đề</th>
+          <th class="py-1">Kho tri thức</th>
+          <th class="py-1">Cập nhật lúc</th>
+          <th class="py-1"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-for="doc in archivedDocuments" :key="doc.DocumentID">
+          <tr class="border-b dark:border-gray-800">
+            <td class="py-1" x-text="doc.Title"></td>
+            <td class="py-1" x-text="libraryNameById(doc.LibraryID)"></td>
+            <td class="py-1" x-text="doc.UpdatedAt"></td>
+            <td class="py-1"><button @click="restoreDocumentAction(doc)" class="holo-text-accent underline text-xs">Khôi phục</button></td>
+          </tr>
+        </template>
+        <template x-if="archivedDocuments.length === 0">
+          <tr><td colspan="4" class="py-2 text-xs holo-text-dim">Không có tài liệu nào đã xoá.</td></tr>
+        </template>
+      </tbody>
+    </table>
   </div>
 </div>

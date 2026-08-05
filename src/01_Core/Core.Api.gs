@@ -86,6 +86,16 @@ function api_deleteDocument(documentId) {
   return deleteDocument(user, documentId);
 }
 
+function api_restoreDocument(documentId) {
+  const user = getCurrentUser();
+  return restoreDocument(user, documentId);
+}
+
+function api_listArchivedDocuments() {
+  const user = getCurrentUser();
+  return listArchivedDocuments(user);
+}
+
 function api_listCategories(libraryId) {
   return listCategoriesByLibrary(libraryId);
 }
