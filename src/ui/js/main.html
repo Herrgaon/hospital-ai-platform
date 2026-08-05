@@ -52,6 +52,7 @@
       categories: [],
       newCategoryName: '',
       pendingFiles: [],
+      readingFiles: false,
       stagingResult: null,
       stagingBatch: [],
       bulkApplyLibraryId: '',
@@ -449,17 +450,26 @@
       onFileSelected(event) {
         const files = Array.from(event.target.files || []);
         this.pendingFiles = [];
+        this.readingFiles = files.length > 0;
         if (files.length === 0) return;
-        files.forEach((file) => {
+
+        // Đọc tất cả file trước rồi mới gán 1 lần (Promise.all) — tránh FileReader không đồng bộ
+        // khiến người dùng bấm "Phân loại" khi mới đọc xong một phần, gửi thiếu file lên server.
+        Promise.all(files.map((file) => new Promise((resolve, reject) => {
           const reader = new FileReader();
-          reader.onload = () => {
-            this.pendingFiles.push({
-              fileName: file.name,
-              mimeType: file.type || 'application/octet-stream',
-              base64: reader.result.split(',')[1]
-            });
-          };
+          reader.onload = () => resolve({
+            fileName: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            base64: reader.result.split(',')[1]
+          });
+          reader.onerror = () => reject(reader.error);
           reader.readAsDataURL(file);
+        }))).then((results) => {
+          this.pendingFiles = results;
+          this.readingFiles = false;
+        }).catch((err) => {
+          this.errorMessage = 'Không đọc được file: ' + err;
+          this.readingFiles = false;
         });
       },
 

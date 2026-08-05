@@ -13,6 +13,9 @@
     "executeAs": "USER_ACCESSING",
     "access": "DOMAIN"
   },
+  "executionApi": {
+    "access": "MYSELF"
+  },
   "exceptionLogging": "STACKDRIVER",
   "runtimeVersion": "V8"
 }

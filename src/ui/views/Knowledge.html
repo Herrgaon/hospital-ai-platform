@@ -133,8 +133,8 @@
             <p x-show="pendingFiles.length > maxBulkUploadCount" class="text-xs text-red-600">
               Bạn đang chọn <span x-text="pendingFiles.length"></span> tài liệu, vượt giới hạn <span x-text="maxBulkUploadCount"></span> tài liệu/lần. Vui lòng chia thành nhiều đợt tải lên.
             </p>
-            <button @click="runClassification()" :disabled="classifying || pendingFiles.length === 0 || pendingFiles.length > maxBulkUploadCount" class="bg-blue-600 text-white px-4 py-2 rounded text-sm disabled:opacity-50">
-              <span x-text="classifying ? 'Đang phân loại...' : ('Phân loại ' + (pendingFiles.length > 1 ? pendingFiles.length + ' tài liệu' : 'tài liệu'))"></span>
+            <button @click="runClassification()" :disabled="classifying || readingFiles || pendingFiles.length === 0 || pendingFiles.length > maxBulkUploadCount" class="bg-blue-600 text-white px-4 py-2 rounded text-sm disabled:opacity-50">
+              <span x-text="readingFiles ? 'Đang đọc file...' : (classifying ? 'Đang phân loại...' : ('Phân loại ' + (pendingFiles.length > 1 ? pendingFiles.length + ' tài liệu' : 'tài liệu')))"></span>
             </button>
           </div>
         </template>
