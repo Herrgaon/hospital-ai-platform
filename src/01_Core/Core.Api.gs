@@ -172,9 +172,9 @@ function api_setClassificationThreshold(value) {
   logAudit(user.UserID, 'AI_CLASSIFICATION_THRESHOLD_CHANGED', 'System', 'AI_CLASSIFICATION_THRESHOLD', String(value));
 }
 
-function api_searchDocuments(keyword, libraryId) {
+function api_searchDocuments(keyword, libraryId, filters) {
   const user = getCurrentUser();
-  return searchDocumentsByKeyword(user, keyword, libraryId || null);
+  return searchDocumentsByKeyword(user, keyword, libraryId || null, filters || null);
 }
 
 function api_extractTextFromDocument(documentId) {

@@ -20,10 +20,26 @@
   <!-- Tab: Của tôi -->
   <div x-show="docTab === 'mine'">
     <div class="card">
+      <div class="toolbar">
+        <div class="filter-group">
+          <select x-model="myDocumentsStatusFilter" class="filter-select">
+            <option value="">Trạng thái: Tất cả</option>
+            <option value="DRAFT">Bản nháp</option>
+            <option value="PENDING_APPROVAL">Chờ duyệt</option>
+            <option value="NEEDS_EDIT">Cần chỉnh sửa</option>
+            <option value="PUBLISHED">Đã công bố</option>
+          </select>
+          <span x-show="myDocumentsStatusFilter" class="filter-active-badge">
+            Đang lọc <button @click="myDocumentsStatusFilter = ''">×</button>
+          </span>
+        </div>
+        <div class="toolbar-spacer"></div>
+        <span class="text-xs holo-text-dim whitespace-nowrap" x-text="myDocumentsFiltered.length + ' văn bản'"></span>
+      </div>
       <div class="table-wrap">
         <table class="data-table">
           <tbody>
-            <template x-for="doc in myDocuments" :key="doc.DocumentID">
+            <template x-for="doc in myDocumentsFiltered" :key="doc.DocumentID">
               <tr>
                 <td x-text="doc.Title"></td>
                 <td class="text-right whitespace-nowrap">
@@ -33,8 +49,8 @@
                 </td>
               </tr>
             </template>
-            <template x-if="myDocuments.length === 0">
-              <tr><td class="text-xs holo-text-dim py-4">Chưa có văn bản nào — bấm "+ Tạo văn bản mới".</td></tr>
+            <template x-if="myDocumentsFiltered.length === 0">
+              <tr><td class="text-xs holo-text-dim py-4">Chưa có văn bản nào phù hợp bộ lọc.</td></tr>
             </template>
           </tbody>
         </table>
@@ -83,7 +99,7 @@
             <button @click="suggestReviewLibraries()" class="btn-link">Gợi ý kho phù hợp</button>
           </div>
           <div class="card-body space-y-3">
-            <p class="text-xs holo-text-dim">Chọn kho tri thức chứa văn bản pháp lý liên quan để đối chiếu — chỉ chọn kho phù hợp (ví dụ "Đấu thầu") sẽ cho kết quả nhanh và chính xác hơn quét toàn bộ hệ thống.</p>
+            <p class="text-xs holo-text-dim">Chọn kho tài liệu chứa văn bản pháp lý liên quan để đối chiếu — chỉ chọn kho phù hợp (ví dụ "Đấu thầu") sẽ cho kết quả nhanh và chính xác hơn quét toàn bộ hệ thống.</p>
             <div class="flex flex-wrap gap-3">
               <template x-for="lib in libraries" :key="lib.LibraryID">
                 <label class="form-check-label">

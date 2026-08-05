@@ -176,6 +176,24 @@
   .breadcrumb { font-size: 12.5px; color: var(--holo-text-dim); margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
   .breadcrumb-sep { color: var(--holo-border-strong); opacity: 0.5; }
 
+  /* ===== TOOLBAR / FILTERS ===== */
+  .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--holo-border); background: var(--holo-panel-alt); }
+  .toolbar-spacer { flex: 1; }
+  .filter-group { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .filter-select, .filter-input {
+    padding: 7px 11px; border: 1px solid var(--holo-border); border-radius: 8px;
+    font-size: 12.5px; background: var(--holo-panel); color: var(--holo-text);
+    outline: none; cursor: pointer; transition: border-color 0.15s;
+  }
+  .filter-input { cursor: text; min-width: 140px; }
+  .filter-select:focus, .filter-input:focus { border-color: var(--holo-accent); box-shadow: 0 0 0 3px rgba(8,145,178,0.12); }
+  .filter-active-badge {
+    display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 600; background: rgba(8,145,178,0.1); color: var(--holo-accent-2);
+  }
+  html.dark .filter-active-badge { background: rgba(34,211,238,0.15); color: #67e8f9; }
+  .filter-active-badge button { background: none; border: none; cursor: pointer; color: inherit; font-size: 13px; line-height: 1; padding: 0; }
+
   /* ===== STATS GRID ===== */
   .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 22px; }
   .stat-card {

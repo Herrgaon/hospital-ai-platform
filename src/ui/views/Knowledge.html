@@ -3,19 +3,19 @@
     <div class="page-header-left">
       <div class="page-header-icon">▥</div>
       <div>
-        <h1 class="page-title-text">KHO TRI THỨC</h1>
+        <h1 class="page-title-text">KHO TÀI LIỆU</h1>
         <p class="page-subtitle">Tìm kiếm, tải lên và quản trị tài liệu theo từng khoa/phòng</p>
       </div>
     </div>
     <div class="page-header-actions" x-show="isAdmin">
-      <button @click="openModal('addLibrary')" class="btn btn-primary">+ Kho tri thức mới</button>
+      <button @click="openModal('addLibrary')" class="btn btn-primary">+ Kho tài liệu mới</button>
     </div>
   </div>
 
   <div class="flex gap-6 items-start">
     <!-- Danh sách Library -->
     <div class="card w-60 shrink-0 !mb-0">
-      <div class="card-header !py-2.5"><h3 class="!text-xs !uppercase !tracking-wide">Kho tri thức</h3></div>
+      <div class="card-header !py-2.5"><h3 class="!text-xs !uppercase !tracking-wide">Kho tài liệu</h3></div>
       <div class="p-2">
         <template x-for="lib in libraries" :key="lib.LibraryID">
           <button @click="selectLibrary(lib.LibraryID)"
@@ -24,7 +24,7 @@
                   :style="selectedLibraryId === lib.LibraryID ? 'background-color: var(--holo-panel-alt); color: var(--holo-accent); border-left-color: var(--holo-accent);' : ''"
                   x-text="lib.LibraryName"></button>
         </template>
-        <p x-show="libraries.length === 0" class="text-xs holo-text-dim px-3 py-2">Chưa có kho tri thức nào.</p>
+        <p x-show="libraries.length === 0" class="text-xs holo-text-dim px-3 py-2">Chưa có kho tài liệu nào.</p>
       </div>
     </div>
 
@@ -48,6 +48,30 @@
               <input type="text" x-model="searchKeyword" @keyup.enter="runSearch()" placeholder="Nhập từ khoá..." class="form-control flex-1">
               <button @click="runSearch()" class="btn btn-secondary">Tìm</button>
             </div>
+          </div>
+          <div class="toolbar">
+            <div class="filter-group">
+              <select x-model="searchFilters.status" @change="runSearch()" class="filter-select">
+                <option value="">Trạng thái: Tất cả</option>
+                <option value="DRAFT">Bản nháp</option>
+                <option value="PENDING_APPROVAL">Chờ duyệt văn bản</option>
+                <option value="PENDING_REVIEW">Chờ duyệt tài liệu</option>
+                <option value="NEEDS_EDIT">Cần chỉnh sửa</option>
+                <option value="PUBLISHED">Đã công bố</option>
+              </select>
+              <input type="text" x-model="searchFilters.documentType" @keyup.enter="runSearch()" placeholder="Loại văn bản..." class="filter-input">
+              <select x-model="searchFilters.importance" @change="runSearch()" class="filter-select">
+                <option value="">Mức độ: Tất cả</option>
+                <option value="Low">Thấp</option>
+                <option value="Medium">Trung bình</option>
+                <option value="High">Cao</option>
+              </select>
+              <span x-show="searchFiltersActive()" class="filter-active-badge">
+                Đang lọc <button @click="clearSearchFilters()">×</button>
+              </span>
+            </div>
+            <div class="toolbar-spacer"></div>
+            <span class="text-xs holo-text-dim whitespace-nowrap" x-text="searchResults.length + ' kết quả'"></span>
           </div>
           <div class="table-wrap">
             <table class="data-table">
@@ -109,7 +133,7 @@
       <div x-show="knowledgeTab === 'categories'">
         <div class="card">
           <div class="card-body space-y-3">
-            <p x-show="!selectedLibraryId" class="text-sm holo-text-dim">Chọn một kho tri thức bên trái để xem/thêm danh mục.</p>
+            <p x-show="!selectedLibraryId" class="text-sm holo-text-dim">Chọn một kho tài liệu bên trái để xem/thêm danh mục.</p>
             <template x-if="selectedLibraryId">
               <div class="space-y-3">
                 <div class="flex flex-wrap gap-2">
@@ -166,7 +190,7 @@
                     <p x-show="stagingResult.ocrStatus === 'FAILED'" class="text-xs text-red-600">OCR thất bại — không đọc được nội dung, chỉ phân loại được theo tên file (không có gợi ý từ AI).</p>
 
                     <div class="form-group">
-                      <label>Kho tri thức <span x-show="uploadForm._libraryConfidence !== undefined" class="holo-text-dim font-normal" x-text="'(' + uploadForm._libraryConfidence + '%)'"></span></label>
+                      <label>Kho tài liệu <span x-show="uploadForm._libraryConfidence !== undefined" class="holo-text-dim font-normal" x-text="'(' + uploadForm._libraryConfidence + '%)'"></span></label>
                       <select x-model="uploadForm.libraryId" class="form-control">
                         <option value="">-- Chọn kho --</option>
                         <template x-for="lib in stagingResult.availableLibraries" :key="lib.LibraryID">
@@ -230,11 +254,11 @@
 
                     <div class="flex gap-2 items-center pt-1">
                       <button @click="saveClassifiedDocument()" :disabled="savingClassification || !uploadForm.libraryId" class="btn btn-success">
-                        <span x-text="savingClassification ? 'Đang lưu...' : 'Lưu vào kho tri thức'"></span>
+                        <span x-text="savingClassification ? 'Đang lưu...' : 'Lưu vào kho tài liệu'"></span>
                       </button>
                       <button @click="cancelStagedUpload()" class="btn btn-secondary">Huỷ</button>
                     </div>
-                    <p class="text-xs holo-text-dim">Sau khi lưu, tài liệu ở trạng thái "Chờ duyệt tri thức" — người phụ trách kho cần duyệt trước khi AI dùng để trả lời.</p>
+                    <p class="text-xs holo-text-dim">Sau khi lưu, tài liệu ở trạng thái "Chờ duyệt tài liệu" — người phụ trách kho cần duyệt trước khi AI dùng để trả lời.</p>
                   </div>
                 </template>
               </div>
@@ -308,7 +332,7 @@
         </div>
       </div>
 
-      <!-- Tab: Chờ duyệt tri thức -->
+      <!-- Tab: Chờ duyệt tài liệu -->
       <div x-show="knowledgeTab === 'review'">
         <p x-show="pendingKnowledgeReviews.length === 0" class="text-sm holo-text-dim">Không có tài liệu nào chờ bạn duyệt.</p>
         <template x-for="doc in pendingKnowledgeReviews" :key="doc.DocumentID">
@@ -340,7 +364,7 @@
       <div x-show="knowledgeTab === 'permissions' && canManageSelectedLibrary">
         <div class="card">
           <div class="card-body !pb-3">
-            <p class="text-xs holo-text-dim">Cấp quyền Thêm/Sửa/Xoá cho nhân viên trong kho tri thức này. Mọi người vẫn xem được kho này dù chưa được cấp quyền — chỉ Thêm/Sửa/Xoá mới cần cấp riêng.</p>
+            <p class="text-xs holo-text-dim">Cấp quyền Thêm/Sửa/Xoá cho nhân viên trong kho tài liệu này. Mọi người vẫn xem được kho này dù chưa được cấp quyền — chỉ Thêm/Sửa/Xoá mới cần cấp riêng.</p>
           </div>
           <div class="table-wrap">
             <table class="data-table">
@@ -384,11 +408,11 @@
     </div>
   </div>
 
-  <!-- Modal: Kho tri thức mới -->
+  <!-- Modal: Kho tài liệu mới -->
   <div x-show="modalOpen === 'addLibrary'" x-cloak class="modal-overlay" @click.self="closeModal()">
     <div class="modal">
       <div class="modal-header">
-        <h2>Kho tri thức mới</h2>
+        <h2>Kho tài liệu mới</h2>
         <button @click="closeModal()" class="modal-close">×</button>
       </div>
       <div class="modal-body">
@@ -398,12 +422,12 @@
         </div>
         <label class="form-check-label">
           <input type="checkbox" x-model="newLibraryRequiresReview">
-          <span>Yêu cầu duyệt tri thức trước khi AI dùng</span>
+          <span>Yêu cầu duyệt tài liệu trước khi AI dùng</span>
         </label>
       </div>
       <div class="modal-footer">
         <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
-        <button @click="createLibraryAction()" :disabled="creatingLibrary || !newLibraryName" class="btn btn-primary">+ Tạo kho tri thức</button>
+        <button @click="createLibraryAction()" :disabled="creatingLibrary || !newLibraryName" class="btn btn-primary">+ Tạo kho tài liệu</button>
       </div>
     </div>
   </div>

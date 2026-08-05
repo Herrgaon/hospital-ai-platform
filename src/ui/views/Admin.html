@@ -158,6 +158,56 @@
           <a x-show="auditExportResult" :href="auditExportResult && auditExportResult.url" target="_blank" class="btn-link">Mở file Excel</a>
         </div>
       </div>
+      <div class="toolbar">
+        <div class="filter-group">
+          <select x-model="auditFilters.userId" @change="loadAuditLog()" class="filter-select">
+            <option value="">Người dùng: Tất cả</option>
+            <template x-for="u in allUsers" :key="u.UserID">
+              <option :value="u.UserID" x-text="u.Email"></option>
+            </template>
+          </select>
+          <select x-model="auditFilters.action" @change="loadAuditLog()" class="filter-select">
+            <option value="">Hành động: Tất cả</option>
+            <option value="DOCUMENT_CREATED">Tạo văn bản</option>
+            <option value="DOCUMENT_STATUS_CHANGED">Đổi trạng thái văn bản</option>
+            <option value="DOCUMENT_DELETED">Xoá văn bản</option>
+            <option value="DOCUMENT_RESTORED">Khôi phục văn bản</option>
+            <option value="DOCUMENT_EXPORTED">Xuất văn bản</option>
+            <option value="DOCUMENT_RULE_CHECKED">Kiểm tra thể thức</option>
+            <option value="DOCUMENT_VERSION_CREATED">Tạo phiên bản văn bản</option>
+            <option value="DOCUMENT_OCR_EXTRACTED">Trích văn bản OCR</option>
+            <option value="WORKFLOW_SUBMITTED">Gửi duyệt</option>
+            <option value="KNOWLEDGE_APPROVED">Duyệt tài liệu</option>
+            <option value="KNOWLEDGE_REJECTED">Từ chối tài liệu</option>
+            <option value="KNOWLEDGE_RESUBMITTED">Gửi lại tài liệu</option>
+            <option value="LIBRARY_CREATED">Tạo kho tài liệu</option>
+            <option value="CATEGORY_CREATED">Tạo danh mục</option>
+            <option value="TEMPLATE_CREATED">Tạo mẫu văn bản</option>
+            <option value="TEMPLATE_STATUS_CHANGED">Đổi trạng thái mẫu</option>
+            <option value="PERMISSION_CHANGED">Đổi phân quyền</option>
+            <option value="ROLE_CHANGED">Đổi vai trò</option>
+            <option value="USER_CREATED">Tạo người dùng</option>
+            <option value="USER_AUTO_CREATED">Tự tạo người dùng (đăng nhập lần đầu)</option>
+            <option value="USER_PROFILE_CHANGED">Đổi hồ sơ người dùng</option>
+            <option value="USER_AVATAR_CHANGED">Đổi ảnh đại diện</option>
+            <option value="AI_TOGGLE">Bật/tắt AI</option>
+            <option value="AI_PROVIDER_CONFIG_CHANGED">Đổi cấu hình AI</option>
+            <option value="AI_CLASSIFICATION_THRESHOLD_CHANGED">Đổi ngưỡng phân loại AI</option>
+            <option value="MAX_BULK_UPLOAD_COUNT_CHANGED">Đổi giới hạn tải lên hàng loạt</option>
+            <option value="SCHEMA_SYNCED">Đồng bộ cấu trúc dữ liệu</option>
+            <option value="SYSTEM_INITIALIZED">Khởi tạo hệ thống</option>
+            <option value="STAGED_UPLOAD_DISCARDED">Huỷ tài liệu tạm</option>
+            <option value="AUDIT_LOG_EXPORTED">Xuất nhật ký</option>
+          </select>
+          <input type="date" x-model="auditFilters.fromDate" @change="loadAuditLog()" class="filter-input" title="Từ ngày">
+          <input type="date" x-model="auditFilters.toDate" @change="loadAuditLog()" class="filter-input" title="Đến ngày">
+          <span x-show="auditFiltersActive()" class="filter-active-badge">
+            Đang lọc <button @click="clearAuditFilters()">×</button>
+          </span>
+        </div>
+        <div class="toolbar-spacer"></div>
+        <span class="text-xs holo-text-dim whitespace-nowrap" x-text="auditLogs.length + ' dòng'"></span>
+      </div>
       <div class="table-wrap">
         <table class="data-table">
           <thead>
@@ -276,7 +326,7 @@
       <div class="table-wrap">
         <table class="data-table">
           <thead>
-            <tr><th>Tiêu đề</th><th>Kho tri thức</th><th>Cập nhật lúc</th><th></th></tr>
+            <tr><th>Tiêu đề</th><th>Kho tài liệu</th><th>Cập nhật lúc</th><th></th></tr>
           </thead>
           <tbody>
             <template x-for="doc in archivedDocuments" :key="doc.DocumentID">
@@ -364,9 +414,9 @@
           <input type="text" x-model="templateForm.name" class="form-control">
         </div>
         <div class="form-group">
-          <label class="required">Kho tri thức</label>
+          <label class="required">Kho tài liệu</label>
           <select x-model="templateForm.libraryId" class="form-control">
-            <option value="">-- Chọn kho tri thức --</option>
+            <option value="">-- Chọn kho tài liệu --</option>
             <template x-for="lib in libraries" :key="lib.LibraryID">
               <option :value="lib.LibraryID" x-text="lib.LibraryName"></option>
             </template>

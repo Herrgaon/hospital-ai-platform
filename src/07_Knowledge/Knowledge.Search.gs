@@ -1,13 +1,28 @@
 // Tra cứu/tìm kiếm tài liệu — xem docs/09-ai-design.md mục 5.
 
-function searchDocumentsByKeyword(user, keyword, libraryId) {
+// filters (tuỳ chọn): { status, documentType, importance } — rỗng/undefined = không lọc theo tiêu chí đó.
+function searchDocumentsByKeyword(user, keyword, libraryId, filters) {
   const documents = libraryId
     ? listDocumentsByLibrary(libraryId)
     : getSheetRepository(SHEETS.DOCUMENTS).findAll();
 
-  const visible = documents.filter(function (d) { return hasPermission(user, d.LibraryID, 'CanView'); });
+  const visible = documents.filter(function (d) {
+    return d.Status !== 'ARCHIVED' && hasPermission(user, d.LibraryID, 'CanView');
+  });
   const lowerKeyword = keyword.toLowerCase();
-  return visible.filter(function (d) { return matchesKeyword_(d, lowerKeyword); });
+  return visible
+    .filter(function (d) { return matchesKeyword_(d, lowerKeyword); })
+    .filter(function (d) { return matchesFilters_(d, filters); });
+}
+
+// DocumentType là văn bản tự do (Rule/AI gán, không phải enum cố định) nên so khớp theo chứa chuỗi,
+// không phân biệt hoa/thường — giống cách matchesKeyword_ đã làm, tránh lọc "trượt" vì khác hoa/thường.
+function matchesFilters_(document, filters) {
+  if (!filters) return true;
+  if (!isBlank(filters.status) && document.Status !== filters.status) return false;
+  if (!isBlank(filters.documentType) && (document.DocumentType || '').toLowerCase().indexOf(filters.documentType.toLowerCase()) === -1) return false;
+  if (!isBlank(filters.importance) && document.Importance !== filters.importance) return false;
+  return true;
 }
 
 function matchesKeyword_(document, lowerKeyword) {

@@ -4,7 +4,7 @@
       <div class="page-header-icon">⬡</div>
       <div>
         <h1 class="page-title-text">XIN CHÀO, <span x-text="(currentUser.FullName || userEmail).toUpperCase()"></span></h1>
-        <p class="page-subtitle">Hệ thống tri thức &amp; văn bản — Bệnh viện Đa khoa Đông Sơn</p>
+        <p class="page-subtitle">Hệ thống tài liệu &amp; văn bản — Bệnh viện Đa khoa Đông Sơn</p>
       </div>
     </div>
     <div class="page-header-actions">
@@ -25,7 +25,7 @@
     <div class="stat-card" @click="go('knowledge'); knowledgeTab = 'review'; loadPendingKnowledgeReviews()">
       <div class="stat-card-icon orange">▥</div>
       <div>
-        <div class="stat-card-label">Tri thức chờ duyệt</div>
+        <div class="stat-card-label">Tài liệu chờ duyệt</div>
         <div class="stat-card-value" x-text="pendingKnowledgeReviews.length"></div>
         <div class="stat-card-detail">Tài liệu chờ công bố vào kho</div>
       </div>
@@ -51,7 +51,7 @@
         </button>
         <button @click="go('knowledge')" class="quick-card">
           <span class="quick-card-icon">▥</span>
-          <span class="quick-card-label">Kho tri thức</span>
+          <span class="quick-card-label">Kho tài liệu</span>
         </button>
         <button @click="go('aichat')" class="quick-card">
           <span class="quick-card-icon">◈</span>

@@ -20,6 +20,12 @@
 
       docTab: 'create',
       myDocuments: [],
+      myDocumentsStatusFilter: '',
+      get myDocumentsFiltered() {
+        return this.myDocumentsStatusFilter
+          ? this.myDocuments.filter((d) => d.Status === this.myDocumentsStatusFilter)
+          : this.myDocuments;
+      },
       templates: [],
       selectedTemplateId: '',
       selectedTemplateFields: [],
@@ -479,7 +485,7 @@
           .api_suggestLibrariesForQuestion(this.chatInput);
       },
 
-      // --- Kho tri thức ---
+      // --- Kho tài liệu ---
       loadLibraries() {
         google.script.run
           .withSuccessHandler((libs) => { this.libraries = libs; })
@@ -564,7 +570,7 @@
             this.creatingLibrary = false;
             this.newLibraryName = '';
             this.closeModal();
-            this.toast('success', 'Đã tạo kho tri thức mới.');
+            this.toast('success', 'Đã tạo kho tài liệu mới.');
             this.loadLibraries();
           })
           .withFailureHandler((e) => {
@@ -790,7 +796,7 @@
           );
       },
 
-      // --- Chờ duyệt tri thức ---
+      // --- Chờ duyệt tài liệu ---
       loadPendingKnowledgeReviews() {
         google.script.run
           .withSuccessHandler((docs) => { this.pendingKnowledgeReviews = docs; })
@@ -816,11 +822,20 @@
           .api_rejectKnowledgeDocument(documentId, this.reviewComments[documentId]);
       },
 
+      searchFilters: { status: '', documentType: '', importance: '' },
+      searchFiltersActive() {
+        return this.searchFilters.status || this.searchFilters.documentType || this.searchFilters.importance;
+      },
+      clearSearchFilters() {
+        this.searchFilters = { status: '', documentType: '', importance: '' };
+        this.runSearch();
+      },
+
       runSearch() {
         google.script.run
           .withSuccessHandler((results) => { this.searchResults = results; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_searchDocuments(this.searchKeyword || '', this.selectedLibraryId);
+          .api_searchDocuments(this.searchKeyword || '', this.selectedLibraryId, this.searchFilters);
       },
 
       openVersions(documentId) {
@@ -931,11 +946,32 @@
           .api_updateAIProviderConfig(this.aiForm.providerId, this.aiForm.modelName, this.aiForm.apiKey, this.aiForm.temperature, this.aiForm.maxTokens, this.aiForm.timeout);
       },
 
+      auditFilters: { userId: '', action: '', fromDate: '', toDate: '' },
+      auditFiltersActive() {
+        const f = this.auditFilters;
+        return f.userId || f.action || f.fromDate || f.toDate;
+      },
+      clearAuditFilters() {
+        this.auditFilters = { userId: '', action: '', fromDate: '', toDate: '' };
+        this.loadAuditLog();
+      },
+      // Input type=date chỉ có ngày (YYYY-MM-DD) — Timestamp lưu ISO đầy đủ có giờ (nowIso()), nên
+      // phải ghép giờ đầu/cuối ngày mới bao trọn được cả ngày khi so sánh chuỗi >=/<= ở backend.
+      buildAuditApiFilters_() {
+        const f = this.auditFilters;
+        return {
+          userId: f.userId || '',
+          action: f.action || '',
+          fromDate: f.fromDate ? f.fromDate + 'T00:00:00.000Z' : '',
+          toDate: f.toDate ? f.toDate + 'T23:59:59.999Z' : ''
+        };
+      },
+
       loadAuditLog() {
         google.script.run
           .withSuccessHandler((logs) => { this.auditLogs = logs; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_searchAuditLog({});
+          .api_searchAuditLog(this.buildAuditApiFilters_());
       },
 
       exportAuditLogAction() {
@@ -949,7 +985,7 @@
             this.exportingAuditLog = false;
             this.errorMessage = e.message;
           })
-          .api_exportAuditLogToExcel({});
+          .api_exportAuditLogToExcel(this.buildAuditApiFilters_());
       },
 
       loadAccuracyReport() {
