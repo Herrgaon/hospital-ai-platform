@@ -26,7 +26,7 @@ function classifyByFilenameRules_(fileName) {
 
 function loadClassificationRuleSet_() {
   const ruleRow = getSheetRepository(SHEETS.RULES).findAll().find(function (r) {
-    return r.RuleSetName === CLASSIFICATION_RULE_SET_NAME && r.Status === 'Active';
+    return r.RuleType === RULE_TYPES.CLASSIFICATION && r.Status === 'Active';
   });
   if (!ruleRow) return { rules: [] };
   return loadRuleSet(ruleRow.DriveFileID);

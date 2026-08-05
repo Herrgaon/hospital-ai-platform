@@ -38,6 +38,27 @@ function syncSchemaWithSpreadsheet(user) {
     spreadsheet.setNamedRange(rangeName, sheet.getRange(1, 1, Math.max(sheet.getMaxRows(), 2), finalWidth));
   });
 
+  const backfillCount = backfillRuleTypeForExistingRows_();
+  if (backfillCount > 0) {
+    report.push('Rules: gán lại RuleType cho ' + backfillCount + ' dòng cũ (dữ liệu tạo trước khi có cột RuleType)');
+  }
+
   logAudit(user.UserID, 'SCHEMA_SYNCED', 'System', spreadsheet.getId(), report.join(' | ') || 'Không có thay đổi');
   return { changes: report };
+}
+
+// Sửa dữ liệu cũ: các dòng Rules tạo trước khi có cột RuleType (xem RuleEngine.Core.gs và
+// Knowledge.ClassificationRules.gs — 2 Rule Engine khác nhau dùng chung sheet, thiếu RuleType sẽ
+// khiến cả hai không tìm thấy rule của mình). Suy luận RuleType từ RuleSetName đã biết trước.
+function backfillRuleTypeForExistingRows_() {
+  const repo = getSheetRepository(SHEETS.RULES);
+  const rows = repo.findAll();
+  let count = 0;
+  rows.forEach(function (row) {
+    if (!isBlank(row.RuleType)) return;
+    const inferredType = row.RuleSetName === CLASSIFICATION_RULE_SET_NAME ? RULE_TYPES.CLASSIFICATION : RULE_TYPES.FORMAT_CHECK;
+    repo.updateById('RuleID', row.RuleID, { RuleType: inferredType });
+    count++;
+  });
+  return count;
 }

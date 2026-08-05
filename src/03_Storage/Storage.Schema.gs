@@ -39,7 +39,11 @@ const SCHEMA = {
   ],
   [SHEETS.DOCUMENT_VERSIONS]: ['VersionID', 'DocumentID', 'VersionNumber', 'DriveFileID', 'ChangedByUserID', 'ChangeNote', 'CreatedAt'],
   [SHEETS.TEMPLATES]: ['TemplateID', 'TemplateName', 'LibraryID', 'CategoryID', 'DriveFileID', 'Fields', 'Status', 'CreatedAt'],
-  [SHEETS.RULES]: ['RuleID', 'RuleSetName', 'LibraryID', 'DriveFileID', 'Version', 'Status'],
+  // RuleType phân biệt 2 Rule Engine độc lập dùng chung sheet này — FORMAT_CHECK (kiểm tra thể thức,
+  // RuleEngine.Core.gs) và CLASSIFICATION (phân loại tài liệu, Knowledge.ClassificationRules.gs).
+  // Thiếu cột này thì getApplicableRuleSets sẽ vô tình nạp cả rule phân loại vào lúc kiểm tra thể thức
+  // và crash vì loại rule (FILENAME_REGEX) không có handler tương ứng.
+  [SHEETS.RULES]: ['RuleID', 'RuleSetName', 'RuleType', 'LibraryID', 'DriveFileID', 'Version', 'Status'],
   [SHEETS.WORKFLOWS]: ['WorkflowID', 'WorkflowName', 'LibraryID', 'StepsDefinition', 'Status'],
   [SHEETS.WORKFLOW_INSTANCES]: ['InstanceID', 'WorkflowID', 'DocumentID', 'CurrentStep', 'Status', 'StartedAt', 'CompletedAt'],
   [SHEETS.WORKFLOW_STEP_LOG]: ['LogID', 'InstanceID', 'StepName', 'ActorUserID', 'Action', 'Comment', 'Timestamp'],
@@ -51,6 +55,11 @@ const SCHEMA = {
   // "AI Learning" đơn giản hoá (docs/10-knowledge-design.md mục 9) — chỉ ghi nhận AI đề xuất gì
   // và người dùng chốt lại là gì, KHÔNG tự động fine-tune model. Dùng để Admin xem AI Accuracy sau này.
   [SHEETS.CLASSIFICATION_FEEDBACK]: ['FeedbackID', 'DocumentID', 'Field', 'SuggestedValue', 'FinalValue', 'Confidence', 'Source', 'Timestamp']
+};
+
+const RULE_TYPES = {
+  FORMAT_CHECK: 'FORMAT_CHECK',
+  CLASSIFICATION: 'CLASSIFICATION'
 };
 
 const ROLE_NAMES = {

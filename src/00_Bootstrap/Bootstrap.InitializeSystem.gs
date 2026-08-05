@@ -199,6 +199,7 @@ function syncDefaultRuleFiles_(rootFolder) {
     rulesRepo.append({
       RuleID: generateId('RULE'),
       RuleSetName: rf.ruleSetName,
+      RuleType: RULE_TYPES.FORMAT_CHECK,
       LibraryID: '*',
       DriveFileID: file.getId(),
       Version: 1,
@@ -207,11 +208,12 @@ function syncDefaultRuleFiles_(rootFolder) {
   });
 
   // Rule phân loại tài liệu (docs/10-knowledge-design.md mục 9) — ruleSet riêng, không lẫn với
-  // rule kiểm tra thể thức ở trên.
+  // rule kiểm tra thể thức ở trên (RuleType khác nhau — xem Storage.Schema.gs).
   const classificationFile = rulesFolder.createFile('Rule_Classification.json', getDefaultClassificationRuleSetContent_(), MimeType.PLAIN_TEXT);
   rulesRepo.append({
     RuleID: generateId('RULE'),
     RuleSetName: CLASSIFICATION_RULE_SET_NAME,
+    RuleType: RULE_TYPES.CLASSIFICATION,
     LibraryID: '*',
     DriveFileID: classificationFile.getId(),
     Version: 1,

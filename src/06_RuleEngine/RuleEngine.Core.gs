@@ -21,9 +21,12 @@ function runRuleSet(ruleSet, inspectedDocument) {
   };
 }
 
+// CHỈ lấy Rule kiểm tra thể thức (RuleType=FORMAT_CHECK) — sheet Rules còn chứa cả Rule phân loại
+// tài liệu (RuleType=CLASSIFICATION, xem Knowledge.ClassificationRules.gs), 2 loại rule có cấu trúc
+// "type" khác nhau hoàn toàn, lẫn vào đây sẽ crash vì RULE_HANDLERS không có handler tương ứng.
 function getApplicableRuleSets(libraryId) {
   const ruleRows = getSheetRepository(SHEETS.RULES).findAll().filter(function (r) {
-    return r.Status === 'Active' && (r.LibraryID === '*' || r.LibraryID === libraryId);
+    return r.Status === 'Active' && r.RuleType === RULE_TYPES.FORMAT_CHECK && (r.LibraryID === '*' || r.LibraryID === libraryId);
   });
   return ruleRows.map(function (r) { return loadRuleSet(r.DriveFileID); });
 }
