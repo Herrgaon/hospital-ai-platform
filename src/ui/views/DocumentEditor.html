@@ -1,0 +1,152 @@
+<div x-show="currentView === 'documents'" x-init="$watch('currentView', v => { if (v === 'documents') { loadMyDocuments(); if (libraries.length === 0) loadLibraries(); } })" class="max-w-2xl space-y-6">
+  <h1 class="text-xl font-semibold">Văn bản</h1>
+
+  <template x-if="errorMessage">
+    <div class="bg-red-50 text-red-700 border border-red-200 rounded p-3 text-sm" x-text="errorMessage"></div>
+  </template>
+
+  <!-- Tab bar -->
+  <div class="flex gap-1 border-b dark:border-gray-700">
+    <button @click="docTab = 'create'" class="px-4 py-2 text-sm border-b-2 -mb-px"
+            :class="docTab === 'create' ? 'border-blue-600 text-blue-600 font-medium' : 'border-transparent text-gray-500'">
+      Tạo mới / Đang xử lý
+    </button>
+    <button @click="docTab = 'mine'" class="px-4 py-2 text-sm border-b-2 -mb-px"
+            :class="docTab === 'mine' ? 'border-blue-600 text-blue-600 font-medium' : 'border-transparent text-gray-500'">
+      Văn bản của tôi
+    </button>
+  </div>
+
+  <!-- Tab: Của tôi -->
+  <div x-show="docTab === 'mine'" class="space-y-2">
+    <template x-if="myDocuments.length === 0">
+      <p class="text-sm text-gray-500">Chưa có văn bản nào.</p>
+    </template>
+    <ul class="space-y-1">
+      <template x-for="doc in myDocuments" :key="doc.DocumentID">
+        <li class="text-sm flex items-center justify-between border rounded px-3 py-2 dark:border-gray-700">
+          <span x-text="doc.Title"></span>
+          <span class="flex items-center gap-3">
+            <span class="text-xs text-gray-500" x-text="doc.Status"></span>
+            <button @click="resumeDocument(doc)" class="text-blue-600 underline text-xs">Mở</button>
+          </span>
+        </li>
+      </template>
+    </ul>
+  </div>
+
+  <!-- Tab: Tạo mới / Đang xử lý -->
+  <div x-show="docTab === 'create'" class="space-y-6">
+    <!-- Bước 1: chọn mẫu -->
+    <template x-if="!currentDocument">
+      <div class="space-y-2">
+        <label class="text-sm font-medium">Mẫu văn bản</label>
+        <select x-model="selectedTemplateId" @change="onTemplateChange()" class="w-full border rounded px-3 py-2 dark:bg-gray-800 dark:border-gray-600">
+          <option value="">-- Chọn mẫu --</option>
+          <template x-for="t in templates" :key="t.TemplateID">
+            <option :value="t.TemplateID" x-text="t.TemplateName"></option>
+          </template>
+        </select>
+      </div>
+    </template>
+
+    <!-- Bước 2: điền field -->
+    <template x-if="selectedTemplateFields.length > 0 && !currentDocument">
+      <div class="space-y-3 border-t pt-4 dark:border-gray-700">
+        <template x-for="f in selectedTemplateFields" :key="f.name">
+          <div class="space-y-1">
+            <label class="text-sm font-medium" x-text="f.label"></label>
+            <textarea x-show="f.multiline" x-model="fieldValues[f.name]" class="w-full border rounded px-3 py-2 dark:bg-gray-800 dark:border-gray-600" rows="3"></textarea>
+            <input x-show="!f.multiline" type="text" x-model="fieldValues[f.name]" class="w-full border rounded px-3 py-2 dark:bg-gray-800 dark:border-gray-600">
+          </div>
+        </template>
+        <button @click="createDocument()" :disabled="creating" class="bg-blue-600 text-white px-4 py-2 rounded text-sm disabled:opacity-50">
+          <span x-text="creating ? 'Đang tạo...' : 'Tạo văn bản'"></span>
+        </button>
+      </div>
+    </template>
+
+    <!-- Bước 3: kiểm tra thể thức -->
+    <template x-if="currentDocument">
+      <div class="space-y-3 border-t pt-4 dark:border-gray-700">
+        <div class="flex items-center justify-between">
+          <p class="text-sm">Văn bản: <strong x-text="currentDocument.Title"></strong> <span class="text-xs text-gray-500" x-text="'(' + currentDocument.Status + ')'"></span></p>
+          <button @click="closeCurrentDocument()" class="text-xs text-gray-500 underline">Đóng</button>
+        </div>
+
+        <a :href="'https://docs.google.com/document/d/' + currentDocument.DriveFileID + '/edit'" target="_blank" class="text-blue-600 underline text-sm inline-block">
+          Mở để chỉnh sửa nội dung (Google Docs)
+        </a>
+
+        <div>
+          <button @click="checkRules()" :disabled="checking" class="bg-gray-700 text-white px-4 py-2 rounded text-sm disabled:opacity-50">
+            <span x-text="checking ? 'Đang kiểm tra...' : 'Kiểm tra thể thức'"></span>
+          </button>
+        </div>
+
+        <!-- Rà soát căn cứ pháp lý: chọn kho tri thức để đối chiếu -->
+        <div class="border rounded p-3 space-y-2 dark:border-gray-700">
+          <div class="flex items-center justify-between">
+            <p class="text-sm font-medium">Rà soát căn cứ pháp lý (AI)</p>
+            <button @click="suggestReviewLibraries()" class="text-xs text-blue-600 underline">Gợi ý kho phù hợp</button>
+          </div>
+          <p class="text-xs text-gray-500">Chọn kho tri thức chứa văn bản pháp lý liên quan để đối chiếu — chỉ chọn kho phù hợp (ví dụ "Đấu thầu") sẽ cho kết quả nhanh và chính xác hơn quét toàn bộ hệ thống.</p>
+          <div class="flex flex-wrap gap-3">
+            <template x-for="lib in libraries" :key="lib.LibraryID">
+              <label class="text-sm flex items-center gap-1">
+                <input type="checkbox" :checked="reviewLibraryIds.includes(lib.LibraryID)" @change="toggleReviewLibrary(lib.LibraryID, $event.target.checked)">
+                <span x-text="lib.LibraryName"></span>
+              </label>
+            </template>
+          </div>
+          <button @click="runLegalReview()" :disabled="reviewing || reviewLibraryIds.length === 0" class="bg-gray-700 text-white px-4 py-2 rounded text-sm disabled:opacity-50">
+            <span x-text="reviewing ? 'Đang rà soát...' : 'Chạy rà soát'"></span>
+          </button>
+          <template x-if="reviewResult">
+            <div class="border rounded p-3 text-sm whitespace-pre-wrap dark:border-gray-700 dark:bg-gray-800" x-text="reviewResult"></div>
+          </template>
+        </div>
+
+        <template x-if="ruleCheckResult">
+          <div class="space-y-3">
+            <p class="text-sm font-medium" :class="ruleCheckResult.passed ? 'text-green-600' : 'text-red-600'"
+               x-text="ruleCheckResult.passed ? 'Đạt thể thức' : 'Còn lỗi cần sửa'"></p>
+
+            <template x-for="rs in ruleCheckResult.ruleSets" :key="rs.ruleSetId">
+              <div class="border rounded p-3 dark:border-gray-700">
+                <p class="text-sm font-medium mb-2" x-text="rs.ruleSetName"></p>
+                <ul class="space-y-1">
+                  <template x-for="r in rs.results" :key="r.ruleId">
+                    <li class="text-sm flex gap-2">
+                      <span x-text="r.passed ? '✅' : (r.severity === 'ERROR' ? '❌' : '⚠️')"></span>
+                      <span x-text="r.description"></span>
+                    </li>
+                  </template>
+                </ul>
+              </div>
+            </template>
+
+            <div x-show="ruleCheckResult.passed && !submittedForApproval" class="flex gap-2">
+              <button @click="exportWord()" :disabled="exporting" class="bg-green-600 text-white px-4 py-2 rounded text-sm disabled:opacity-50">
+                <span x-text="exporting ? 'Đang xuất...' : 'Xuất Word trực tiếp'"></span>
+              </button>
+              <button @click="submitForApprovalAction()" :disabled="submittingApproval" class="bg-blue-600 text-white px-4 py-2 rounded text-sm disabled:opacity-50">
+                <span x-text="submittingApproval ? 'Đang gửi...' : 'Gửi duyệt'"></span>
+              </button>
+            </div>
+
+            <template x-if="exportResult">
+              <p class="text-sm">
+                <a :href="exportResult.url" target="_blank" class="text-blue-600 underline">Mở file Word đã xuất</a>
+              </p>
+            </template>
+
+            <template x-if="submittedForApproval">
+              <p class="text-sm text-blue-600">Đã gửi duyệt — xem trạng thái tại mục "Workflow".</p>
+            </template>
+          </div>
+        </template>
+      </div>
+    </template>
+  </div>
+</div>

@@ -1,0 +1,9 @@
+<!-- Tailwind CSS qua CDN — xem docs/06-ui-specification.md mục 2.
+     TODO trước khi lên Production: chuyển sang bản build tĩnh có ghim phiên bản + thêm
+     thuộc tính integrity (SRI) theo docs/13-security.md mục 7 (Play CDN hiện tại của Tailwind
+     không hỗ trợ SRI vì nội dung sinh động theo class dùng trong trang). -->
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  .nav-item { display: block; padding: 0.5rem 0.75rem; border-radius: 0.375rem; font-size: 0.875rem; }
+  .nav-item:hover { background-color: rgba(0,0,0,0.05); }
+</style>

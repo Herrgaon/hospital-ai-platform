@@ -1,0 +1,150 @@
+<div x-show="currentView === 'admin' && isAdmin" x-init="$watch('currentView', v => { if (v === 'admin' && isAdmin && allUsers.length === 0) loadAdminData(); })" class="max-w-4xl">
+  <h1 class="text-xl font-semibold mb-4">Quản trị hệ thống</h1>
+
+  <!-- Tab bar -->
+  <div class="flex gap-1 border-b dark:border-gray-700 mb-6">
+    <button @click="adminTab = 'users'" class="px-4 py-2 text-sm border-b-2 -mb-px"
+            :class="adminTab === 'users' ? 'border-blue-600 text-blue-600 font-medium' : 'border-transparent text-gray-500'">
+      Người dùng & Vai trò
+    </button>
+    <button @click="adminTab = 'ai'" class="px-4 py-2 text-sm border-b-2 -mb-px"
+            :class="adminTab === 'ai' ? 'border-blue-600 text-blue-600 font-medium' : 'border-transparent text-gray-500'">
+      Cấu hình AI
+    </button>
+    <button @click="adminTab = 'templates'" class="px-4 py-2 text-sm border-b-2 -mb-px"
+            :class="adminTab === 'templates' ? 'border-blue-600 text-blue-600 font-medium' : 'border-transparent text-gray-500'">
+      Mẫu văn bản
+    </button>
+    <button @click="adminTab = 'log'" class="px-4 py-2 text-sm border-b-2 -mb-px"
+            :class="adminTab === 'log' ? 'border-blue-600 text-blue-600 font-medium' : 'border-transparent text-gray-500'">
+      Audit Log
+    </button>
+  </div>
+
+  <div class="flex items-center gap-2 mb-4">
+    <button @click="syncSchemaAction()" :disabled="syncingSchema" class="bg-gray-700 text-white px-3 py-1 rounded text-sm disabled:opacity-50">
+      <span x-text="syncingSchema ? 'Đang đồng bộ...' : 'Đồng bộ cấu trúc dữ liệu'"></span>
+    </button>
+    <span class="text-xs text-gray-500">Chạy sau khi có bản cập nhật mã nguồn thêm cột/sheet mới — không mất dữ liệu cũ.</span>
+  </div>
+  <template x-if="schemaSyncResult">
+    <div class="bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded p-2 text-xs mb-4">
+      <template x-if="schemaSyncResult.changes.length === 0"><span>Cấu trúc dữ liệu đã cập nhật, không có gì thay đổi.</span></template>
+      <template x-for="c in schemaSyncResult.changes" :key="c"><p x-text="c"></p></template>
+    </div>
+  </template>
+
+  <!-- Tab: Người dùng & vai trò -->
+  <div x-show="adminTab === 'users'" class="space-y-2">
+    <table class="w-full text-sm border-collapse">
+      <thead>
+        <tr class="text-left border-b dark:border-gray-700">
+          <th class="py-1">Email</th>
+          <th class="py-1">Vai trò</th>
+          <th class="py-1"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-for="u in allUsers" :key="u.UserID">
+          <tr class="border-b dark:border-gray-800">
+            <td class="py-1" x-text="u.Email"></td>
+            <td class="py-1">
+              <select x-model="u.Role" class="border rounded px-2 py-0.5 text-sm dark:bg-gray-800 dark:border-gray-600">
+                <template x-for="r in allRoles" :key="r.RoleID">
+                  <option :value="r.RoleID" x-text="r.RoleName"></option>
+                </template>
+              </select>
+            </td>
+            <td class="py-1">
+              <button @click="saveUserRole(u)" class="text-blue-600 underline text-xs">Lưu</button>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Tab: Cấu hình AI -->
+  <div x-show="adminTab === 'ai'" class="space-y-2">
+    <div class="flex items-center gap-2">
+      <input type="checkbox" x-model="aiEnabled" @change="toggleAi()" id="aiEnabledToggle">
+      <label for="aiEnabledToggle" class="text-sm">Bật AI cho toàn hệ thống</label>
+    </div>
+
+    <template x-if="activeAiConfig">
+      <p class="text-sm text-gray-500">
+        Đang dùng: <span x-text="activeAiConfig.ProviderID"></span> / <span x-text="activeAiConfig.ModelName"></span>
+        (Key: <span x-text="activeAiConfig.ApiKeyMasked"></span>)
+      </p>
+    </template>
+
+    <div class="grid grid-cols-2 gap-2 max-w-md">
+      <select x-model="aiForm.providerId" class="border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
+        <template x-for="p in aiProviders" :key="p.ProviderID">
+          <option :value="p.ProviderID" x-text="p.ProviderName"></option>
+        </template>
+      </select>
+      <input type="text" x-model="aiForm.modelName" placeholder="Model (ví dụ: claude-sonnet-5)" class="border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
+      <input type="password" x-model="aiForm.apiKey" placeholder="API Key" class="border rounded px-2 py-1 text-sm col-span-2 dark:bg-gray-800 dark:border-gray-600">
+      <input type="number" step="0.1" min="0" max="1" x-model.number="aiForm.temperature" placeholder="Temperature" class="border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
+      <input type="number" x-model.number="aiForm.maxTokens" placeholder="Max Tokens" class="border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
+      <input type="number" x-model.number="aiForm.timeout" placeholder="Timeout (giây)" class="border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
+    </div>
+    <button @click="saveAiConfig()" :disabled="savingAiConfig" class="bg-blue-600 text-white px-4 py-2 rounded text-sm disabled:opacity-50">
+      <span x-text="savingAiConfig ? 'Đang lưu...' : 'Lưu cấu hình AI'"></span>
+    </button>
+  </div>
+
+  <!-- Tab: Mẫu văn bản -->
+  <div x-show="adminTab === 'templates'" class="space-y-2">
+    <h2 class="text-sm font-medium">Tạo mẫu văn bản mới</h2>
+    <p class="text-xs text-gray-500">Tải lên 1 file Google Doc/Word đã chèn sẵn placeholder dạng [tenField], sau đó liệt kê tên các field (phân tách bằng dấu phẩy).</p>
+    <div class="grid grid-cols-2 gap-2 max-w-md">
+      <input type="text" x-model="templateForm.name" placeholder="Tên mẫu" class="border rounded px-2 py-1 text-sm col-span-2 dark:bg-gray-800 dark:border-gray-600">
+      <select x-model="templateForm.libraryId" class="border rounded px-2 py-1 text-sm col-span-2 dark:bg-gray-800 dark:border-gray-600">
+        <option value="">-- Chọn kho tri thức --</option>
+        <template x-for="lib in libraries" :key="lib.LibraryID">
+          <option :value="lib.LibraryID" x-text="lib.LibraryName"></option>
+        </template>
+      </select>
+      <input type="text" x-model="templateForm.fieldsCsv" placeholder="Các field, ví dụ: coQuanBanHanh, docNumber, noiDung" class="border rounded px-2 py-1 text-sm col-span-2 dark:bg-gray-800 dark:border-gray-600">
+      <input type="file" @change="onTemplateFileSelected($event)" class="text-sm col-span-2">
+    </div>
+    <button @click="createTemplateAction()" :disabled="creatingTemplate || !templateForm.name || !templateForm.libraryId || !pendingTemplateFile" class="bg-blue-600 text-white px-4 py-2 rounded text-sm disabled:opacity-50">
+      <span x-text="creatingTemplate ? 'Đang tạo...' : 'Tạo mẫu'"></span>
+    </button>
+  </div>
+
+  <!-- Tab: Audit Log -->
+  <div x-show="adminTab === 'log'" class="space-y-2">
+    <div class="flex gap-2">
+      <button @click="loadAuditLog()" class="bg-gray-700 text-white px-3 py-1 rounded text-sm">Tải nhật ký</button>
+      <button @click="exportAuditLogAction()" :disabled="exportingAuditLog" class="bg-gray-700 text-white px-3 py-1 rounded text-sm disabled:opacity-50">
+        <span x-text="exportingAuditLog ? 'Đang xuất...' : 'Xuất Excel'"></span>
+      </button>
+      <template x-if="auditExportResult">
+        <a :href="auditExportResult.url" target="_blank" class="text-blue-600 underline text-sm self-center">Mở file Excel</a>
+      </template>
+    </div>
+    <table class="w-full text-sm border-collapse">
+      <thead>
+        <tr class="text-left border-b dark:border-gray-700">
+          <th class="py-1">Thời gian</th>
+          <th class="py-1">Hành động</th>
+          <th class="py-1">Đối tượng</th>
+          <th class="py-1">Chi tiết</th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-for="log in auditLogs" :key="log.LogID">
+          <tr class="border-b dark:border-gray-800">
+            <td class="py-1" x-text="log.Timestamp"></td>
+            <td class="py-1" x-text="log.Action"></td>
+            <td class="py-1" x-text="log.TargetType + ' ' + log.TargetID"></td>
+            <td class="py-1" x-text="log.Detail"></td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+</div>

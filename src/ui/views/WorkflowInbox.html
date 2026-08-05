@@ -1,0 +1,19 @@
+<div x-show="currentView === 'workflow'" x-init="$watch('currentView', v => { if (v === 'workflow') loadPendingApprovals(); })" class="max-w-2xl space-y-4">
+  <h1 class="text-xl font-semibold">Chờ phê duyệt</h1>
+
+  <template x-if="pendingApprovals.length === 0">
+    <p class="text-sm text-gray-500">Không có văn bản nào đang chờ bạn duyệt.</p>
+  </template>
+
+  <template x-for="row in pendingApprovals" :key="row.instance.InstanceID">
+    <div class="border rounded p-4 space-y-2 dark:border-gray-700">
+      <p class="font-medium" x-text="row.document.Title"></p>
+      <p class="text-xs text-gray-500" x-text="'Gửi lúc: ' + row.instance.StartedAt"></p>
+      <textarea x-model="approvalComments[row.instance.InstanceID]" placeholder="Ý kiến (bắt buộc nếu từ chối)" class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600" rows="2"></textarea>
+      <div class="flex gap-2">
+        <button @click="approveInstance(row.instance.InstanceID)" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm">Duyệt</button>
+        <button @click="rejectInstance(row.instance.InstanceID)" class="bg-red-600 text-white px-3 py-1.5 rounded text-sm">Từ chối</button>
+      </div>
+    </div>
+  </template>
+</div>

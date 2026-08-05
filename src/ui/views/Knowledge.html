@@ -1,0 +1,300 @@
+<div x-show="currentView === 'knowledge'" x-init="$watch('currentView', v => { if (v === 'knowledge' && libraries.length === 0) loadLibraries(); })" class="max-w-4xl space-y-6">
+  <h1 class="text-xl font-semibold">Kho tri thức</h1>
+
+  <div class="flex gap-6">
+    <!-- Danh sách Library -->
+    <div class="w-56 shrink-0 space-y-2">
+      <template x-for="lib in libraries" :key="lib.LibraryID">
+        <button @click="selectLibrary(lib.LibraryID)"
+                class="w-full text-left px-3 py-2 rounded text-sm"
+                :class="selectedLibraryId === lib.LibraryID ? 'bg-blue-100 dark:bg-blue-900 font-medium' : 'hover:bg-gray-100 dark:hover:bg-gray-800'"
+                x-text="lib.LibraryName"></button>
+      </template>
+
+      <template x-if="isAdmin">
+        <div class="border-t pt-3 mt-3 space-y-2 dark:border-gray-700">
+          <input type="text" x-model="newLibraryName" placeholder="Tên kho mới" class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
+          <label class="text-xs flex items-center gap-1">
+            <input type="checkbox" x-model="newLibraryRequiresReview">
+            <span>Yêu cầu duyệt tri thức trước khi AI dùng</span>
+          </label>
+          <button @click="createLibraryAction()" :disabled="creatingLibrary || !newLibraryName" class="w-full bg-blue-600 text-white px-3 py-1.5 rounded text-sm disabled:opacity-50">
+            + Tạo kho tri thức
+          </button>
+        </div>
+      </template>
+    </div>
+
+    <!-- Nội dung -->
+    <div class="flex-1">
+      <!-- Tab bar -->
+      <div class="flex gap-1 border-b dark:border-gray-700 mb-4">
+        <button @click="knowledgeTab = 'search'" class="px-4 py-2 text-sm border-b-2 -mb-px"
+                :class="knowledgeTab === 'search' ? 'border-blue-600 text-blue-600 font-medium' : 'border-transparent text-gray-500'">
+          Tìm kiếm & tài liệu
+        </button>
+        <button @click="knowledgeTab = 'categories'" class="px-4 py-2 text-sm border-b-2 -mb-px"
+                :class="knowledgeTab === 'categories' ? 'border-blue-600 text-blue-600 font-medium' : 'border-transparent text-gray-500'">
+          Danh mục
+        </button>
+        <button @click="knowledgeTab = 'upload'" class="px-4 py-2 text-sm border-b-2 -mb-px"
+                :class="knowledgeTab === 'upload' ? 'border-blue-600 text-blue-600 font-medium' : 'border-transparent text-gray-500'">
+          Tải lên tài liệu
+        </button>
+        <button @click="knowledgeTab = 'review'; loadPendingKnowledgeReviews()" class="px-4 py-2 text-sm border-b-2 -mb-px"
+                :class="knowledgeTab === 'review' ? 'border-blue-600 text-blue-600 font-medium' : 'border-transparent text-gray-500'">
+          Chờ duyệt tri thức <span x-show="pendingKnowledgeReviews.length > 0" x-text="'(' + pendingKnowledgeReviews.length + ')'"></span>
+        </button>
+        <button x-show="canManageSelectedLibrary" @click="knowledgeTab = 'permissions'" class="px-4 py-2 text-sm border-b-2 -mb-px"
+                :class="knowledgeTab === 'permissions' ? 'border-blue-600 text-blue-600 font-medium' : 'border-transparent text-gray-500'">
+          Phân quyền
+        </button>
+      </div>
+
+      <!-- Tab: Tìm kiếm & tài liệu (không cần chọn Library — tìm trên toàn bộ nếu chưa chọn) -->
+      <div x-show="knowledgeTab === 'search'" class="space-y-4">
+        <div class="flex gap-2">
+          <input type="text" x-model="searchKeyword" @keyup.enter="runSearch()" placeholder="Nhập từ khoá..." class="border rounded px-2 py-1 text-sm flex-1 dark:bg-gray-800 dark:border-gray-600">
+          <button @click="runSearch()" class="bg-gray-700 text-white px-3 py-1 rounded text-sm">Tìm</button>
+        </div>
+        <ul class="space-y-1">
+          <template x-for="doc in searchResults" :key="doc.DocumentID">
+            <li class="text-sm border rounded px-3 py-2 dark:border-gray-700">
+              <div class="flex items-center justify-between">
+                <span x-text="doc.Title"></span>
+                <span class="flex gap-3">
+                  <button @click="openVersions(doc.DocumentID)" class="text-blue-600 underline text-xs">Lịch sử phiên bản</button>
+                  <button @click="extractTextAction(doc.DocumentID)" class="text-blue-600 underline text-xs">Trích văn bản (OCR)</button>
+                </span>
+              </div>
+              <template x-if="ocrResults[doc.DocumentID]">
+                <pre class="mt-2 text-xs whitespace-pre-wrap bg-gray-50 dark:bg-gray-800 p-2 rounded" x-text="ocrResults[doc.DocumentID]"></pre>
+              </template>
+            </li>
+          </template>
+        </ul>
+
+        <!-- Lịch sử phiên bản + so sánh -->
+        <template x-if="documentVersions.length > 0">
+          <div class="space-y-2 border-t pt-4 dark:border-gray-700">
+            <p class="text-sm font-medium">So sánh phiên bản</p>
+            <div class="flex gap-2 items-center">
+              <select x-model="compareVersionA" class="border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
+                <template x-for="v in documentVersions" :key="v.VersionID">
+                  <option :value="v.VersionID" x-text="'v' + v.VersionNumber"></option>
+                </template>
+              </select>
+              <span class="text-sm">so với</span>
+              <select x-model="compareVersionB" class="border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
+                <template x-for="v in documentVersions" :key="v.VersionID">
+                  <option :value="v.VersionID" x-text="'v' + v.VersionNumber"></option>
+                </template>
+              </select>
+              <button @click="compareVersionsAction()" :disabled="comparing" class="bg-gray-700 text-white px-3 py-1 rounded text-sm">So sánh</button>
+            </div>
+
+            <template x-if="compareResult">
+              <div class="border rounded p-3 text-sm font-mono whitespace-pre-wrap dark:border-gray-700">
+                <template x-for="(line, idx) in compareResult.diff" :key="idx">
+                  <div :class="{'bg-green-100 dark:bg-green-900': line.type === 'added', 'bg-red-100 dark:bg-red-900 line-through': line.type === 'removed'}">
+                    <span x-text="(line.type === 'added' ? '+ ' : line.type === 'removed' ? '- ' : '  ') + line.text"></span>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+
+      <!-- Tab: Danh mục (cần chọn Library trước) -->
+      <div x-show="knowledgeTab === 'categories'" class="space-y-2">
+        <p x-show="!selectedLibraryId" class="text-sm text-gray-500">Chọn một kho tri thức bên trái để xem/thêm danh mục.</p>
+        <template x-if="selectedLibraryId">
+          <div class="space-y-2">
+            <div class="flex flex-wrap gap-2">
+              <template x-for="cat in categories" :key="cat.CategoryID">
+                <span class="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded" x-text="cat.CategoryName"></span>
+              </template>
+            </div>
+            <div class="flex gap-2">
+              <input type="text" x-model="newCategoryName" placeholder="Tên danh mục mới" class="border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
+              <button @click="createCategoryAction()" :disabled="!newCategoryName" class="bg-gray-700 text-white px-3 py-1 rounded text-sm disabled:opacity-50">Thêm</button>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Tab: Tải lên — hệ thống tự phân loại (Rule Engine trước, AI bù chỗ Rule chưa xác định) -->
+      <div x-show="knowledgeTab === 'upload'" class="space-y-4 max-w-lg">
+        <template x-if="!stagingResult">
+          <div class="space-y-2">
+            <p class="text-xs text-gray-500">Không cần chọn sẵn kho/danh mục — hệ thống sẽ tự phân loại (theo quy tắc, AI bù phần chưa xác định) và cho bạn xác nhận trước khi lưu.</p>
+            <input type="file" @change="onFileSelected($event)" class="text-sm">
+            <button @click="runClassification()" :disabled="classifying || !pendingFile" class="bg-blue-600 text-white px-4 py-2 rounded text-sm disabled:opacity-50">
+              <span x-text="classifying ? 'Đang phân loại...' : 'Phân loại tài liệu'"></span>
+            </button>
+          </div>
+        </template>
+
+        <template x-if="stagingResult">
+          <div class="space-y-3">
+            <template x-if="stagingResult.duplicateOf">
+              <div class="bg-yellow-50 dark:bg-yellow-900 border border-yellow-300 dark:border-yellow-700 rounded p-3 text-sm space-y-2">
+                <p class="font-medium">⚠ Tài liệu này có thể đã tồn tại (trùng nội dung tuyệt đối)</p>
+                <p>Tên: <strong x-text="stagingResult.duplicateOf.title"></strong> — Phiên bản hiện tại: v<span x-text="stagingResult.duplicateOf.currentVersion"></span> — Tải lên lúc: <span x-text="stagingResult.duplicateOf.uploadedAt"></span></p>
+                <div class="flex gap-2">
+                  <button @click="cancelStagedUpload()" class="bg-gray-700 text-white px-3 py-1 rounded text-xs">Huỷ, không tải lên</button>
+                  <button @click="stagingResult.duplicateOf = null" class="bg-yellow-600 text-white px-3 py-1 rounded text-xs">Vẫn tiếp tục (là tài liệu khác)</button>
+                </div>
+              </div>
+            </template>
+
+            <template x-if="!stagingResult.duplicateOf">
+              <div class="space-y-3">
+                <p x-show="stagingResult.ocrStatus === 'FAILED'" class="text-xs text-red-600">OCR thất bại — không đọc được nội dung, chỉ phân loại được theo tên file (không có gợi ý từ AI).</p>
+
+                <div class="space-y-1">
+                  <label class="text-xs font-medium">Kho tri thức <span x-show="uploadForm._libraryConfidence !== undefined" class="text-gray-400" x-text="'(' + uploadForm._libraryConfidence + '%)'"></span></label>
+                  <select x-model="uploadForm.libraryId" class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
+                    <option value="">-- Chọn kho --</option>
+                    <template x-for="lib in stagingResult.availableLibraries" :key="lib.LibraryID">
+                      <option :value="lib.LibraryID" x-text="lib.LibraryName"></option>
+                    </template>
+                  </select>
+                </div>
+
+                <div class="space-y-1">
+                  <label class="text-xs font-medium">Danh mục</label>
+                  <input type="text" x-model="uploadForm.category" class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
+                </div>
+                <div class="space-y-1">
+                  <label class="text-xs font-medium">Tags (phân tách bằng dấu phẩy)</label>
+                  <input type="text" x-model="uploadForm.tagsCsv" class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
+                </div>
+                <div class="space-y-1">
+                  <label class="text-xs font-medium">Đơn vị áp dụng (phân tách bằng dấu phẩy)</label>
+                  <input type="text" x-model="uploadForm.applicableDepartmentsCsv" class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
+                </div>
+
+                <button @click="showAdvancedMetadata = !showAdvancedMetadata" class="text-xs text-blue-600 underline">
+                  <span x-text="showAdvancedMetadata ? 'Ẩn Metadata nâng cao' : 'Hiển thị Metadata nâng cao'"></span>
+                </button>
+
+                <div x-show="showAdvancedMetadata" class="space-y-3 border-t pt-3 dark:border-gray-700">
+                  <div class="grid grid-cols-2 gap-2">
+                    <div class="space-y-1">
+                      <label class="text-xs font-medium">Danh mục con</label>
+                      <input type="text" x-model="uploadForm.subCategory" class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
+                    </div>
+                    <div class="space-y-1">
+                      <label class="text-xs font-medium">Loại văn bản</label>
+                      <input type="text" x-model="uploadForm.documentType" class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
+                    </div>
+                    <div class="space-y-1">
+                      <label class="text-xs font-medium">Cơ quan ban hành</label>
+                      <input type="text" x-model="uploadForm.issuer" class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
+                    </div>
+                    <div class="space-y-1">
+                      <label class="text-xs font-medium">Mức độ quan trọng</label>
+                      <select x-model="uploadForm.importance" class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
+                        <option value="">-- Chưa xác định --</option>
+                        <option value="Low">Thấp</option>
+                        <option value="Medium">Trung bình</option>
+                        <option value="High">Cao</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="space-y-1">
+                    <label class="text-xs font-medium">Tóm tắt</label>
+                    <textarea x-model="uploadForm.summary" rows="2" class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600"></textarea>
+                  </div>
+                  <div class="space-y-1">
+                    <label class="text-xs font-medium">Từ khoá (phân tách bằng dấu phẩy)</label>
+                    <input type="text" x-model="uploadForm.keywordsCsv" class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
+                  </div>
+                </div>
+
+                <div class="flex gap-2">
+                  <button @click="saveClassifiedDocument()" :disabled="savingClassification || !uploadForm.libraryId" class="bg-green-600 text-white px-4 py-2 rounded text-sm disabled:opacity-50">
+                    <span x-text="savingClassification ? 'Đang lưu...' : 'Lưu vào kho tri thức'"></span>
+                  </button>
+                  <button @click="cancelStagedUpload()" class="text-gray-500 underline text-sm">Huỷ</button>
+                </div>
+                <p class="text-xs text-gray-500">Sau khi lưu, tài liệu ở trạng thái "Chờ duyệt tri thức" — người phụ trách kho cần duyệt trước khi AI dùng để trả lời.</p>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+
+      <!-- Tab: Chờ duyệt tri thức -->
+      <div x-show="knowledgeTab === 'review'" class="space-y-3">
+        <template x-if="pendingKnowledgeReviews.length === 0">
+          <p class="text-sm text-gray-500">Không có tài liệu nào chờ bạn duyệt.</p>
+        </template>
+        <template x-for="doc in pendingKnowledgeReviews" :key="doc.DocumentID">
+          <div class="border rounded p-3 space-y-2 dark:border-gray-700">
+            <p class="font-medium text-sm" x-text="doc.Title"></p>
+            <p class="text-xs text-gray-500">
+              <span x-text="'Loại: ' + (doc.DocumentType || '(chưa rõ)')"></span> ·
+              <span x-text="'Danh mục: ' + (doc.SubCategory || '(chưa rõ)')"></span>
+            </p>
+            <p class="text-xs text-gray-500" x-show="doc.Summary" x-text="doc.Summary"></p>
+            <p class="text-xs text-gray-500" x-show="doc.Tags" x-text="'Tags: ' + doc.Tags"></p>
+            <a :href="'https://docs.google.com/document/d/' + doc.DriveFileID + '/edit'" target="_blank" class="text-blue-600 underline text-xs inline-block">Xem tài liệu</a>
+            <textarea x-model="reviewComments[doc.DocumentID]" placeholder="Ý kiến (bắt buộc nếu từ chối)" class="w-full border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600" rows="2"></textarea>
+            <div class="flex gap-2">
+              <button @click="approveKnowledgeDocAction(doc.DocumentID)" class="bg-green-600 text-white px-3 py-1.5 rounded text-sm">Duyệt (Published)</button>
+              <button @click="rejectKnowledgeDocAction(doc.DocumentID)" class="bg-red-600 text-white px-3 py-1.5 rounded text-sm">Từ chối</button>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Tab: Phân quyền (chỉ hiện khi bạn quản lý được kho này) -->
+      <div x-show="knowledgeTab === 'permissions' && canManageSelectedLibrary" class="space-y-4">
+        <p class="text-xs text-gray-500">Cấp quyền Thêm/Sửa/Xoá cho nhân viên trong kho tri thức này. Mọi người vẫn xem được kho này dù chưa được cấp quyền — chỉ Thêm/Sửa/Xoá mới cần cấp riêng.</p>
+
+        <table class="w-full text-sm border-collapse">
+          <thead>
+            <tr class="text-left border-b dark:border-gray-700">
+              <th class="py-1">Người dùng</th>
+              <th class="py-1 text-center">Xem</th>
+              <th class="py-1 text-center">Thêm</th>
+              <th class="py-1 text-center">Sửa</th>
+              <th class="py-1 text-center">Xoá</th>
+              <th class="py-1 text-center">Duyệt</th>
+              <th class="py-1"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="perm in libraryPermissions" :key="perm.PermissionID">
+              <tr class="border-b dark:border-gray-800">
+                <td class="py-1" x-text="userEmailById(perm.UserID)"></td>
+                <td class="py-1 text-center"><input type="checkbox" x-model="perm.CanView"></td>
+                <td class="py-1 text-center"><input type="checkbox" x-model="perm.CanCreate"></td>
+                <td class="py-1 text-center"><input type="checkbox" x-model="perm.CanEdit"></td>
+                <td class="py-1 text-center"><input type="checkbox" x-model="perm.CanDelete"></td>
+                <td class="py-1 text-center"><input type="checkbox" x-model="perm.CanApprove"></td>
+                <td class="py-1"><button @click="savePermissionRow(perm)" class="text-blue-600 underline text-xs">Lưu</button></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+
+        <div class="border-t pt-3 dark:border-gray-700 space-y-2">
+          <p class="text-sm font-medium">Thêm người</p>
+          <div class="flex gap-2 items-center">
+            <select x-model="newPermissionUserId" class="border rounded px-2 py-1 text-sm dark:bg-gray-800 dark:border-gray-600">
+              <option value="">-- Chọn người dùng --</option>
+              <template x-for="u in userDirectory" :key="u.UserID">
+                <option :value="u.UserID" x-text="u.Email"></option>
+              </template>
+            </select>
+            <button @click="addPermissionRow()" :disabled="!newPermissionUserId" class="bg-gray-700 text-white px-3 py-1 rounded text-sm disabled:opacity-50">Thêm vào danh sách</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

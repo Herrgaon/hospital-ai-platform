@@ -1,0 +1,43 @@
+{
+  "ruleSetId": "ND30_FORMAT_V1",
+  "name": "Thể thức văn bản hành chính theo Nghị định 30/2020/NĐ-CP",
+  "appliesTo": ["DOCX", "GOOGLE_DOC"],
+  "version": 1,
+  "rules": [
+    {
+      "id": "FONT_FAMILY",
+      "description": "Toàn văn bản dùng font Times New Roman",
+      "type": "FONT_CHECK",
+      "params": { "allowedFonts": ["Times New Roman"] },
+      "severity": "ERROR"
+    },
+    {
+      "id": "FONT_SIZE_BODY",
+      "description": "Cỡ chữ phần nội dung là 13-14pt",
+      "type": "FONT_SIZE_CHECK",
+      "params": { "scope": "BODY", "min": 13, "max": 14 },
+      "severity": "ERROR"
+    },
+    {
+      "id": "MARGIN",
+      "description": "Lề trên/dưới 20-25mm, trái 30-35mm, phải 15-20mm",
+      "type": "MARGIN_CHECK",
+      "params": { "top": [20, 25], "bottom": [20, 25], "left": [30, 35], "right": [15, 20] },
+      "severity": "ERROR"
+    },
+    {
+      "id": "DOC_NUMBER_FORMAT",
+      "description": "Số ký hiệu văn bản đúng định dạng Số: {n}/{năm}/{viết tắt cơ quan}-{viết tắt đơn vị}",
+      "type": "REGEX_CHECK",
+      "params": { "field": "docNumber", "pattern": "^Số:\\s*\\d+/[A-ZĐ\\-]+$" },
+      "severity": "ERROR"
+    },
+    {
+      "id": "NATIONAL_HEADER",
+      "description": "Có Quốc hiệu - Tiêu ngữ trong các dòng đầu văn bản",
+      "type": "STRUCTURE_CHECK",
+      "params": { "requiredBlock": "NATIONAL_HEADER" },
+      "severity": "ERROR"
+    }
+  ]
+}

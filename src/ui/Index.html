@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <base target="_top">
+  <?!= include('ui/css/main') ?>
+</head>
+<body class="bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100">
+  <div x-data="appShell()" x-init="init()" class="flex h-screen overflow-hidden">
+
+    <!-- Sidebar -->
+    <aside class="w-56 shrink-0 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+      <div class="px-4 py-4 font-semibold text-lg">AI Office Platform</div>
+      <nav class="flex-1 px-2 space-y-1">
+        <a href="#dashboard" @click.prevent="go('dashboard')" class="nav-item" :class="active('dashboard')">Dashboard</a>
+        <a href="#documents" @click.prevent="go('documents')" class="nav-item" :class="active('documents')">Văn bản</a>
+        <a href="#knowledge" @click.prevent="go('knowledge')" class="nav-item" :class="active('knowledge')">Tri thức</a>
+        <a href="#aichat" @click.prevent="go('aichat')" class="nav-item" :class="active('aichat')">AI Chat</a>
+        <a href="#workflow" @click.prevent="go('workflow')" class="nav-item" :class="active('workflow')">Workflow</a>
+        <a href="#admin" @click.prevent="go('admin')" class="nav-item" x-show="isAdmin" :class="active('admin')">Admin</a>
+      </nav>
+    </aside>
+
+    <!-- Main -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <header class="h-14 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4">
+        <input type="search" x-model="globalSearchKeyword" @keyup.enter="runGlobalSearch()" placeholder="Tìm kiếm tài liệu... (Enter)" class="border rounded px-3 py-1 text-sm w-80 dark:bg-gray-800 dark:border-gray-600">
+        <div class="flex items-center gap-3">
+          <button @click="toggleTheme()" class="text-sm">🌓</button>
+          <span x-text="userEmail" class="text-sm"></span>
+        </div>
+      </header>
+      <main class="flex-1 overflow-auto p-6">
+        <template x-if="currentView === 'admin' && !isAdmin">
+          <p class="text-gray-500">Màn hình này sẽ được lập trình ở giai đoạn sau — xem docs/16-development-roadmap.md.</p>
+        </template>
+        <?!= include('ui/views/Dashboard') ?>
+        <?!= include('ui/views/DocumentEditor') ?>
+        <?!= include('ui/views/Knowledge') ?>
+        <?!= include('ui/views/WorkflowInbox') ?>
+        <?!= include('ui/views/AiChat') ?>
+        <?!= include('ui/views/Admin') ?>
+      </main>
+    </div>
+  </div>
+
+  <?!= include('ui/js/main') ?>
+</body>
+</html>
