@@ -39,6 +39,7 @@
           <div class="chat-empty-icon">◈</div>
           <p class="font-medium" style="color: var(--holo-text);">Hỏi tôi bất cứ điều gì về tài liệu nội bộ</p>
           <p class="text-xs">Ví dụ: "Quy trình xin nghỉ phép thế nào?", "Thông tư nào quy định về đấu thầu thuốc?"</p>
+          <p class="text-xs">Hoặc bấm 📎 để đính kèm 1 file (Word/PDF/ảnh/text) và hỏi trực tiếp về nội dung file đó.</p>
         </div>
       </template>
 
@@ -48,10 +49,11 @@
                :style="msg.role === 'user' ? avatarColorStyle(currentUser) : ''"
                x-text="msg.role === 'user' ? initials(currentUser) : '◈'"></div>
           <div>
+            <p x-show="msg.attachedFileName" class="text-xs holo-text-dim mb-1" x-text="'📎 ' + msg.attachedFileName"></p>
             <div class="chat-bubble" x-text="msg.text"></div>
             <template x-if="msg.sources && msg.sources.length > 0">
               <div class="chat-sources">
-                <template x-for="s in msg.sources" :key="s.documentId">
+                <template x-for="(s, sIdx) in msg.sources" :key="s.documentId || sIdx">
                   <span class="chat-source-chip" x-text="s.title"></span>
                 </template>
               </div>
@@ -69,7 +71,17 @@
     </div>
 
     <div class="px-4 pb-4">
+      <div x-show="chatAttachedFile" class="mb-2">
+        <span class="filter-active-badge">
+          📎 <span x-text="chatAttachedFile && chatAttachedFile.name"></span>
+          <button @click="removeChatAttachedFile()">×</button>
+        </span>
+      </div>
       <div class="chat-input-bar">
+        <label class="chat-send-btn" style="background: var(--holo-panel-alt); color: var(--holo-text-dim); cursor: pointer;" title="Đính kèm file để hỏi">
+          📎
+          <input type="file" class="hidden" @change="onChatFileSelected($event)">
+        </label>
         <input type="text" x-model="chatInput" @keyup.enter="sendChatMessage()" placeholder="Nhập câu hỏi...">
         <button @click="sendChatMessage()" :disabled="chatAsking || !chatInput" class="chat-send-btn">➤</button>
       </div>

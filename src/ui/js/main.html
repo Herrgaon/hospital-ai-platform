@@ -12,6 +12,13 @@
       userEmail: '',
       isAdmin: false,
       currentUser: {},
+      myPermissionMap: {},
+      can(libraryId, action) {
+        return !!(this.myPermissionMap[libraryId] && this.myPermissionMap[libraryId][action]);
+      },
+      canAnywhere(action) {
+        return Object.values(this.myPermissionMap).some((p) => p[action]);
+      },
       showProfileMenu: false,
       profileForm: { fullName: '' },
       savingProfile: false,
@@ -27,6 +34,9 @@
           : this.myDocuments;
       },
       templates: [],
+      get creatableTemplates() {
+        return this.templates.filter((t) => this.can(t.LibraryID, 'CanCreate'));
+      },
       selectedTemplateId: '',
       selectedTemplateFields: [],
       fieldValues: {},
@@ -61,6 +71,7 @@
       userDirectory: [],
       newPermissionUserId: '',
       newLibraryName: '',
+      newLibraryManagerId: '',
       newLibraryRequiresReview: true,
       creatingLibrary: false,
       showAdvancedMetadata: false,
@@ -139,6 +150,13 @@
           .withSuccessHandler((templates) => { this.templates = templates; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_listTemplates(null);
+
+        // Bản đồ quyền trên từng kho — dùng để ẩn/hiện nút bấm đúng theo phân quyền thay vì hiện
+        // hết rồi để lộ lỗi 403 khi bấm (xem docs/11-permission-design.md).
+        google.script.run
+          .withSuccessHandler((map) => { this.myPermissionMap = map; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_getMyPermissionMap();
 
         // Nạp trước cho badge chuông thông báo ở header — hiển thị được dù chưa vào đúng màn hình.
         this.loadPendingApprovals();
@@ -443,30 +461,63 @@
         });
       },
 
+      chatAttachedFile: null,
+      onChatFileSelected(event) {
+        const file = event.target.files[0];
+        event.target.value = '';
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          this.chatAttachedFile = { name: file.name, mimeType: file.type || 'application/octet-stream', base64: reader.result.split(',')[1] };
+        };
+        reader.readAsDataURL(file);
+      },
+      removeChatAttachedFile() { this.chatAttachedFile = null; },
+
+      chatErrorReason_(error) {
+        const map = {
+          AI_NOT_CONFIGURED: 'AI chưa được Admin bật/cấu hình. Vào mục Admin để cấu hình AI Provider.',
+          UNSUPPORTED_FILE_TYPE: 'Định dạng file này chưa hỗ trợ đọc nội dung (hỗ trợ: Google Docs, Word, PDF, ảnh, text).',
+          OCR_FAILED: 'Không đọc được nội dung file (OCR thất bại) — thử file khác hoặc ảnh rõ nét hơn.',
+          EMPTY_FILE: 'File không có nội dung văn bản để đọc.'
+        };
+        return map[error] || ('Lỗi: ' + error);
+      },
+
       sendChatMessage() {
         const question = this.chatInput;
-        this.chatMessages.push({ role: 'user', text: question });
+        const attached = this.chatAttachedFile;
+        this.chatMessages.push({ role: 'user', text: question, attachedFileName: attached ? attached.name : null });
         this.chatInput = '';
+        this.chatAttachedFile = null;
         this.chatAsking = true;
         this.scrollChatToBottom();
-        google.script.run
-          .withSuccessHandler((result) => {
-            this.chatAsking = false;
-            if (result.success) {
-              this.chatMessages.push({ role: 'assistant', text: result.answer, sources: result.sources });
-            } else {
-              const reason = result.error === 'AI_NOT_CONFIGURED'
-                ? 'AI chưa được Admin bật/cấu hình. Vào mục Admin để cấu hình AI Provider.'
-                : ('Lỗi: ' + result.error);
-              this.chatMessages.push({ role: 'assistant', text: reason });
-            }
-            this.scrollChatToBottom();
-          })
-          .withFailureHandler((e) => {
-            this.chatAsking = false;
-            this.errorMessage = e.message;
-          })
-          .api_askKnowledgeBase(question, this.chatLibraryIds);
+
+        const handleResult = (result) => {
+          this.chatAsking = false;
+          if (result.success) {
+            this.chatMessages.push({ role: 'assistant', text: result.answer, sources: result.sources });
+          } else {
+            this.chatMessages.push({ role: 'assistant', text: this.chatErrorReason_(result.error) });
+          }
+          this.scrollChatToBottom();
+        };
+        const handleFailure = (e) => {
+          this.chatAsking = false;
+          this.errorMessage = e.message;
+        };
+
+        if (attached) {
+          google.script.run
+            .withSuccessHandler(handleResult)
+            .withFailureHandler(handleFailure)
+            .api_askAboutAttachedFile(question, attached.name, attached.mimeType, attached.base64);
+        } else {
+          google.script.run
+            .withSuccessHandler(handleResult)
+            .withFailureHandler(handleFailure)
+            .api_askKnowledgeBase(question, this.chatLibraryIds);
+        }
       },
 
       toggleChatLibrary(libraryId, checked) {
@@ -563,12 +614,24 @@
           });
       },
 
+      openAddLibraryModal() {
+        if (this.userDirectory.length === 0) {
+          google.script.run
+            .withSuccessHandler((dir) => { this.userDirectory = dir; })
+            .withFailureHandler((e) => { this.errorMessage = e.message; })
+            .api_listUserDirectory();
+        }
+        this.newLibraryManagerId = '';
+        this.openModal('addLibrary');
+      },
+
       createLibraryAction() {
         this.creatingLibrary = true;
         google.script.run
           .withSuccessHandler(() => {
             this.creatingLibrary = false;
             this.newLibraryName = '';
+            this.newLibraryManagerId = '';
             this.closeModal();
             this.toast('success', 'Đã tạo kho tài liệu mới.');
             this.loadLibraries();
@@ -577,7 +640,7 @@
             this.creatingLibrary = false;
             this.errorMessage = e.message;
           })
-          .api_createLibrary(this.newLibraryName, '', '', this.newLibraryRequiresReview);
+          .api_createLibrary(this.newLibraryName, '', this.newLibraryManagerId, this.newLibraryRequiresReview);
       },
 
       createCategoryAction() {

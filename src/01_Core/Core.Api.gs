@@ -11,6 +11,11 @@ function api_getCurrentUser() {
   };
 }
 
+function api_getMyPermissionMap() {
+  const user = getCurrentUser();
+  return getMyPermissionMap(user);
+}
+
 function api_updateMyProfile(fullName) {
   const user = getCurrentUser();
   return updateMyProfile(user, fullName);
@@ -209,6 +214,11 @@ function api_suggestLibrariesForDocument(documentId) {
 function api_askKnowledgeBase(question, libraryIds) {
   const user = getCurrentUser();
   return askKnowledgeBase(user, question, libraryIds || null);
+}
+
+function api_askAboutAttachedFile(question, fileName, mimeType, base64Data) {
+  const user = getCurrentUser();
+  return askAboutAttachedFile(user, question, fileName, mimeType, base64Data);
 }
 
 function api_suggestLibrariesForQuestion(questionText) {

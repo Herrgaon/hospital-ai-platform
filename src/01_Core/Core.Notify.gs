@@ -29,8 +29,8 @@ function sendNotificationEmail_(emails, subject, body) {
   try {
     MailApp.sendEmail({
       to: uniqueEmails.join(','),
-      subject: '[AI Office Platform] ' + subject,
-      body: body + '\n\n--\nThư tự động từ AI Office Platform, vui lòng không trả lời email này.'
+      subject: '[Trợ lý văn bản] ' + subject,
+      body: body + '\n\n--\nThư tự động từ Hệ thống trợ lý hỗ trợ xử lý văn bản, vui lòng không trả lời email này.'
     });
   } catch (e) {
     // Không throw lại — hết quota MailApp hoặc lỗi mạng không được phép chặn hành động nghiệp vụ chính.

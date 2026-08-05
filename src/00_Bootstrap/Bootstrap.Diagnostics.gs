@@ -28,3 +28,13 @@ function diagFileInfo(fileId) {
 function diagMailQuota() {
   return MailApp.getRemainingDailyQuota();
 }
+
+function diagListInboxFiles() {
+  const files = getUploadsInboxFolder().getFiles();
+  const out = [];
+  while (files.hasNext()) {
+    const f = files.next();
+    out.push({ name: f.getName(), isTrashed: f.isTrashed() });
+  }
+  return out;
+}

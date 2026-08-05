@@ -7,7 +7,7 @@
         <p class="page-subtitle">Soạn văn bản từ mẫu, kiểm tra thể thức, gửi duyệt</p>
       </div>
     </div>
-    <div class="page-header-actions">
+    <div class="page-header-actions" x-show="canAnywhere('CanCreate')">
       <button @click="openCreateDocumentModal()" class="btn btn-primary">+ Tạo văn bản mới</button>
     </div>
   </div>
@@ -45,7 +45,7 @@
                 <td class="text-right whitespace-nowrap">
                   <span class="badge badge-cyan" x-text="doc.Status"></span>
                   <button @click="resumeDocument(doc)" class="btn-link">Mở</button>
-                  <button @click="deleteDocumentAction(doc)" class="btn-link danger">Xoá</button>
+                  <button x-show="can(doc.LibraryID, 'CanDelete')" @click="deleteDocumentAction(doc)" class="btn-link danger">Xoá</button>
                 </td>
               </tr>
             </template>
@@ -64,7 +64,8 @@
       <div class="card">
         <div class="card-body text-center py-10">
           <p class="text-sm holo-text-dim mb-3">Chưa có văn bản nào đang xử lý.</p>
-          <button @click="openCreateDocumentModal()" class="btn btn-primary">+ Tạo văn bản mới</button>
+          <button x-show="canAnywhere('CanCreate')" @click="openCreateDocumentModal()" class="btn btn-primary">+ Tạo văn bản mới</button>
+          <p x-show="!canAnywhere('CanCreate')" class="text-xs holo-text-dim">Bạn chưa được cấp quyền tạo văn bản ở kho tài liệu nào — liên hệ người phụ trách kho để được cấp quyền.</p>
         </div>
       </div>
     </template>
@@ -167,7 +168,7 @@
           <label class="required">Mẫu văn bản</label>
           <select x-model="selectedTemplateId" @change="onTemplateChange()" class="form-control">
             <option value="">-- Chọn mẫu --</option>
-            <template x-for="t in templates" :key="t.TemplateID">
+            <template x-for="t in creatableTemplates" :key="t.TemplateID">
               <option :value="t.TemplateID" x-text="t.TemplateName"></option>
             </template>
           </select>

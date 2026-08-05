@@ -8,7 +8,7 @@
       </div>
     </div>
     <div class="page-header-actions" x-show="isAdmin">
-      <button @click="openModal('addLibrary')" class="btn btn-primary">+ Kho tài liệu mới</button>
+      <button @click="openAddLibraryModal()" class="btn btn-primary">+ Kho tài liệu mới</button>
     </div>
   </div>
 
@@ -33,7 +33,7 @@
       <div class="tabs">
         <button @click="knowledgeTab = 'search'" class="tab" :class="knowledgeTab === 'search' ? 'active' : ''">Tìm kiếm &amp; tài liệu</button>
         <button @click="knowledgeTab = 'categories'" class="tab" :class="knowledgeTab === 'categories' ? 'active' : ''">Danh mục</button>
-        <button @click="knowledgeTab = 'upload'" class="tab" :class="knowledgeTab === 'upload' ? 'active' : ''">Tải lên tài liệu</button>
+        <button x-show="canAnywhere('CanCreate')" @click="knowledgeTab = 'upload'" class="tab" :class="knowledgeTab === 'upload' ? 'active' : ''">Tải lên tài liệu</button>
         <button @click="knowledgeTab = 'review'; loadPendingKnowledgeReviews()" class="tab" :class="knowledgeTab === 'review' ? 'active' : ''">
           Chờ duyệt <span x-show="pendingKnowledgeReviews.length > 0" x-text="'(' + pendingKnowledgeReviews.length + ')'"></span>
         </button>
@@ -82,7 +82,7 @@
                     <td class="text-right whitespace-nowrap">
                       <button @click="openVersions(doc.DocumentID)" class="btn-link">Lịch sử</button>
                       <button @click="extractTextAction(doc.DocumentID)" class="btn-link">OCR</button>
-                      <button @click="deleteDocumentAction(doc)" class="btn-link danger">Xoá</button>
+                      <button x-show="can(doc.LibraryID, 'CanDelete')" @click="deleteDocumentAction(doc)" class="btn-link danger">Xoá</button>
                     </td>
                   </tr>
                 </template>
@@ -353,7 +353,7 @@
               <div class="flex gap-2 items-center">
                 <button @click="approveKnowledgeDocAction(doc.DocumentID)" class="btn btn-success btn-sm">Duyệt (Published)</button>
                 <button @click="rejectKnowledgeDocAction(doc.DocumentID)" class="btn btn-danger btn-sm">Từ chối</button>
-                <button @click="deleteDocumentAction(doc)" class="btn-link danger">Xoá</button>
+                <button x-show="can(doc.LibraryID, 'CanDelete')" @click="deleteDocumentAction(doc)" class="btn-link danger">Xoá</button>
               </div>
             </div>
           </div>
@@ -419,6 +419,16 @@
         <div class="form-group">
           <label class="required">Tên kho</label>
           <input type="text" x-model="newLibraryName" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>Người quản lý (Trưởng khoa/phòng)</label>
+          <select x-model="newLibraryManagerId" class="form-control">
+            <option value="">-- Chưa chỉ định (tự động là bạn) --</option>
+            <template x-for="u in userDirectory" :key="u.UserID">
+              <option :value="u.UserID" x-text="u.Email + (u.FullName ? ' — ' + u.FullName : '')"></option>
+            </template>
+          </select>
+          <p class="form-hint">Người này sẽ có toàn quyền (Thêm/Sửa/Xoá/Duyệt/Quản lý) trên kho này.</p>
         </div>
         <label class="form-check-label">
           <input type="checkbox" x-model="newLibraryRequiresReview">

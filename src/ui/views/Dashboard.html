@@ -7,7 +7,7 @@
         <p class="page-subtitle">Hệ thống tài liệu &amp; văn bản — Bệnh viện Đa khoa Đông Sơn</p>
       </div>
     </div>
-    <div class="page-header-actions">
+    <div class="page-header-actions" x-show="canAnywhere('CanCreate')">
       <button @click="go('documents'); openCreateDocumentModal()" class="btn btn-primary">+ Tạo văn bản mới</button>
     </div>
   </div>

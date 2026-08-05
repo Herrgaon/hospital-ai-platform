@@ -63,7 +63,7 @@ function askKnowledgeBase(user, question, libraryIds) {
     })
     .filter(function (t) { return t !== null; });
 
-  const context = contextParts.length > 0 ? contextParts.join('\n\n') : '(Không tìm thấy tài liệu liên quan trong kho tri thức)';
+  const context = contextParts.length > 0 ? contextParts.join('\n\n') : '(Không tìm thấy tài liệu liên quan trong kho tài liệu)';
 
   const result = runAI({ task: 'QA', input: { context: context, question: question } });
 
@@ -72,5 +72,53 @@ function askKnowledgeBase(user, question, libraryIds) {
     error: result.error,
     answer: result.text,
     sources: scored.map(function (r) { return { documentId: r.document.DocumentID, title: r.document.Title }; })
+  };
+}
+
+// Hỏi đáp về 1 file đính kèm tức thời trong AI Chat — KHÔNG lưu vào kho tài liệu, chỉ trích văn bản
+// tạm để làm ngữ cảnh trả lời rồi xoá ngay (khác hẳn luồng nạp tài liệu chính thức ở Knowledge.Ingest.gs).
+// Dùng lại đúng cơ chế trích văn bản (parseDocumentForClassification_) đã có, không xây lại.
+function askAboutAttachedFile(user, question, fileName, mimeType, base64Data) {
+  let parserCategory = detectParserCategory_(mimeType);
+  if (parserCategory === 'OTHER') {
+    return { success: false, error: 'UNSUPPORTED_FILE_TYPE' };
+  }
+
+  const decoded = Utilities.base64Decode(base64Data);
+  const blob = Utilities.newBlob(decoded, mimeType, fileName);
+  const inbox = getUploadsInboxFolder();
+
+  let stagedFile;
+  if (parserCategory === 'WORD') {
+    const resource = { title: fileName, mimeType: MimeType.GOOGLE_DOCS, parents: [{ id: inbox.getId() }] };
+    const converted = Drive.Files.insert(resource, blob, { convert: true });
+    stagedFile = DriveApp.getFileById(converted.id);
+    parserCategory = 'GOOGLE_DOC';
+  } else {
+    stagedFile = inbox.createFile(blob);
+  }
+
+  let docText = '';
+  let ocrStatus = 'NOT_APPLICABLE';
+  try {
+    const parsed = parseDocumentForClassification_(stagedFile, parserCategory);
+    docText = parsed.docText;
+    ocrStatus = parsed.ocrStatus;
+  } finally {
+    stagedFile.setTrashed(true);
+  }
+
+  if (isBlank(docText)) {
+    return { success: false, error: ocrStatus === 'FAILED' ? 'OCR_FAILED' : 'EMPTY_FILE' };
+  }
+
+  const context = '## ' + fileName + '\n' + docText.substring(0, 8000);
+  const result = runAI({ task: 'QA', input: { context: context, question: question } });
+
+  return {
+    success: result.success,
+    error: result.error,
+    answer: result.text,
+    sources: [{ documentId: null, title: fileName }]
   };
 }
