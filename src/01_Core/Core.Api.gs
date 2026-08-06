@@ -95,6 +95,11 @@ function api_stageDocumentForFormatting(fileName, mimeType, base64Data) {
   return stageDocumentForFormatting(user, fileName, mimeType, base64Data);
 }
 
+function api_stagePastedTextForFormatting(text, title) {
+  const user = getCurrentUser();
+  return stagePastedTextForFormatting(user, text, title);
+}
+
 function api_discardStagedFormattingFile(driveFileId) {
   const user = getCurrentUser();
   return discardStagedFormattingFile(user, driveFileId);
@@ -103,6 +108,11 @@ function api_discardStagedFormattingFile(driveFileId) {
 function api_exportFormattingResultAsWord(driveFileId, fileName) {
   getCurrentUser();
   return exportFormattingResultAsWord(driveFileId, fileName);
+}
+
+function api_exportFormattingResultAsPdf(driveFileId, fileName) {
+  getCurrentUser();
+  return exportFormattingResultAsPdf(driveFileId, fileName);
 }
 
 function api_applyManualFormattingToFile(driveFileId, formatOptions) {

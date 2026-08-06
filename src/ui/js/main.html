@@ -55,6 +55,9 @@
       aiFormatCommandResultText: '',
       stagedFile: null,
       stagingFile: false,
+      formatInputMode: 'upload',
+      pasteFormatTitle: '',
+      pasteFormatText: '',
       downloadingFormattedFile: false,
       exporting: false,
       exportResult: null,
@@ -173,6 +176,15 @@
         // Nạp trước cho badge chuông thông báo ở header — hiển thị được dù chưa vào đúng màn hình.
         this.loadPendingApprovals();
         this.loadPendingKnowledgeReviews();
+
+        // Nạp trước để mọi màn hình đều biết AI đang bật/tắt (trước đây chỉ Admin mới biết, do
+        // aiEnabled chỉ được nạp trong loadAdminData()) — các tính năng có AI (Quick Style vẫn chạy
+        // không cần AI, chỉ riêng ô lệnh tự do cần AI) tự ẩn gợi ý "cần AI" khi đã tắt thay vì để
+        // người dùng bấm rồi mới biết.
+        google.script.run
+          .withSuccessHandler((enabled) => { this.aiEnabled = enabled; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_isAiEnabled();
       },
 
       active(view) {
@@ -511,18 +523,38 @@
         reader.readAsDataURL(file);
       },
 
+      stagePastedFormatTextAction() {
+        if (!this.pasteFormatText.trim()) return;
+        this.stagingFile = true;
+        google.script.run
+          .withSuccessHandler((result) => {
+            this.stagingFile = false;
+            this.stagedFile = result;
+            this.pasteFormatText = '';
+            this.pasteFormatTitle = '';
+            this.resetFormatForm();
+          })
+          .withFailureHandler((e) => {
+            this.stagingFile = false;
+            this.errorMessage = e.message;
+          })
+          .api_stagePastedTextForFormatting(this.pasteFormatText, this.pasteFormatTitle);
+      },
+
       discardFormatFileAction() {
         if (!this.stagedFile) return;
         const driveFileId = this.stagedFile.driveFileId;
         this.stagedFile = null;
+        this.formatInputMode = 'upload';
         this.resetFormatForm();
         google.script.run
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_discardStagedFormattingFile(driveFileId);
       },
 
-      downloadFormattedFileAction() {
-        this.downloadingFormattedFile = true;
+      downloadFormattedFileAction(format) {
+        this.downloadingFormattedFile = format;
+        const apiCall = format === 'pdf' ? 'api_exportFormattingResultAsPdf' : 'api_exportFormattingResultAsWord';
         google.script.run
           .withSuccessHandler((result) => {
             this.downloadingFormattedFile = false;
@@ -541,7 +573,7 @@
             this.downloadingFormattedFile = false;
             this.errorMessage = e.message;
           })
-          .api_exportFormattingResultAsWord(this.stagedFile.driveFileId, this.stagedFile.fileName);
+          [apiCall](this.stagedFile.driveFileId, this.stagedFile.fileName);
       },
 
       applyFormatFileManualAction() {

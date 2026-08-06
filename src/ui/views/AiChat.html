@@ -15,6 +15,11 @@
     </div>
   </div>
 
+  <div class="notice notice-warning !mb-3" x-show="!aiEnabled">
+    <span class="notice-icon">⚠</span>
+    <span>AI chưa được Admin bật/cấu hình — mục này cần AI để hoạt động. Các tính năng khác của hệ thống (Văn bản, Kho tài liệu, Chỉnh sửa định dạng...) vẫn dùng bình thường.</span>
+  </div>
+
   <div class="card !mb-3" x-show="chatScopeOpen" x-cloak>
     <div class="card-body space-y-2">
       <div class="flex items-center justify-between">
