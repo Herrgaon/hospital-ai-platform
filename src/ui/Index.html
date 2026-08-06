@@ -19,6 +19,7 @@
       <nav class="app-sidebar-menu">
         <a href="#dashboard" @click.prevent="go('dashboard')" class="app-nav-item" :class="active('dashboard')"><span class="app-nav-icon">▣</span> Dashboard</a>
         <a href="#documents" @click.prevent="go('documents')" class="app-nav-item" :class="active('documents')"><span class="app-nav-icon">▤</span> Văn bản</a>
+        <a href="#formatting" @click.prevent="go('formatting')" class="app-nav-item" :class="active('formatting')"><span class="app-nav-icon">✎</span> Chỉnh sửa định dạng</a>
         <a href="#knowledge" @click.prevent="go('knowledge')" class="app-nav-item" :class="active('knowledge')"><span class="app-nav-icon">▥</span> Tài liệu</a>
         <a href="#aichat" @click.prevent="go('aichat')" class="app-nav-item" :class="active('aichat')"><span class="app-nav-icon">◈</span> AI Chat</a>
         <a href="#workflow" @click.prevent="go('workflow')" class="app-nav-item" :class="active('workflow')"><span class="app-nav-icon">▧</span> Workflow</a>
@@ -80,6 +81,7 @@
         </template>
         <?!= include('ui/views/Dashboard') ?>
         <?!= include('ui/views/DocumentEditor') ?>
+        <?!= include('ui/views/FormatEditor') ?>
         <?!= include('ui/views/Knowledge') ?>
         <?!= include('ui/views/WorkflowInbox') ?>
         <?!= include('ui/views/AiChat') ?>

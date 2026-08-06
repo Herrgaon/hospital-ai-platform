@@ -55,6 +55,17 @@ function applyFormatOptionsToDocument_(driveFileId, formatOptions) {
   doc.saveAndClose();
 }
 
+// Hàm gốc theo driveFileId — dùng chung cho cả 2 luồng: (1) tài liệu ĐÃ có trong hệ thống (qua
+// applyManualFormatting, đã requirePermission trước khi tới đây), (2) file người dùng tải lên tạm để
+// chỉnh định dạng (trang "Chỉnh sửa định dạng" — không thuộc Library nào nên không có quyền theo Thư
+// viện để kiểm tra; Drive ACL + Web App chạy executeAs USER_ACCESSING đã tự chặn người khác đụng vào
+// file không phải của họ, xem Formatting.Upload.gs).
+function applyManualFormattingToFile(user, driveFileId, formatOptions) {
+  applyFormatOptionsToDocument_(driveFileId, formatOptions);
+  logAudit(user.UserID, 'DOCUMENT_FORMATTED', 'File', driveFileId, JSON.stringify(formatOptions));
+  return { success: true, applied: formatOptions };
+}
+
 function applyManualFormatting(user, documentId, formatOptions) {
   const document = getDocumentById(documentId);
   requirePermission(user, document.LibraryID, 'CanEdit');
@@ -97,6 +108,19 @@ function buildFormatOptionsFromRuleSet_(ruleSet) {
     if (mapper) mapper(rule.params, formatOptions);
   });
   return formatOptions;
+}
+
+// libraryId: '*' hợp lệ (rule ND30 đăng ký ở mức toàn hệ thống, LibraryID='*') — dùng cho file tải
+// lên tạm không thuộc Library nào. Hàm gốc theo driveFileId, xem lý do ở applyManualFormattingToFile.
+function applyND30QuickStyleToFile(user, driveFileId, libraryId) {
+  const ruleSet = getRuleSetById(libraryId || '*', ND30_RULE_SET_ID);
+  if (!ruleSet) {
+    return { success: false, error: 'ND30_RULE_SET_NOT_FOUND' };
+  }
+  const formatOptions = buildFormatOptionsFromRuleSet_(ruleSet);
+  applyFormatOptionsToDocument_(driveFileId, formatOptions);
+  logAudit(user.UserID, 'DOCUMENT_ND30_QUICK_STYLE_APPLIED', 'File', driveFileId, ruleSet.ruleSetId);
+  return { success: true, ruleSetId: ruleSet.ruleSetId, applied: formatOptions };
 }
 
 function applyND30QuickStyle(user, documentId) {

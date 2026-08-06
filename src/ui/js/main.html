@@ -53,6 +53,9 @@
       aiFormatCommand: '',
       runningAiFormatCommand: false,
       aiFormatCommandResultText: '',
+      stagedFile: null,
+      stagingFile: false,
+      downloadingFormattedFile: false,
       exporting: false,
       exportResult: null,
       submittingApproval: false,
@@ -479,6 +482,121 @@
             this.errorMessage = e.message;
           })
           .api_applyAiFormattingCommand(this.currentDocument.DocumentID, this.aiFormatCommand);
+      },
+
+      // --- Trang "Chỉnh sửa định dạng" (độc lập, không qua tạo văn bản theo mẫu) ---
+      // Dùng chung formatForm/aiFormatCommand/allowedFontFamilies/hasAnyFormatFieldSet/
+      // resetFormatForm/buildFormatOptionsFromForm_/aiFormatErrorReason_ với thẻ "Định dạng văn bản"
+      // ở DocumentEditor.html — chỉ khác API gọi (theo driveFileId thay vì documentId).
+      onFormatFileSelected(event) {
+        const file = event.target.files[0];
+        event.target.value = '';
+        if (!file) return;
+        this.stagingFile = true;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = reader.result.split(',')[1];
+          google.script.run
+            .withSuccessHandler((result) => {
+              this.stagingFile = false;
+              this.stagedFile = result;
+              this.resetFormatForm();
+            })
+            .withFailureHandler((e) => {
+              this.stagingFile = false;
+              this.errorMessage = e.message;
+            })
+            .api_stageDocumentForFormatting(file.name, file.type || 'application/octet-stream', base64);
+        };
+        reader.readAsDataURL(file);
+      },
+
+      discardFormatFileAction() {
+        if (!this.stagedFile) return;
+        const driveFileId = this.stagedFile.driveFileId;
+        this.stagedFile = null;
+        this.resetFormatForm();
+        google.script.run
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_discardStagedFormattingFile(driveFileId);
+      },
+
+      downloadFormattedFileAction() {
+        this.downloadingFormattedFile = true;
+        google.script.run
+          .withSuccessHandler((result) => {
+            this.downloadingFormattedFile = false;
+            const byteChars = atob(result.base64);
+            const bytes = new Uint8Array(byteChars.length);
+            for (let i = 0; i < byteChars.length; i++) bytes[i] = byteChars.charCodeAt(i);
+            const blob = new Blob([bytes], { type: result.mimeType });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = result.fileName;
+            link.click();
+            URL.revokeObjectURL(url);
+          })
+          .withFailureHandler((e) => {
+            this.downloadingFormattedFile = false;
+            this.errorMessage = e.message;
+          })
+          .api_exportFormattingResultAsWord(this.stagedFile.driveFileId, this.stagedFile.fileName);
+      },
+
+      applyFormatFileManualAction() {
+        this.applyingFormat = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.applyingFormat = false;
+            this.toast('success', 'Đã áp dụng định dạng.');
+          })
+          .withFailureHandler((e) => {
+            this.applyingFormat = false;
+            this.errorMessage = e.message;
+          })
+          .api_applyManualFormattingToFile(this.stagedFile.driveFileId, this.buildFormatOptionsFromForm_());
+      },
+
+      applyFormatFileNd30Action() {
+        this.applyingNd30Style = true;
+        google.script.run
+          .withSuccessHandler((result) => {
+            this.applyingNd30Style = false;
+            if (result.success) {
+              this.toast('success', 'Đã áp dụng thể thức Nghị định 30.');
+            } else {
+              this.errorMessage = result.error === 'ND30_RULE_SET_NOT_FOUND'
+                ? 'Chưa có bộ quy tắc Nghị định 30 trong hệ thống.'
+                : 'Lỗi: ' + result.error;
+            }
+          })
+          .withFailureHandler((e) => {
+            this.applyingNd30Style = false;
+            this.errorMessage = e.message;
+          })
+          .api_applyND30QuickStyleToFile(this.stagedFile.driveFileId);
+      },
+
+      runFormatFileAiCommand() {
+        if (!this.aiFormatCommand.trim()) return;
+        this.runningAiFormatCommand = true;
+        this.aiFormatCommandResultText = '';
+        google.script.run
+          .withSuccessHandler((result) => {
+            this.runningAiFormatCommand = false;
+            if (result.success) {
+              this.aiFormatCommandResultText = 'Đã thực hiện: ' + result.action;
+              this.toast('success', 'Đã áp dụng định dạng theo yêu cầu AI.');
+            } else {
+              this.aiFormatCommandResultText = this.aiFormatErrorReason_(result.error);
+            }
+          })
+          .withFailureHandler((e) => {
+            this.runningAiFormatCommand = false;
+            this.errorMessage = e.message;
+          })
+          .api_applyAiFormattingCommandToFile(this.stagedFile.driveFileId, this.aiFormatCommand);
       },
 
       exportWord() {

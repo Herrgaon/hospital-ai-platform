@@ -135,10 +135,14 @@ function mapFreeTextToFormattingAction_(commandText) {
 
 // 2 lớp chặn trước khi đụng tới DocumentApp: (1) mapFreeTextToFormattingAction_ đã loại action lạ,
 // (2) actionDef.validate() ở đây loại tham số sai/ngoài phạm vi cho 1 action dù đã biết — đảm bảo
-// KHÔNG BAO GIỜ tin JSON của AI một cách mù quáng.
-function applyAiFormattingCommand(user, documentId, commandText) {
-  const document = getDocumentById(documentId);
-  requirePermission(user, document.LibraryID, 'CanEdit');
+// KHÔNG BAO GIỜ tin JSON của AI một cách mù quáng. Hàm gốc theo driveFileId (xem lý do ở
+// Formatting.Service.gs#applyManualFormattingToFile) — dùng chung cho tài liệu trong hệ thống lẫn
+// file tải lên tạm ở trang "Chỉnh sửa định dạng".
+// auditTarget: { type, id } — cho phép nơi gọi ghi nhật ký đúng đối tượng thật (Document/documentId
+// khi tài liệu đã có trong hệ thống, File/driveFileId khi là file tải lên tạm) thay vì luôn ghi
+// driveFileId, vốn sẽ làm mất dấu vết DocumentID trong Audit Log của luồng tài liệu chính thức.
+function applyAiFormattingCommandToFile(user, driveFileId, commandText, libraryId, auditTarget) {
+  const target = auditTarget || { type: 'File', id: driveFileId };
   if (isBlank(commandText)) return { success: false, error: 'EMPTY_COMMAND' };
 
   const mapped = mapFreeTextToFormattingAction_(commandText);
@@ -149,13 +153,19 @@ function applyAiFormattingCommand(user, documentId, commandText) {
   if (!validation.valid) return { success: false, error: 'AI_ACTION_INVALID', detail: validation.errors };
 
   if (actionDef.isQuickStyle) {
-    const result = applyND30QuickStyle(user, documentId);
-    logAudit(user.UserID, 'DOCUMENT_AI_FORMAT_COMMAND_APPLIED', 'Document', documentId, JSON.stringify({ command: commandText, action: mapped.action }));
+    const result = applyND30QuickStyleToFile(user, driveFileId, libraryId);
+    logAudit(user.UserID, 'DOCUMENT_AI_FORMAT_COMMAND_APPLIED', target.type, target.id, JSON.stringify({ command: commandText, action: mapped.action }));
     return Object.assign({ action: mapped.action }, result);
   }
 
   const formatOptions = actionDef.toFormatOptions(mapped.params);
-  applyFormatOptionsToDocument_(document.DriveFileID, formatOptions);
-  logAudit(user.UserID, 'DOCUMENT_AI_FORMAT_COMMAND_APPLIED', 'Document', documentId, JSON.stringify({ command: commandText, action: mapped.action, params: mapped.params }));
+  applyFormatOptionsToDocument_(driveFileId, formatOptions);
+  logAudit(user.UserID, 'DOCUMENT_AI_FORMAT_COMMAND_APPLIED', target.type, target.id, JSON.stringify({ command: commandText, action: mapped.action, params: mapped.params }));
   return { success: true, action: mapped.action, params: mapped.params, applied: formatOptions };
+}
+
+function applyAiFormattingCommand(user, documentId, commandText) {
+  const document = getDocumentById(documentId);
+  requirePermission(user, document.LibraryID, 'CanEdit');
+  return applyAiFormattingCommandToFile(user, document.DriveFileID, commandText, document.LibraryID, { type: 'Document', id: documentId });
 }

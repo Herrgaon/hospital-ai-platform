@@ -88,6 +88,38 @@ function api_applyAiFormattingCommand(documentId, commandText) {
   return applyAiFormattingCommand(user, documentId, commandText);
 }
 
+// Trang "Chỉnh sửa định dạng" — luồng độc lập, thao tác trực tiếp theo driveFileId (file tải lên tạm,
+// không thuộc Document/Library nào). Xem Formatting.Upload.gs.
+function api_stageDocumentForFormatting(fileName, mimeType, base64Data) {
+  const user = getCurrentUser();
+  return stageDocumentForFormatting(user, fileName, mimeType, base64Data);
+}
+
+function api_discardStagedFormattingFile(driveFileId) {
+  const user = getCurrentUser();
+  return discardStagedFormattingFile(user, driveFileId);
+}
+
+function api_exportFormattingResultAsWord(driveFileId, fileName) {
+  getCurrentUser();
+  return exportFormattingResultAsWord(driveFileId, fileName);
+}
+
+function api_applyManualFormattingToFile(driveFileId, formatOptions) {
+  const user = getCurrentUser();
+  return applyManualFormattingToFile(user, driveFileId, formatOptions);
+}
+
+function api_applyND30QuickStyleToFile(driveFileId) {
+  const user = getCurrentUser();
+  return applyND30QuickStyleToFile(user, driveFileId, '*');
+}
+
+function api_applyAiFormattingCommandToFile(driveFileId, commandText) {
+  const user = getCurrentUser();
+  return applyAiFormattingCommandToFile(user, driveFileId, commandText, '*');
+}
+
 function api_listDocuments(libraryId) {
   const user = getCurrentUser();
   const documents = libraryId ? listDocumentsByLibrary(libraryId) : getSheetRepository(SHEETS.DOCUMENTS).findAll();
