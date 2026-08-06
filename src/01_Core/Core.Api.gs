@@ -73,6 +73,21 @@ function api_checkDocumentRules(documentId) {
   return checkDocument(user, documentId);
 }
 
+function api_applyDocumentFormatting(documentId, formatOptions) {
+  const user = getCurrentUser();
+  return applyManualFormatting(user, documentId, formatOptions);
+}
+
+function api_applyND30QuickStyle(documentId) {
+  const user = getCurrentUser();
+  return applyND30QuickStyle(user, documentId);
+}
+
+function api_applyAiFormattingCommand(documentId, commandText) {
+  const user = getCurrentUser();
+  return applyAiFormattingCommand(user, documentId, commandText);
+}
+
 function api_listDocuments(libraryId) {
   const user = getCurrentUser();
   const documents = libraryId ? listDocumentsByLibrary(libraryId) : getSheetRepository(SHEETS.DOCUMENTS).findAll();

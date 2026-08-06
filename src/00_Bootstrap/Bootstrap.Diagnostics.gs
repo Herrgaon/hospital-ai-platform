@@ -38,3 +38,39 @@ function diagListInboxFiles() {
   }
   return out;
 }
+
+// Apps Script Execution API từ chối gọi trực tiếp hàm có tên kết thúc bằng "_" (coi là hàm nội bộ,
+// giống cách IDE ẩn chúng khỏi menu Run) — báo lỗi "Unable to run script function..." dù hàm tồn tại
+// và không liên quan gì đến quyền thật. Bọc qua hàm không có "_" để clasp run kiểm thử được.
+function diagTransformCase(text, mode) {
+  return transformVietnameseCase_(text, mode);
+}
+
+function diagGetFileContent(driveFileId) {
+  return DriveApp.getFileById(driveFileId).getBlob().getDataAsString();
+}
+
+function diagSetFileContent(driveFileId, content) {
+  DriveApp.getFileById(driveFileId).setContent(content);
+  return { done: true };
+}
+
+function diagInspectFormattingDetails(driveFileId) {
+  const doc = DocumentApp.openById(driveFileId);
+  const body = doc.getBody();
+  const paragraph = body.getParagraphs().find(function (p) { return p.getText().length > 0; });
+  const text = paragraph ? paragraph.editAsText() : null;
+  return {
+    fontFamily: text ? text.getFontFamily(0) : null,
+    fontSize: text ? text.getFontSize(0) : null,
+    bold: text ? text.isBold(0) : null,
+    alignment: paragraph ? String(paragraph.getAlignment()) : null,
+    lineSpacing: paragraph ? paragraph.getLineSpacing() : null,
+    margins: {
+      top: pointsToMm(body.getMarginTop()),
+      bottom: pointsToMm(body.getMarginBottom()),
+      left: pointsToMm(body.getMarginLeft()),
+      right: pointsToMm(body.getMarginRight())
+    }
+  };
+}

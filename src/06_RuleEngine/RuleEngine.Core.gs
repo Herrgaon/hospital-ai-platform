@@ -31,6 +31,13 @@ function getApplicableRuleSets(libraryId) {
   return ruleRows.map(function (r) { return loadRuleSet(r.DriveFileID); });
 }
 
+// Dùng bởi Formatting.Service.gs (Quick Style "Định dạng công văn") để đọc đúng 1 rule set theo id —
+// tái dùng cơ chế đọc rule của Rule Engine thay vì tự đọc Drive lại, đảm bảo checker và formatter
+// luôn cùng 1 nguồn dữ liệu.
+function getRuleSetById(libraryId, ruleSetId) {
+  return getApplicableRuleSets(libraryId).find(function (rs) { return rs.ruleSetId === ruleSetId; }) || null;
+}
+
 function checkDocument(user, documentId) {
   const document = getDocumentById(documentId);
   requirePermission(user, document.LibraryID, 'CanEdit');

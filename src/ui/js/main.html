@@ -44,6 +44,15 @@
       currentDocument: null,
       checking: false,
       ruleCheckResult: null,
+      formatForm: { fontFamily: null, fontSize: null, bold: null, italic: null, underline: null, strikethrough: null,
+        textColor: null, backgroundColor: null, textCase: null, alignment: null, lineSpacing: null,
+        spacingBeforePt: null, spacingAfterPt: null, firstLineIndentMm: null, topMm: null, bottomMm: null, leftMm: null, rightMm: null },
+      allowedFontFamilies: ['Times New Roman', 'Arial', 'Calibri', 'Cambria', 'Verdana'],
+      applyingFormat: false,
+      applyingNd30Style: false,
+      aiFormatCommand: '',
+      runningAiFormatCommand: false,
+      aiFormatCommandResultText: '',
       exporting: false,
       exportResult: null,
       submittingApproval: false,
@@ -283,6 +292,7 @@
         this.submittedForApproval = doc.Status === 'PENDING_APPROVAL' || doc.Status === 'PUBLISHED';
         this.reviewLibraryIds = [];
         this.reviewResult = null;
+        this.resetFormatForm();
         this.docTab = 'create';
       },
 
@@ -293,6 +303,7 @@
         this.submittedForApproval = false;
         this.reviewLibraryIds = [];
         this.reviewResult = null;
+        this.resetFormatForm();
       },
 
       toggleReviewLibrary(libraryId, checked) {
@@ -378,6 +389,96 @@
             this.errorMessage = e.message;
           })
           .api_checkDocumentRules(this.currentDocument.DocumentID);
+      },
+
+      get hasAnyFormatFieldSet() {
+        return Object.values(this.formatForm).some((v) => v !== null && v !== '');
+      },
+
+      resetFormatForm() {
+        this.formatForm = { fontFamily: null, fontSize: null, bold: null, italic: null, underline: null,
+          strikethrough: null, textColor: null, backgroundColor: null, textCase: null, alignment: null,
+          lineSpacing: null, spacingBeforePt: null, spacingAfterPt: null, firstLineIndentMm: null,
+          topMm: null, bottomMm: null, leftMm: null, rightMm: null };
+        this.aiFormatCommand = '';
+        this.aiFormatCommandResultText = '';
+      },
+
+      buildFormatOptionsFromForm_() {
+        const f = this.formatForm;
+        return {
+          text: { fontFamily: f.fontFamily, fontSize: f.fontSize, bold: f.bold, italic: f.italic,
+            underline: f.underline, strikethrough: f.strikethrough, textColor: f.textColor,
+            backgroundColor: f.backgroundColor, textCase: f.textCase },
+          paragraph: { alignment: f.alignment, lineSpacing: f.lineSpacing, spacingBeforePt: f.spacingBeforePt,
+            spacingAfterPt: f.spacingAfterPt, firstLineIndentMm: f.firstLineIndentMm },
+          margins: { topMm: f.topMm, bottomMm: f.bottomMm, leftMm: f.leftMm, rightMm: f.rightMm }
+        };
+      },
+
+      applyManualFormattingAction() {
+        this.applyingFormat = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.applyingFormat = false;
+            this.toast('success', 'Đã áp dụng định dạng.');
+          })
+          .withFailureHandler((e) => {
+            this.applyingFormat = false;
+            this.errorMessage = e.message;
+          })
+          .api_applyDocumentFormatting(this.currentDocument.DocumentID, this.buildFormatOptionsFromForm_());
+      },
+
+      applyNd30QuickStyleAction() {
+        this.applyingNd30Style = true;
+        google.script.run
+          .withSuccessHandler((result) => {
+            this.applyingNd30Style = false;
+            if (result.success) {
+              this.toast('success', 'Đã áp dụng thể thức Nghị định 30.');
+            } else {
+              this.errorMessage = result.error === 'ND30_RULE_SET_NOT_FOUND'
+                ? 'Kho tài liệu này chưa gán bộ quy tắc Nghị định 30.'
+                : 'Lỗi: ' + result.error;
+            }
+          })
+          .withFailureHandler((e) => {
+            this.applyingNd30Style = false;
+            this.errorMessage = e.message;
+          })
+          .api_applyND30QuickStyle(this.currentDocument.DocumentID);
+      },
+
+      aiFormatErrorReason_(error) {
+        const map = {
+          AI_NOT_CONFIGURED: 'AI chưa được Admin bật/cấu hình.',
+          AI_RESPONSE_NOT_JSON: 'AI trả về không đúng định dạng, thử diễn đạt lại yêu cầu.',
+          AI_ACTION_NOT_RECOGNIZED: 'Không nhận diện được yêu cầu định dạng — thử diễn đạt lại (ví dụ: "In hoa toàn bộ văn bản", "Căn giữa", "Định dạng theo Nghị định 30").',
+          AI_ACTION_INVALID: 'Yêu cầu bị từ chối vì tham số không hợp lệ.'
+        };
+        return map[error] || ('Lỗi: ' + error);
+      },
+
+      runAiFormatCommand() {
+        if (!this.aiFormatCommand.trim()) return;
+        this.runningAiFormatCommand = true;
+        this.aiFormatCommandResultText = '';
+        google.script.run
+          .withSuccessHandler((result) => {
+            this.runningAiFormatCommand = false;
+            if (result.success) {
+              this.aiFormatCommandResultText = 'Đã thực hiện: ' + result.action;
+              this.toast('success', 'Đã áp dụng định dạng theo yêu cầu AI.');
+            } else {
+              this.aiFormatCommandResultText = this.aiFormatErrorReason_(result.error);
+            }
+          })
+          .withFailureHandler((e) => {
+            this.runningAiFormatCommand = false;
+            this.errorMessage = e.message;
+          })
+          .api_applyAiFormattingCommand(this.currentDocument.DocumentID, this.aiFormatCommand);
       },
 
       exportWord() {

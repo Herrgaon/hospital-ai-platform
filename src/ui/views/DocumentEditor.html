@@ -93,6 +93,136 @@
           </div>
         </div>
 
+        <!-- Định dạng văn bản -->
+        <div class="card" x-show="can(currentDocument.LibraryID, 'CanEdit')">
+          <div class="card-header"><h3>Định dạng văn bản</h3></div>
+          <div class="card-body space-y-4">
+
+            <div>
+              <button @click="applyNd30QuickStyleAction()" :disabled="applyingNd30Style" class="btn btn-secondary">
+                <span x-text="applyingNd30Style ? 'Đang áp dụng...' : 'Định dạng công văn (Nghị định 30)'"></span>
+              </button>
+            </div>
+
+            <div class="form-group">
+              <label>Lệnh định dạng bằng AI</label>
+              <div class="flex gap-2">
+                <input type="text" x-model="aiFormatCommand" class="form-control"
+                       placeholder="Ví dụ: In hoa toàn bộ văn bản, Căn giữa, Định dạng theo Nghị định 30...">
+                <button @click="runAiFormatCommand()" :disabled="runningAiFormatCommand || !aiFormatCommand.trim()" class="btn btn-secondary">
+                  <span x-text="runningAiFormatCommand ? 'Đang xử lý...' : 'Thực hiện'"></span>
+                </button>
+              </div>
+              <p class="text-xs holo-text-dim mt-1" x-show="aiFormatCommandResultText" x-text="aiFormatCommandResultText"></p>
+            </div>
+
+            <div class="space-y-3 border-t pt-3" style="border-color: var(--holo-border);">
+              <div class="grid grid-cols-2 gap-3">
+                <div class="form-group">
+                  <label>Phông chữ</label>
+                  <select x-model="formatForm.fontFamily" class="form-control">
+                    <option :value="null">-- Không đổi --</option>
+                    <template x-for="f in allowedFontFamilies" :key="f"><option :value="f" x-text="f"></option></template>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Cỡ chữ</label>
+                  <input type="number" min="8" max="32" x-model.number="formatForm.fontSize" class="form-control">
+                </div>
+              </div>
+
+              <div class="flex flex-wrap gap-3">
+                <label class="form-check-label"><input type="checkbox" x-model="formatForm.bold"><span>Đậm</span></label>
+                <label class="form-check-label"><input type="checkbox" x-model="formatForm.italic"><span>Nghiêng</span></label>
+                <label class="form-check-label"><input type="checkbox" x-model="formatForm.underline"><span>Gạch chân</span></label>
+                <label class="form-check-label"><input type="checkbox" x-model="formatForm.strikethrough"><span>Gạch ngang</span></label>
+              </div>
+
+              <div class="grid grid-cols-3 gap-3">
+                <div class="form-group">
+                  <label>Kiểu chữ hoa/thường</label>
+                  <select x-model="formatForm.textCase" class="form-control">
+                    <option :value="null">-- Không đổi --</option>
+                    <option value="UPPERCASE">CHỮ HOA</option>
+                    <option value="LOWERCASE">chữ thường</option>
+                    <option value="SENTENCE_CASE">Câu đầu tiên viết hoa</option>
+                    <option value="TITLE_CASE">Viết Hoa Đầu Từ</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Màu chữ</label>
+                  <input type="color" x-model="formatForm.textColor" class="form-control">
+                </div>
+                <div class="form-group">
+                  <label>Màu tô sáng</label>
+                  <input type="color" x-model="formatForm.backgroundColor" class="form-control">
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div class="form-group">
+                  <label>Căn lề đoạn văn</label>
+                  <select x-model="formatForm.alignment" class="form-control">
+                    <option :value="null">-- Không đổi --</option>
+                    <option value="LEFT">Trái</option>
+                    <option value="CENTER">Giữa</option>
+                    <option value="RIGHT">Phải</option>
+                    <option value="JUSTIFY">Đều 2 bên</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Giãn dòng</label>
+                  <select x-model.number="formatForm.lineSpacing" class="form-control">
+                    <option :value="null">-- Không đổi --</option>
+                    <option value="1">1.0</option>
+                    <option value="1.15">1.15</option>
+                    <option value="1.5">1.5</option>
+                    <option value="2">2.0</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-3 gap-3">
+                <div class="form-group">
+                  <label>Cách đoạn trước (pt)</label>
+                  <input type="number" min="0" max="72" x-model.number="formatForm.spacingBeforePt" class="form-control">
+                </div>
+                <div class="form-group">
+                  <label>Cách đoạn sau (pt)</label>
+                  <input type="number" min="0" max="72" x-model.number="formatForm.spacingAfterPt" class="form-control">
+                </div>
+                <div class="form-group">
+                  <label>Thụt lề dòng đầu (mm)</label>
+                  <input type="number" min="0" max="50" x-model.number="formatForm.firstLineIndentMm" class="form-control">
+                </div>
+              </div>
+
+              <div class="grid grid-cols-4 gap-3">
+                <div class="form-group">
+                  <label>Lề trên (mm)</label>
+                  <input type="number" min="5" max="100" x-model.number="formatForm.topMm" class="form-control">
+                </div>
+                <div class="form-group">
+                  <label>Lề dưới (mm)</label>
+                  <input type="number" min="5" max="100" x-model.number="formatForm.bottomMm" class="form-control">
+                </div>
+                <div class="form-group">
+                  <label>Lề trái (mm)</label>
+                  <input type="number" min="5" max="100" x-model.number="formatForm.leftMm" class="form-control">
+                </div>
+                <div class="form-group">
+                  <label>Lề phải (mm)</label>
+                  <input type="number" min="5" max="100" x-model.number="formatForm.rightMm" class="form-control">
+                </div>
+              </div>
+
+              <button @click="applyManualFormattingAction()" :disabled="applyingFormat || !hasAnyFormatFieldSet" class="btn btn-primary">
+                <span x-text="applyingFormat ? 'Đang áp dụng...' : 'Áp dụng định dạng'"></span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- Rà soát căn cứ pháp lý -->
         <div class="card">
           <div class="card-header">
