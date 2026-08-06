@@ -44,6 +44,7 @@
       currentDocument: null,
       checking: false,
       ruleCheckResult: null,
+      formatMode: null,
       formatForm: { fontFamily: null, fontSize: null, bold: null, italic: null, underline: null, strikethrough: null,
         textColor: null, backgroundColor: null, textCase: null, alignment: null, lineSpacing: null,
         spacingBeforePt: null, spacingAfterPt: null, firstLineIndentMm: null, topMm: null, bottomMm: null, leftMm: null, rightMm: null },
@@ -411,6 +412,7 @@
       },
 
       resetFormatForm() {
+        this.formatMode = null;
         this.formatForm = { fontFamily: null, fontSize: null, bold: null, italic: null, underline: null,
           strikethrough: null, textColor: null, backgroundColor: null, textCase: null, alignment: null,
           lineSpacing: null, spacingBeforePt: null, spacingAfterPt: null, firstLineIndentMm: null,

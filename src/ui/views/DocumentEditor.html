@@ -98,11 +98,19 @@
           <div class="card-header"><h3>Định dạng văn bản</h3></div>
           <div class="card-body space-y-4">
 
-            <div>
-              <button @click="applyNd30QuickStyleAction()" :disabled="applyingNd30Style" class="btn btn-secondary">
-                <span x-text="applyingNd30Style ? 'Đang áp dụng...' : 'Định dạng công văn (Nghị định 30)'"></span>
+            <div class="flex gap-2">
+              <button @click="formatMode = 'default'; applyNd30QuickStyleAction()" :disabled="applyingNd30Style"
+                      class="btn" :class="formatMode === 'default' ? 'btn-primary' : 'btn-secondary'">
+                <span x-text="applyingNd30Style ? 'Đang áp dụng...' : 'Mặc định theo chuẩn (Nghị định 30)'"></span>
+              </button>
+              <button @click="formatMode = 'custom'" class="btn" :class="formatMode === 'custom' ? 'btn-primary' : 'btn-secondary'">
+                Tự tuỳ chỉnh
               </button>
             </div>
+            <p class="text-xs holo-text-dim" x-show="formatMode === 'default'">Đã áp dụng font, cỡ chữ, lề trang theo đúng Nghị định 30/2020/NĐ-CP.</p>
+
+            <template x-if="formatMode === 'custom'">
+            <div class="space-y-4 border-t pt-4" style="border-color: var(--holo-border);">
 
             <div class="form-group">
               <label>Lệnh định dạng bằng AI <span class="badge badge-gray" x-show="!aiEnabled">Cần bật AI (Admin)</span></label>
@@ -220,6 +228,9 @@
                 <span x-text="applyingFormat ? 'Đang áp dụng...' : 'Áp dụng định dạng'"></span>
               </button>
             </div>
+
+            </div>
+            </template>
           </div>
         </div>
 
