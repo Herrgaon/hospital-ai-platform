@@ -143,6 +143,11 @@ function seedDefaultLibraryAndTemplate_() {
 // Mẫu công văn tối thiểu, dùng font/lề đúng khung Rule_NghiDinh30.json để việc kiểm tra thể thức
 // (UC-02) có kết quả PASS ngay trên tài liệu mẫu. Văn thư cần rà lại đúng mẫu chính thức của
 // bệnh viện trước khi dùng thật — xem docs/08-rule-engine.md mục 7.
+// Khung Quốc hiệu-Tiêu ngữ dùng chung kỹ thuật bảng 2 cột ẩn viền với
+// Formatting.Structure.gs#insertOfficialHeaderBlock_ (Formatting module, 2026-08-06) — trước đó bản
+// này xếp chồng 1 cột (Quốc hiệu rồi Tiêu ngữ rồi cơ quan ban hành, lần lượt từng dòng), SAI thể thức
+// thật (phải cơ quan ban hành bên TRÁI, Quốc hiệu-Tiêu ngữ bên PHẢI, cùng hàng) — Product Owner phát
+// hiện qua ảnh mẫu văn bản thật. Dùng lại đúng 1 hàm dựng bảng, không duy trì 2 cách khác nhau.
 function createDefaultTemplateDoc_(templatesFolder) {
   const doc = DocumentApp.create('Mau_CongVan_HanhChinh');
   const body = doc.getBody();
@@ -153,27 +158,30 @@ function createDefaultTemplateDoc_(templatesFolder) {
   body.setMarginLeft(mmToPoints(32));
   body.setMarginRight(mmToPoints(18));
 
-  const heading = body.appendParagraph('CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM');
-  heading.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
-
-  const motto = body.appendParagraph('Độc lập - Tự do - Hạnh phúc');
-  motto.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
-
-  body.appendParagraph('-------------------------').setAlignment(DocumentApp.HorizontalAlignment.CENTER);
-  body.appendParagraph('[coQuanBanHanh]');
-  body.appendParagraph('Số: [docNumber]');
-
-  const place = body.appendParagraph('[diaDanhNgayThang]');
-  place.setAlignment(DocumentApp.HorizontalAlignment.RIGHT);
+  // KHÔNG xoá đoạn văn rỗng còn lại sau body.clear() — Google Docs bắt buộc phải có 1 đoạn văn đứng
+  // trước 1 Bảng nếu Bảng đó là phần tử đầu văn bản (không cho phép Bảng là phần tử tuyệt đối đầu
+  // tiên), nên body.removeChild() ở đây từng ném lỗi "Can't remove the last paragraph in a document
+  // section" — phát hiện qua clasp run. Chấp nhận 1 dòng trống vô hại ở đầu, giống cách luồng "Chỉnh
+  // sửa định dạng" (Formatting.Structure.gs) cũng chấp nhận.
+  insertOfficialHeaderBlock_(body, 0, {
+    agencyLine: '[coQuanBanHanh]',
+    docNumber: 'Số: [docNumber]',
+    placeDate: '[diaDanhNgayThang]'
+  });
 
   const title = body.appendParagraph('V/v [trichYeu]');
-  title.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+  title.setAlignment(DocumentApp.HorizontalAlignment.CENTER).editAsText().setBold(true);
 
-  body.appendParagraph('Kính gửi: [noiNhan]');
-  body.appendParagraph('[noiDung]');
+  // appendParagraph() kế thừa định dạng của đoạn văn liền trước (giống gõ Enter sau chữ đậm trong
+  // Google Docs, dòng mới vẫn đậm cho tới khi tắt thủ công) — phát hiện qua clasp run: "Kính gửi"/nội
+  // dung/chữ ký bị đậm lây dù không hề gọi setBold ở đây. Tắt đậm tường minh ngay từ dòng kế tiếp.
+  body.appendParagraph('').editAsText().setBold(false);
+  body.appendParagraph('Kính gửi: [noiNhan]').editAsText().setBold(false);
+  body.appendParagraph('[noiDung]').editAsText().setBold(false);
 
   const signBlock = body.appendParagraph('[nguoiKy]');
   signBlock.setAlignment(DocumentApp.HorizontalAlignment.RIGHT);
+  signBlock.editAsText().setBold(false);
 
   const text = body.editAsText();
   text.setFontFamily('Times New Roman').setFontSize(14);

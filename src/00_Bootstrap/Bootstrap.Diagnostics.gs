@@ -55,6 +55,35 @@ function diagSetFileContent(driveFileId, content) {
   return { done: true };
 }
 
+// Test createDefaultTemplateDoc_ độc lập, KHÔNG chạy lại initializeSystem() (không an toàn để chạy
+// lại trên hệ thống thật đã khởi tạo). Tạo 1 thư mục tạm trong Uploads/_Inbox, gọi hàm, trả về
+// driveFileId để soi bằng diagListAllParagraphTexts, rồi tự dọn (xoá thư mục tạm, giữ lại file để soi).
+function diagTestCreateDefaultTemplateDoc() {
+  const tempFolder = getUploadsInboxFolder();
+  const file = createDefaultTemplateDoc_(tempFolder);
+  return { driveFileId: file.getId(), name: file.getName() };
+}
+
+function diagListAllParagraphTexts(driveFileId) {
+  const body = DocumentApp.openById(driveFileId).getBody();
+  return body.getParagraphs().map(function (p) {
+    const t = p.editAsText();
+    return { text: p.getText(), bold: t.getText().length > 0 ? t.isBold(0) : null, alignment: String(p.getAlignment()) };
+  });
+}
+
+function diagRunStructureCheck(driveFileId) {
+  const doc = DocumentApp.openById(driveFileId);
+  const body = doc.getBody();
+  const paragraphs = body.getParagraphs();
+  return {
+    docNumber: extractDocNumber_(paragraphs),
+    structureBlocks: extractStructureBlocks_(paragraphs),
+    fonts: extractFonts_(paragraphs),
+    bodyFontSize: extractBodyFontSize_(paragraphs)
+  };
+}
+
 function diagInspectFormattingDetails(driveFileId) {
   const doc = DocumentApp.openById(driveFileId);
   const body = doc.getBody();

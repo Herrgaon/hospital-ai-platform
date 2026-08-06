@@ -112,28 +112,25 @@ function buildFormatOptionsFromRuleSet_(ruleSet) {
 
 // libraryId: '*' hợp lệ (rule ND30 đăng ký ở mức toàn hệ thống, LibraryID='*') — dùng cho file tải
 // lên tạm không thuộc Library nào. Hàm gốc theo driveFileId, xem lý do ở applyManualFormattingToFile.
-function applyND30QuickStyleToFile(user, driveFileId, libraryId) {
+//
+// Ngoài font/cỡ/lề (Formatting.Primitives.gs), TỪ 2026-08-06 còn dựng khung Quốc hiệu-Tiêu ngữ 2 cột
+// + in đậm đề mục La Mã/tiêu đề (Formatting.Structure.gs) — bản đầu chỉ chỉnh font/lề đồng loạt nên
+// văn bản thô (dán trực tiếp/scan) vẫn "phẳng", không ra dáng văn bản hành chính thật.
+function applyND30QuickStyleToFile(user, driveFileId, libraryId, auditTarget) {
+  const target = auditTarget || { type: 'File', id: driveFileId };
   const ruleSet = getRuleSetById(libraryId || '*', ND30_RULE_SET_ID);
   if (!ruleSet) {
     return { success: false, error: 'ND30_RULE_SET_NOT_FOUND' };
   }
   const formatOptions = buildFormatOptionsFromRuleSet_(ruleSet);
   applyFormatOptionsToDocument_(driveFileId, formatOptions);
-  logAudit(user.UserID, 'DOCUMENT_ND30_QUICK_STYLE_APPLIED', 'File', driveFileId, ruleSet.ruleSetId);
-  return { success: true, ruleSetId: ruleSet.ruleSetId, applied: formatOptions };
+  const structureResult = applyOfficialStructure_(driveFileId);
+  logAudit(user.UserID, 'DOCUMENT_ND30_QUICK_STYLE_APPLIED', target.type, target.id, ruleSet.ruleSetId);
+  return { success: true, ruleSetId: ruleSet.ruleSetId, applied: formatOptions, headerInserted: structureResult.headerInserted };
 }
 
 function applyND30QuickStyle(user, documentId) {
   const document = getDocumentById(documentId);
   requirePermission(user, document.LibraryID, 'CanEdit');
-
-  const ruleSet = getRuleSetById(document.LibraryID, ND30_RULE_SET_ID);
-  if (!ruleSet) {
-    return { success: false, error: 'ND30_RULE_SET_NOT_FOUND' };
-  }
-
-  const formatOptions = buildFormatOptionsFromRuleSet_(ruleSet);
-  applyFormatOptionsToDocument_(document.DriveFileID, formatOptions);
-  logAudit(user.UserID, 'DOCUMENT_ND30_QUICK_STYLE_APPLIED', 'Document', documentId, ruleSet.ruleSetId);
-  return { success: true, ruleSetId: ruleSet.ruleSetId, applied: formatOptions };
+  return applyND30QuickStyleToFile(user, document.DriveFileID, document.LibraryID, { type: 'Document', id: documentId });
 }
