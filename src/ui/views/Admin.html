@@ -1,10 +1,10 @@
-<div x-show="currentView === 'admin' && isAdmin" x-init="$watch('currentView', v => { if (v === 'admin' && isAdmin && allUsers.length === 0) loadAdminData(); })" class="max-w-5xl mx-auto">
+<div x-show="currentView === 'admin' && isSuperAdmin" x-init="$watch('currentView', v => { if (v === 'admin' && isSuperAdmin && allUsers.length === 0) loadAdminData(); })" class="max-w-5xl mx-auto">
   <div class="page-header">
     <div class="page-header-left">
       <div class="page-header-icon">⚙</div>
       <div>
         <h1 class="page-title-text">QUẢN TRỊ HỆ THỐNG</h1>
-        <p class="page-subtitle">Người dùng, AI, mẫu văn bản, nhật ký &amp; dữ liệu hệ thống</p>
+        <p class="page-subtitle">Người dùng, phân quyền, AI &amp; nhật ký hệ thống</p>
       </div>
     </div>
     <div class="page-header-actions">
@@ -27,11 +27,9 @@
   <!-- Tab bar -->
   <div class="tabs">
     <button @click="adminTab = 'users'" class="tab" :class="adminTab === 'users' ? 'active' : ''">Người dùng &amp; Vai trò</button>
+    <button @click="adminTab = 'permissions'" class="tab" :class="adminTab === 'permissions' ? 'active' : ''">Phân quyền theo khoa/phòng</button>
     <button @click="adminTab = 'ai'" class="tab" :class="adminTab === 'ai' ? 'active' : ''">Cấu hình AI</button>
-    <button @click="adminTab = 'templates'" class="tab" :class="adminTab === 'templates' ? 'active' : ''">Mẫu văn bản</button>
     <button @click="adminTab = 'log'" class="tab" :class="adminTab === 'log' ? 'active' : ''">Audit Log</button>
-    <button @click="adminTab = 'accuracy'; if (!accuracyReport) loadAccuracyReport()" class="tab" :class="adminTab === 'accuracy' ? 'active' : ''">Độ chính xác AI</button>
-    <button @click="adminTab = 'archived'; loadArchivedDocuments()" class="tab" :class="adminTab === 'archived' ? 'active' : ''">Tài liệu đã xoá</button>
   </div>
 
   <!-- Tab: Người dùng & vai trò -->
@@ -48,7 +46,6 @@
               <th></th>
               <th>Email</th>
               <th>Tên hiển thị</th>
-              <th>Phòng ban</th>
               <th>Vai trò</th>
               <th></th>
             </tr>
@@ -62,7 +59,6 @@
                 </td>
                 <td x-text="u.Email"></td>
                 <td><input type="text" x-model="u.FullName" class="form-control form-control-sm"></td>
-                <td><input type="text" x-model="u.Department" class="form-control form-control-sm"></td>
                 <td>
                   <select x-model="u.Role" class="form-control form-control-sm">
                     <template x-for="r in allRoles" :key="r.RoleID">
@@ -75,6 +71,56 @@
             </template>
           </tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Phân quyền theo khoa/phòng -->
+  <div x-show="adminTab === 'permissions'">
+    <div class="card">
+      <div class="card-header"><h3>Phân quyền riêng theo khoa/phòng</h3></div>
+      <div class="card-body space-y-3">
+        <p class="text-xs holo-text-dim">Quyền của Trưởng khoa/phòng được tự động cấp khi gán "Trưởng khoa/phòng" ở màn Khoa/Phòng. Dùng màn này để cấp thêm quyền riêng (ví dụ uỷ quyền lập lịch trực) cho từng người trong 1 khoa/phòng cụ thể.</p>
+        <div class="form-grid-2 max-w-lg">
+          <div class="form-group">
+            <label>Khoa/Phòng</label>
+            <select x-model="permissionDepartmentFilter" @change="loadDepartmentPermissionsAction()" class="form-control">
+              <option value="">-- Chọn khoa/phòng --</option>
+              <template x-for="d in departments" :key="d.DepartmentID">
+                <option :value="d.DepartmentID" x-text="d.DepartmentName"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="table-wrap" x-show="permissionDepartmentFilter">
+        <table class="data-table">
+          <thead><tr><th>Người dùng</th><th>Xem</th><th>Tạo</th><th>Sửa</th><th>Xoá</th><th>Gửi duyệt</th><th>Duyệt</th><th>Từ chối</th><th>Công bố</th><th>Chốt</th><th>Xuất DL</th></tr></thead>
+          <tbody>
+            <template x-for="p in departmentPermissions" :key="p.PermissionID">
+              <tr>
+                <td x-text="userEmailById(p.UserID)"></td>
+                <template x-for="action in ['CanView','CanCreate','CanEdit','CanDelete','CanSubmit','CanApprove','CanReject','CanPublish','CanLock','CanExport']" :key="action">
+                  <td><input type="checkbox" x-model="p[action]" @change="savePermissionRowAction(p)"></td>
+                </template>
+              </tr>
+            </template>
+            <template x-if="departmentPermissions.length === 0">
+              <tr><td colspan="11" class="text-xs holo-text-dim py-4">Chưa có phân quyền riêng nào trong khoa/phòng này.</td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+      <div class="card-body" x-show="permissionDepartmentFilter">
+        <div class="form-group max-w-xs">
+          <label>Thêm người dùng vào bảng phân quyền</label>
+          <select x-model="newPermissionUserId" @change="addPermissionRowAction()" class="form-control form-control-sm">
+            <option value="">-- Chọn người dùng --</option>
+            <template x-for="u in userDirectory" :key="u.UserID">
+              <option :value="u.UserID" x-text="u.FullName + ' (' + u.Email + ')'"></option>
+            </template>
+          </select>
+        </div>
       </div>
     </div>
   </div>
@@ -132,19 +178,6 @@
     </div>
   </div>
 
-  <!-- Tab: Mẫu văn bản -->
-  <div x-show="adminTab === 'templates'">
-    <div class="card">
-      <div class="card-header">
-        <h3>Mẫu văn bản</h3>
-        <button @click="openModal('addTemplate')" class="btn btn-primary btn-sm">+ Tạo mẫu mới</button>
-      </div>
-      <div class="card-body">
-        <p class="text-sm holo-text-dim">Dùng nút "Tạo mẫu mới" để tải lên 1 file Google Doc/Word đã chèn sẵn placeholder dạng [tenField].</p>
-      </div>
-    </div>
-  </div>
-
   <!-- Tab: Audit Log -->
   <div x-show="adminTab === 'log'">
     <div class="card">
@@ -168,35 +201,34 @@
           </select>
           <select x-model="auditFilters.action" @change="loadAuditLog()" class="filter-select">
             <option value="">Hành động: Tất cả</option>
-            <option value="DOCUMENT_CREATED">Tạo văn bản</option>
-            <option value="DOCUMENT_STATUS_CHANGED">Đổi trạng thái văn bản</option>
-            <option value="DOCUMENT_DELETED">Xoá văn bản</option>
-            <option value="DOCUMENT_RESTORED">Khôi phục văn bản</option>
-            <option value="DOCUMENT_EXPORTED">Xuất văn bản</option>
-            <option value="DOCUMENT_RULE_CHECKED">Kiểm tra thể thức</option>
-            <option value="DOCUMENT_VERSION_CREATED">Tạo phiên bản văn bản</option>
-            <option value="DOCUMENT_OCR_EXTRACTED">Trích văn bản OCR</option>
-            <option value="WORKFLOW_SUBMITTED">Gửi duyệt</option>
-            <option value="KNOWLEDGE_APPROVED">Duyệt tài liệu</option>
-            <option value="KNOWLEDGE_REJECTED">Từ chối tài liệu</option>
-            <option value="KNOWLEDGE_RESUBMITTED">Gửi lại tài liệu</option>
-            <option value="LIBRARY_CREATED">Tạo kho tài liệu</option>
-            <option value="CATEGORY_CREATED">Tạo danh mục</option>
-            <option value="TEMPLATE_CREATED">Tạo mẫu văn bản</option>
-            <option value="TEMPLATE_STATUS_CHANGED">Đổi trạng thái mẫu</option>
+            <option value="EMPLOYEE_CREATED">Tạo nhân viên</option>
+            <option value="EMPLOYEE_UPDATED">Sửa nhân viên</option>
+            <option value="EMPLOYEE_DEACTIVATED">Ngừng hoạt động nhân viên</option>
+            <option value="DEPARTMENT_CREATED">Tạo khoa/phòng</option>
+            <option value="DEPARTMENT_UPDATED">Sửa khoa/phòng</option>
+            <option value="DEPARTMENT_DEACTIVATED">Ngừng hoạt động khoa/phòng</option>
+            <option value="TASK_ASSIGNED">Giao việc</option>
+            <option value="TASK_PROGRESS_UPDATED">Cập nhật tiến độ</option>
+            <option value="TASK_RESULT_SUBMITTED">Nộp kết quả công việc</option>
+            <option value="TASK_EVALUATED">Đánh giá công việc</option>
+            <option value="CLINICAL_ASSIGNMENT_CREATED">Tạo phân công</option>
+            <option value="DUTY_SCHEDULE_CREATED">Tạo lịch trực</option>
+            <option value="DUTY_SCHEDULE_SUBMITTED">Gửi duyệt lịch trực</option>
+            <option value="DUTY_SCHEDULE_REVISION_REQUESTED">Yêu cầu chỉnh sửa lịch trực</option>
+            <option value="DUTY_SCHEDULE_APPROVED">Duyệt lịch trực</option>
+            <option value="DUTY_SCHEDULE_PUBLISHED">Công bố lịch trực</option>
+            <option value="DUTY_SHIFT_ADDED">Thêm ca trực</option>
+            <option value="DUTY_SWAP_REQUESTED">Đề nghị đổi trực</option>
+            <option value="DUTY_SWAP_APPROVED">Duyệt đổi trực</option>
+            <option value="DUTY_SWAP_REJECTED">Từ chối đổi trực</option>
             <option value="PERMISSION_CHANGED">Đổi phân quyền</option>
             <option value="ROLE_CHANGED">Đổi vai trò</option>
             <option value="USER_CREATED">Tạo người dùng</option>
             <option value="USER_AUTO_CREATED">Tự tạo người dùng (đăng nhập lần đầu)</option>
-            <option value="USER_PROFILE_CHANGED">Đổi hồ sơ người dùng</option>
-            <option value="USER_AVATAR_CHANGED">Đổi ảnh đại diện</option>
             <option value="AI_TOGGLE">Bật/tắt AI</option>
             <option value="AI_PROVIDER_CONFIG_CHANGED">Đổi cấu hình AI</option>
-            <option value="AI_CLASSIFICATION_THRESHOLD_CHANGED">Đổi ngưỡng phân loại AI</option>
-            <option value="MAX_BULK_UPLOAD_COUNT_CHANGED">Đổi giới hạn tải lên hàng loạt</option>
             <option value="SCHEMA_SYNCED">Đồng bộ cấu trúc dữ liệu</option>
             <option value="SYSTEM_INITIALIZED">Khởi tạo hệ thống</option>
-            <option value="STAGED_UPLOAD_DISCARDED">Huỷ tài liệu tạm</option>
             <option value="AUDIT_LOG_EXPORTED">Xuất nhật ký</option>
           </select>
           <input type="date" x-model="auditFilters.fromDate" @change="loadAuditLog()" class="filter-input" title="Từ ngày">
@@ -236,129 +268,6 @@
     </div>
   </div>
 
-  <!-- Tab: Độ chính xác AI -->
-  <div x-show="adminTab === 'accuracy'" class="space-y-4">
-    <div class="notice notice-info">
-      <span class="notice-icon">ℹ</span>
-      <span>Suy ra từ số lần người dùng THỰC SỰ sửa lại đề xuất phân loại (Rule/AI) khi xác nhận tài liệu. Không tính là "sai" nếu người dùng giữ nguyên đề xuất.</span>
-    </div>
-
-    <div class="stats-grid" x-show="accuracyReport" style="grid-template-columns: repeat(2, minmax(0,1fr)); max-width: 480px;">
-      <div class="stat-card" style="cursor:default;">
-        <div class="stat-card-icon cyan">▤</div>
-        <div>
-          <div class="stat-card-label">Tổng tài liệu đã phân loại</div>
-          <div class="stat-card-value" x-text="accuracyReport && accuracyReport.totalClassified"></div>
-        </div>
-      </div>
-      <div class="stat-card" style="cursor:default;">
-        <div class="stat-card-icon orange">✎</div>
-        <div>
-          <div class="stat-card-label">Tổng số lần bị sửa</div>
-          <div class="stat-card-value" x-text="accuracyReport && accuracyReport.totalCorrections"></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header">
-        <h3>Độ chính xác theo trường dữ liệu</h3>
-        <button @click="loadAccuracyReport()" :disabled="loadingAccuracyReport" class="btn btn-secondary btn-sm">
-          <span x-text="loadingAccuracyReport ? 'Đang tải...' : 'Tải lại'"></span>
-        </button>
-      </div>
-      <div class="table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr><th>Trường</th><th>Số lần bị sửa</th><th>Tỷ lệ chính xác ước tính</th></tr>
-          </thead>
-          <tbody>
-            <template x-if="accuracyReport" x-for="row in accuracyReport.byField" :key="row.field">
-              <tr>
-                <td x-text="row.field"></td>
-                <td x-text="row.corrections"></td>
-                <td x-text="row.accuracyRate !== null ? row.accuracyRate + '%' : '—'"></td>
-              </tr>
-            </template>
-            <template x-if="!accuracyReport || accuracyReport.byField.length === 0">
-              <tr><td colspan="3" class="text-xs holo-text-dim py-4">Chưa có lần sửa nào được ghi nhận.</td></tr>
-            </template>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header"><h3>Kiểu sửa lặp lại nhiều nhất (gợi ý cần chỉnh Rule/Prompt)</h3></div>
-      <div class="table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr><th>Trường</th><th>AI/Rule đề xuất</th><th>Người dùng sửa thành</th><th>Số lần</th></tr>
-          </thead>
-          <tbody>
-            <template x-if="accuracyReport" x-for="p in accuracyReport.topPatterns" :key="p.field + p.suggested + p.final">
-              <tr>
-                <td x-text="p.field"></td>
-                <td x-text="p.suggested"></td>
-                <td x-text="p.final"></td>
-                <td x-text="p.count"></td>
-              </tr>
-            </template>
-            <template x-if="!accuracyReport || accuracyReport.topPatterns.length === 0">
-              <tr><td colspan="4" class="text-xs holo-text-dim py-4">Chưa có dữ liệu.</td></tr>
-            </template>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header"><h3>Cấu hình chung</h3></div>
-      <div class="card-body">
-        <div class="form-group max-w-xs">
-          <label>Giới hạn tải lên hàng loạt (1-20 tài liệu/lần)</label>
-          <div class="flex gap-2 items-center">
-            <input type="number" min="1" max="20" x-model.number="maxBulkUploadCount" class="form-control form-control-sm w-20">
-            <button @click="saveMaxBulkUploadCount()" class="btn btn-secondary btn-xs">Lưu</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Tab: Tài liệu đã xoá -->
-  <div x-show="adminTab === 'archived'">
-    <div class="card">
-      <div class="card-header">
-        <h3>Tài liệu đã xoá</h3>
-        <button @click="loadArchivedDocuments()" class="btn btn-secondary btn-sm">Tải lại danh sách</button>
-      </div>
-      <div class="card-body !pb-2 !pt-3">
-        <p class="text-xs holo-text-dim">File Drive đang ở Thùng rác (khôi phục được trong 30 ngày kể từ lúc xoá). Khôi phục sẽ đưa tài liệu về trạng thái Bản nháp (DRAFT).</p>
-      </div>
-      <div class="table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr><th>Tiêu đề</th><th>Kho tài liệu</th><th>Cập nhật lúc</th><th></th></tr>
-          </thead>
-          <tbody>
-            <template x-for="doc in archivedDocuments" :key="doc.DocumentID">
-              <tr>
-                <td x-text="doc.Title"></td>
-                <td x-text="libraryNameById(doc.LibraryID)"></td>
-                <td class="whitespace-nowrap" x-text="doc.UpdatedAt"></td>
-                <td><button @click="restoreDocumentAction(doc)" class="btn-link">Khôi phục</button></td>
-              </tr>
-            </template>
-            <template x-if="archivedDocuments.length === 0">
-              <tr><td colspan="4" class="text-xs holo-text-dim py-4">Không có tài liệu nào đã xoá.</td></tr>
-            </template>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
   <!-- Modal: Thêm người dùng mới -->
   <div x-show="modalOpen === 'addUser'" x-cloak class="modal-overlay" @click.self="closeModal()">
     <div class="modal">
@@ -367,20 +276,14 @@
         <button @click="closeModal()" class="modal-close">×</button>
       </div>
       <div class="modal-body">
-        <p class="text-xs holo-text-dim mb-3">Tạo trước tài khoản cho nhân viên chưa từng đăng nhập — khi họ đăng nhập lần đầu, hệ thống nhận đúng Vai trò/Phòng ban đã gán sẵn ở đây.</p>
+        <p class="text-xs holo-text-dim mb-3">Tạo trước tài khoản cho nhân viên chưa từng đăng nhập — khi họ đăng nhập lần đầu, hệ thống nhận đúng Vai trò đã gán sẵn ở đây.</p>
         <div class="form-group">
           <label class="required">Email (@domain bệnh viện)</label>
           <input type="email" x-model="newUserForm.email" class="form-control">
         </div>
-        <div class="form-grid-2">
-          <div class="form-group">
-            <label>Tên hiển thị</label>
-            <input type="text" x-model="newUserForm.fullName" class="form-control">
-          </div>
-          <div class="form-group">
-            <label>Phòng ban</label>
-            <input type="text" x-model="newUserForm.department" class="form-control">
-          </div>
+        <div class="form-group">
+          <label>Tên hiển thị</label>
+          <input type="text" x-model="newUserForm.fullName" class="form-control">
         </div>
         <div class="form-group">
           <label>Vai trò</label>
@@ -395,46 +298,6 @@
         <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
         <button @click="createUserAction()" :disabled="creatingUser || !newUserForm.email" class="btn btn-primary">
           <span x-text="creatingUser ? 'Đang thêm...' : '+ Thêm người dùng'"></span>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal: Tạo mẫu văn bản mới -->
-  <div x-show="modalOpen === 'addTemplate'" x-cloak class="modal-overlay" @click.self="closeModal()">
-    <div class="modal">
-      <div class="modal-header">
-        <h2>Tạo mẫu văn bản mới</h2>
-        <button @click="closeModal()" class="modal-close">×</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label class="required">Tên mẫu</label>
-          <input type="text" x-model="templateForm.name" class="form-control">
-        </div>
-        <div class="form-group">
-          <label class="required">Kho tài liệu</label>
-          <select x-model="templateForm.libraryId" class="form-control">
-            <option value="">-- Chọn kho tài liệu --</option>
-            <template x-for="lib in libraries" :key="lib.LibraryID">
-              <option :value="lib.LibraryID" x-text="lib.LibraryName"></option>
-            </template>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Các field (phân tách bằng dấu phẩy)</label>
-          <input type="text" x-model="templateForm.fieldsCsv" placeholder="coQuanBanHanh, docNumber, noiDung" class="form-control">
-          <p class="form-hint">Đúng tên placeholder [tenField] đã chèn sẵn trong file mẫu.</p>
-        </div>
-        <div class="form-group">
-          <label class="required">File mẫu (Google Doc / Word)</label>
-          <input type="file" @change="onTemplateFileSelected($event)" class="form-control">
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
-        <button @click="createTemplateAction()" :disabled="creatingTemplate || !templateForm.name || !templateForm.libraryId || !pendingTemplateFile" class="btn btn-primary">
-          <span x-text="creatingTemplate ? 'Đang tạo...' : 'Tạo mẫu'"></span>
         </button>
       </div>
     </div>

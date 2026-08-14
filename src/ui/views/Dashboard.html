@@ -4,39 +4,36 @@
       <div class="page-header-icon">⬡</div>
       <div>
         <h1 class="page-title-text">XIN CHÀO, <span x-text="(currentUser.FullName || userEmail).toUpperCase()"></span></h1>
-        <p class="page-subtitle">Hệ thống tài liệu &amp; văn bản — Bệnh viện Đa khoa Đông Sơn</p>
+        <p class="page-subtitle">Hệ thống Quản lý Công việc – Phân công – Lịch trực — Bệnh viện Đa khoa Đông Sơn</p>
       </div>
-    </div>
-    <div class="page-header-actions" x-show="canAnywhere('CanCreate')">
-      <button @click="go('documents'); openCreateDocumentModal()" class="btn btn-primary">+ Tạo văn bản mới</button>
     </div>
   </div>
 
   <div class="stats-grid">
-    <div class="stat-card" @click="go('workflow')">
-      <div class="stat-card-icon cyan">▧</div>
+    <div class="stat-card" @click="go('tasks')">
+      <div class="stat-card-icon cyan">▤</div>
       <div>
-        <div class="stat-card-label">Chờ bạn duyệt</div>
-        <div class="stat-card-value" x-text="dashboard.pendingApprovals.length"></div>
-        <div class="stat-card-detail">Văn bản đang chờ phê duyệt</div>
+        <div class="stat-card-label">Công việc của tôi</div>
+        <div class="stat-card-value" x-text="dashboard.myTasks.length"></div>
+        <div class="stat-card-detail">Việc được giao hoặc bạn giao cho người khác</div>
       </div>
     </div>
 
-    <div class="stat-card" @click="go('knowledge'); knowledgeTab = 'review'; loadPendingKnowledgeReviews()">
-      <div class="stat-card-icon orange">▥</div>
+    <div class="stat-card" @click="go('duty')">
+      <div class="stat-card-icon orange">▧</div>
       <div>
-        <div class="stat-card-label">Tài liệu chờ duyệt</div>
-        <div class="stat-card-value" x-text="pendingKnowledgeReviews.length"></div>
-        <div class="stat-card-detail">Tài liệu chờ công bố vào kho</div>
+        <div class="stat-card-label">Ca trực tuần này</div>
+        <div class="stat-card-value" x-text="dashboard.myShiftsThisWeek.length"></div>
+        <div class="stat-card-detail">Ca trực của bạn từ hôm nay trở đi</div>
       </div>
     </div>
 
-    <div class="stat-card" @click="go('documents')">
-      <div class="stat-card-icon green">▤</div>
+    <div class="stat-card" @click="go('swap')">
+      <div class="stat-card-icon green">⇄</div>
       <div>
-        <div class="stat-card-label">Văn bản gần đây</div>
-        <div class="stat-card-value" x-text="dashboard.myRecentDocuments.length"></div>
-        <div class="stat-card-detail">Do bạn tạo, 10 văn bản mới nhất</div>
+        <div class="stat-card-label">Đổi trực chờ xử lý</div>
+        <div class="stat-card-value" x-text="dashboard.pendingSwapConfirmations.length"></div>
+        <div class="stat-card-detail">Yêu cầu đổi trực cần bạn xác nhận/duyệt</div>
       </div>
     </div>
   </div>
@@ -45,39 +42,39 @@
     <div class="card-header"><h3>Truy cập nhanh</h3></div>
     <div class="card-body">
       <div class="quick-grid">
-        <button @click="go('documents')" class="quick-card">
+        <button @click="go('tasks')" class="quick-card">
           <span class="quick-card-icon">▤</span>
-          <span class="quick-card-label">Văn bản</span>
+          <span class="quick-card-label">Công việc</span>
         </button>
-        <button @click="go('knowledge')" class="quick-card">
-          <span class="quick-card-icon">▥</span>
-          <span class="quick-card-label">Kho tài liệu</span>
+        <button @click="go('clinical')" class="quick-card">
+          <span class="quick-card-icon">✚</span>
+          <span class="quick-card-label">Phân công</span>
         </button>
-        <button @click="go('aichat')" class="quick-card">
-          <span class="quick-card-icon">◈</span>
-          <span class="quick-card-label">AI Chat</span>
-        </button>
-        <button @click="go('workflow')" class="quick-card">
+        <button @click="go('duty')" class="quick-card">
           <span class="quick-card-icon">▧</span>
-          <span class="quick-card-label">Workflow</span>
+          <span class="quick-card-label">Lịch trực tuần</span>
+        </button>
+        <button @click="go('swap')" class="quick-card">
+          <span class="quick-card-icon">⇄</span>
+          <span class="quick-card-label">Đổi trực</span>
         </button>
       </div>
     </div>
   </div>
 
   <div class="card">
-    <div class="card-header"><h3>Hoạt động gần đây</h3></div>
+    <div class="card-header"><h3>Công việc gần đây</h3></div>
     <div class="card-body !p-0">
-      <template x-if="dashboard.myRecentDocuments.length === 0">
-        <p class="text-sm holo-text-dim p-5">Chưa có văn bản nào. Vào mục "Văn bản" để soạn văn bản đầu tiên.</p>
+      <template x-if="dashboard.myTasks.length === 0">
+        <p class="text-sm holo-text-dim p-5">Chưa có công việc nào.</p>
       </template>
-      <div class="table-wrap" x-show="dashboard.myRecentDocuments.length > 0">
+      <div class="table-wrap" x-show="dashboard.myTasks.length > 0">
         <table class="data-table">
           <tbody>
-            <template x-for="doc in dashboard.myRecentDocuments" :key="doc.DocumentID">
+            <template x-for="t in dashboard.myTasks.slice(0, 10)" :key="t.TaskID">
               <tr>
-                <td x-text="doc.Title"></td>
-                <td class="text-right"><span class="badge badge-cyan" x-text="doc.Status"></span></td>
+                <td x-text="t.Title"></td>
+                <td class="text-right"><span class="badge badge-cyan" x-text="t.Status"></span></td>
               </tr>
             </template>
           </tbody>

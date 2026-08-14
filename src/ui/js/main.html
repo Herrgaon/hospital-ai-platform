@@ -1,7 +1,5 @@
-<!-- Alpine.js qua CDN — xem docs/06-ui-specification.md mục 2. Ghim phiên bản cụ thể (không dùng
-     range @3.x.x thả nổi) + SRI theo docs/13-security.md mục 7 — hash tính từ chính file đã tải về
-     và đối chiếu khớp với hash công bố trên jsdelivr trước khi ghim. Nâng phiên bản: đổi cả version
-     trong URL lẫn hash integrity cùng lúc. -->
+<!-- Alpine.js qua CDN — ghim phiên bản cụ thể (không dùng range @3.x.x thả nổi) + SRI. Nâng phiên
+     bản: đổi cả version trong URL lẫn hash integrity cùng lúc. -->
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.15.12/dist/cdn.min.js"
         integrity="sha384-pb6hrQvo4s23cEUFtj0CZkzGE3jyK3pj26RIupXXxhSrrcUA/Cn0lZgcCrGH0t6L"
         crossorigin="anonymous"></script>
@@ -10,13 +8,19 @@
     return {
       currentView: 'dashboard',
       userEmail: '',
-      isAdmin: false,
       currentUser: {},
+      myEmployeeId: '',
+      get isSuperAdmin() { return this.currentUser.Role === 'SUPER_ADMIN'; },
+      get isTcHc() { return this.currentUser.Role === 'PHONG_TC_HC'; },
+      get isKhNv() { return this.currentUser.Role === 'PHONG_KH_NV'; },
+      get isBanGiamDoc() { return this.currentUser.Role === 'BAN_GIAM_DOC'; },
       myPermissionMap: {},
-      can(libraryId, action) {
-        return !!(this.myPermissionMap[libraryId] && this.myPermissionMap[libraryId][action]);
+      can(departmentId, action) {
+        if (this.isSuperAdmin) return true;
+        return !!(this.myPermissionMap[departmentId] && this.myPermissionMap[departmentId][action]);
       },
       canAnywhere(action) {
+        if (this.isSuperAdmin) return true;
         return Object.values(this.myPermissionMap).some((p) => p[action]);
       },
       showProfileMenu: false,
@@ -24,123 +28,16 @@
       savingProfile: false,
       pendingAvatarFile: null,
       uploadingAvatar: false,
-
-      docTab: 'create',
-      myDocuments: [],
-      myDocumentsStatusFilter: '',
-      get myDocumentsFiltered() {
-        return this.myDocumentsStatusFilter
-          ? this.myDocuments.filter((d) => d.Status === this.myDocumentsStatusFilter)
-          : this.myDocuments;
-      },
-      templates: [],
-      get creatableTemplates() {
-        return this.templates.filter((t) => this.can(t.LibraryID, 'CanCreate'));
-      },
-      selectedTemplateId: '',
-      selectedTemplateFields: [],
-      fieldValues: {},
-      creating: false,
-      currentDocument: null,
-      checking: false,
-      ruleCheckResult: null,
-      formatMode: null,
-      formatForm: { fontFamily: null, fontSize: null, bold: null, italic: null, underline: null, strikethrough: null,
-        textColor: null, backgroundColor: null, textCase: null, alignment: null, lineSpacing: null,
-        spacingBeforePt: null, spacingAfterPt: null, firstLineIndentMm: null, topMm: null, bottomMm: null, leftMm: null, rightMm: null },
-      allowedFontFamilies: ['Times New Roman', 'Arial', 'Calibri', 'Cambria', 'Verdana'],
-      applyingFormat: false,
-      applyingNd30Style: false,
-      aiFormatCommand: '',
-      runningAiFormatCommand: false,
-      aiFormatCommandResultText: '',
-      stagedFile: null,
-      stagingFile: false,
-      formatInputMode: 'upload',
-      pasteFormatTitle: '',
-      pasteFormatText: '',
-      downloadingFormattedFile: false,
-      exporting: false,
-      exportResult: null,
-      submittingApproval: false,
-      submittedForApproval: false,
-      reviewLibraryIds: [],
-      reviewing: false,
-      reviewResult: null,
+      aiEnabled: false,
       errorMessage: '',
 
-      globalSearchKeyword: '',
-      dashboard: { pendingApprovals: [], myRecentDocuments: [] },
-      pendingApprovals: [],
-      approvalComments: {},
-
-      chatLibraryIds: [],
-      chatMessages: [],
-      chatInput: '',
-      chatAsking: false,
-
-      knowledgeTab: 'search',
-      libraries: [],
-      selectedLibraryId: '',
-      canManageSelectedLibrary: false,
-      libraryPermissions: [],
+      departments: [],
+      employees: [],
       userDirectory: [],
-      newPermissionUserId: '',
-      newLibraryName: '',
-      newLibraryManagerId: '',
-      newLibraryRequiresReview: true,
-      creatingLibrary: false,
-      showAdvancedMetadata: false,
-      categories: [],
-      newCategoryName: '',
-      pendingFiles: [],
-      readingFiles: false,
-      stagingResult: null,
-      stagingBatch: [],
-      bulkApplyLibraryId: '',
-      bulkSaveResults: [],
-      maxBulkUploadCount: 15,
-      uploadForm: {},
-      classifying: false,
-      savingClassification: false,
-      pendingKnowledgeReviews: [],
-      reviewComments: {},
-      searchKeyword: '',
-      searchResults: [],
-      documentVersions: [],
-      compareVersionA: '',
-      compareVersionB: '',
-      compareResult: null,
-      comparing: false,
-
-      adminTab: 'users',
-      newUserForm: { email: '', fullName: '', department: '', role: 'Guest' },
-      creatingUser: false,
-      syncingSchema: false,
-      schemaSyncResult: null,
-      allUsers: [],
-      allRoles: [],
-      aiEnabled: false,
-      activeAiConfig: null,
-      aiProviders: [],
-      aiForm: { providerId: '', modelName: '', apiKey: '', temperature: 0.3, maxTokens: 1024, timeout: 30 },
-      savingAiConfig: false,
-      auditLogs: [],
-      exportingAuditLog: false,
-      auditExportResult: null,
-      accuracyReport: null,
-      loadingAccuracyReport: false,
-      archivedDocuments: [],
-
-      ocrResults: {},
-      templateForm: { name: '', libraryId: '', fieldsCsv: '' },
-      pendingTemplateFile: null,
-      creatingTemplate: false,
 
       init() {
-        // errorMessage được gán ở ~40 chỗ khắp app (withFailureHandler) nhưng trước đây chỉ 1-2 màn
-        // hình thực sự hiển thị nó — theo dõi tập trung ở đây để MỌI lỗi tự động hiện thành toast,
-        // không cần sửa lại từng chỗ gọi.
+        // errorMessage được gán ở rất nhiều chỗ (withFailureHandler) nhưng theo dõi tập trung ở đây
+        // để MỌI lỗi tự động hiện thành toast, không cần sửa lại từng chỗ gọi.
         this.$watch('errorMessage', (value) => { if (value) this.toast('error', value); });
 
         this.currentView = (location.hash || '#dashboard').replace('#', '');
@@ -155,7 +52,6 @@
         google.script.run
           .withSuccessHandler((user) => {
             this.userEmail = user.Email;
-            this.isAdmin = user.Role === 'Admin';
             this.currentUser = user;
             this.profileForm.fullName = user.FullName;
           })
@@ -163,29 +59,39 @@
           .api_getCurrentUser();
 
         google.script.run
-          .withSuccessHandler((templates) => { this.templates = templates; })
+          .withSuccessHandler((employee) => { this.myEmployeeId = employee ? employee.EmployeeID : ''; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listTemplates(null);
+          .api_getMyEmployee();
 
-        // Bản đồ quyền trên từng kho — dùng để ẩn/hiện nút bấm đúng theo phân quyền thay vì hiện
-        // hết rồi để lộ lỗi 403 khi bấm (xem docs/11-permission-design.md).
+        // Bản đồ quyền trên từng khoa/phòng — dùng để ẩn/hiện nút bấm đúng theo phân quyền thay vì
+        // hiện hết rồi để lộ lỗi khi bấm.
         google.script.run
           .withSuccessHandler((map) => { this.myPermissionMap = map; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_getMyPermissionMap();
 
-        // Nạp trước cho badge chuông thông báo ở header — hiển thị được dù chưa vào đúng màn hình.
-        this.loadPendingApprovals();
-        this.loadPendingKnowledgeReviews();
+        google.script.run
+          .withSuccessHandler((depts) => { this.departments = depts; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listActiveDepartments();
 
-        // Nạp trước để mọi màn hình đều biết AI đang bật/tắt (trước đây chỉ Admin mới biết, do
-        // aiEnabled chỉ được nạp trong loadAdminData()) — các tính năng có AI (Quick Style vẫn chạy
-        // không cần AI, chỉ riêng ô lệnh tự do cần AI) tự ẩn gợi ý "cần AI" khi đã tắt thay vì để
-        // người dùng bấm rồi mới biết.
+        google.script.run
+          .withSuccessHandler((emps) => { this.employees = emps; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listEmployees();
+
+        google.script.run
+          .withSuccessHandler((dir) => { this.userDirectory = dir; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listUserDirectory();
+
         google.script.run
           .withSuccessHandler((enabled) => { this.aiEnabled = enabled; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_isAiEnabled();
+
+        // Nạp trước cho badge chuông thông báo ở header — hiển thị được dù chưa vào đúng màn hình.
+        this.loadSwapPageData();
       },
 
       active(view) {
@@ -221,7 +127,7 @@
       closeModal() { this.modalOpen = null; },
 
       get pendingCount() {
-        return this.pendingApprovals.length + this.pendingKnowledgeReviews.length;
+        return this.pendingSwapConfirmations.length;
       },
 
       // --- Avatar (dùng chung: bảng người dùng, danh bạ, top bar) ---
@@ -233,12 +139,41 @@
       },
 
       avatarColorStyle(user) {
-        const key = (user && (user.UserID || user.Email)) || '?';
+        const key = (user && (user.UserID || user.EmployeeID || user.Email)) || '?';
         const palette = ['#0891b2', '#0e7490', '#7c3aed', '#be185d', '#b45309', '#15803d', '#1d4ed8'];
         let hash = 0;
         for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
         const color = palette[hash % palette.length];
         return 'background-color:' + color + '; color:#ffffff;';
+      },
+
+      // --- Lookup dùng chung ---
+      userEmailById(userId) {
+        const u = this.userDirectory.find((x) => x.UserID === userId);
+        return u ? u.Email : userId;
+      },
+
+      departmentNameById(departmentId) {
+        const d = this.departments.find((x) => x.DepartmentID === departmentId);
+        return d ? d.DepartmentName : departmentId;
+      },
+
+      departmentTypeLabel(type) {
+        const map = {
+          BAN_GIAM_DOC: 'Ban Giám đốc', PHONG_CHUC_NANG: 'Phòng chức năng',
+          KHOA_LAM_SANG: 'Khoa lâm sàng', KHOA_CAN_LAM_SANG: 'Khoa cận lâm sàng'
+        };
+        return map[type] || type;
+      },
+
+      employeeNameById(employeeId) {
+        const e = this.employees.find((x) => x.EmployeeID === employeeId);
+        return e ? e.FullName : employeeId;
+      },
+
+      employeesByDepartment(departmentId) {
+        if (!departmentId) return [];
+        return this.employees.filter((e) => e.DepartmentID === departmentId && e.Status === 'Active');
       },
 
       saveProfileAction() {
@@ -282,395 +217,8 @@
           .api_updateMyAvatar(this.pendingAvatarFile.base64, this.pendingAvatarFile.mimeType);
       },
 
-      loadMyDocuments() {
-        google.script.run
-          .withSuccessHandler((docs) => { this.myDocuments = docs; })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listMyDocuments();
-      },
-
-      deleteDocumentAction(doc) {
-        if (!confirm('Xoá văn bản "' + doc.Title + '"? File sẽ được chuyển vào Thùng rác, có thể khôi phục trong 30 ngày.')) return;
-        google.script.run
-          .withSuccessHandler(() => {
-            this.myDocuments = this.myDocuments.filter(d => d.DocumentID !== doc.DocumentID);
-            this.searchResults = this.searchResults.filter(d => d.DocumentID !== doc.DocumentID);
-            this.pendingKnowledgeReviews = this.pendingKnowledgeReviews.filter(d => d.DocumentID !== doc.DocumentID);
-          })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_deleteDocument(doc.DocumentID);
-      },
-
-      resumeDocument(doc) {
-        this.currentDocument = doc;
-        this.ruleCheckResult = null;
-        this.exportResult = null;
-        this.submittedForApproval = doc.Status === 'PENDING_APPROVAL' || doc.Status === 'PUBLISHED';
-        this.reviewLibraryIds = [];
-        this.reviewResult = null;
-        this.resetFormatForm();
-        this.docTab = 'create';
-      },
-
-      closeCurrentDocument() {
-        this.currentDocument = null;
-        this.ruleCheckResult = null;
-        this.exportResult = null;
-        this.submittedForApproval = false;
-        this.reviewLibraryIds = [];
-        this.reviewResult = null;
-        this.resetFormatForm();
-      },
-
-      toggleReviewLibrary(libraryId, checked) {
-        if (checked) {
-          if (!this.reviewLibraryIds.includes(libraryId)) this.reviewLibraryIds.push(libraryId);
-        } else {
-          this.reviewLibraryIds = this.reviewLibraryIds.filter((id) => id !== libraryId);
-        }
-      },
-
-      suggestReviewLibraries() {
-        google.script.run
-          .withSuccessHandler((libs) => { this.reviewLibraryIds = libs.map((l) => l.LibraryID); })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_suggestLibrariesForDocument(this.currentDocument.DocumentID);
-      },
-
-      runLegalReview() {
-        this.reviewing = true;
-        this.reviewResult = null;
-        google.script.run
-          .withSuccessHandler((result) => {
-            this.reviewing = false;
-            this.reviewResult = result.success
-              ? result.review
-              : (result.error === 'AI_NOT_CONFIGURED'
-                ? 'AI chưa được Admin bật/cấu hình.'
-                : 'Lỗi: ' + result.error);
-          })
-          .withFailureHandler((e) => {
-            this.reviewing = false;
-            this.errorMessage = e.message;
-          })
-          .api_reviewDocumentAgainstLibraries(this.currentDocument.DocumentID, this.reviewLibraryIds);
-      },
-
-      openCreateDocumentModal() {
-        this.selectedTemplateId = '';
-        this.selectedTemplateFields = [];
-        this.openModal('createDocument');
-      },
-
-      onTemplateChange() {
-        this.currentDocument = null;
-        this.ruleCheckResult = null;
-        this.exportResult = null;
-        this.submittedForApproval = false;
-        this.reviewLibraryIds = [];
-        this.reviewResult = null;
-        this.fieldValues = {};
-        const template = this.templates.find((t) => t.TemplateID === this.selectedTemplateId);
-        this.selectedTemplateFields = template ? JSON.parse(template.Fields || '[]') : [];
-        this.selectedTemplateFields.forEach((f) => { this.fieldValues[f.name] = ''; });
-      },
-
-      createDocument() {
-        this.creating = true;
-        this.errorMessage = '';
-        google.script.run
-          .withSuccessHandler((doc) => {
-            this.creating = false;
-            this.currentDocument = doc;
-            this.closeModal();
-            this.loadMyDocuments();
-          })
-          .withFailureHandler((e) => {
-            this.creating = false;
-            this.errorMessage = e.message;
-          })
-          .api_createDocumentFromTemplate(this.selectedTemplateId, this.fieldValues);
-      },
-
-      checkRules() {
-        this.checking = true;
-        this.errorMessage = '';
-        google.script.run
-          .withSuccessHandler((result) => {
-            this.checking = false;
-            this.ruleCheckResult = result;
-          })
-          .withFailureHandler((e) => {
-            this.checking = false;
-            this.errorMessage = e.message;
-          })
-          .api_checkDocumentRules(this.currentDocument.DocumentID);
-      },
-
-      get hasAnyFormatFieldSet() {
-        return Object.values(this.formatForm).some((v) => v !== null && v !== '');
-      },
-
-      resetFormatForm() {
-        this.formatMode = null;
-        this.formatForm = { fontFamily: null, fontSize: null, bold: null, italic: null, underline: null,
-          strikethrough: null, textColor: null, backgroundColor: null, textCase: null, alignment: null,
-          lineSpacing: null, spacingBeforePt: null, spacingAfterPt: null, firstLineIndentMm: null,
-          topMm: null, bottomMm: null, leftMm: null, rightMm: null };
-        this.aiFormatCommand = '';
-        this.aiFormatCommandResultText = '';
-      },
-
-      buildFormatOptionsFromForm_() {
-        const f = this.formatForm;
-        return {
-          text: { fontFamily: f.fontFamily, fontSize: f.fontSize, bold: f.bold, italic: f.italic,
-            underline: f.underline, strikethrough: f.strikethrough, textColor: f.textColor,
-            backgroundColor: f.backgroundColor, textCase: f.textCase },
-          paragraph: { alignment: f.alignment, lineSpacing: f.lineSpacing, spacingBeforePt: f.spacingBeforePt,
-            spacingAfterPt: f.spacingAfterPt, firstLineIndentMm: f.firstLineIndentMm },
-          margins: { topMm: f.topMm, bottomMm: f.bottomMm, leftMm: f.leftMm, rightMm: f.rightMm }
-        };
-      },
-
-      applyManualFormattingAction() {
-        this.applyingFormat = true;
-        google.script.run
-          .withSuccessHandler(() => {
-            this.applyingFormat = false;
-            this.toast('success', 'Đã áp dụng định dạng.');
-          })
-          .withFailureHandler((e) => {
-            this.applyingFormat = false;
-            this.errorMessage = e.message;
-          })
-          .api_applyDocumentFormatting(this.currentDocument.DocumentID, this.buildFormatOptionsFromForm_());
-      },
-
-      applyNd30QuickStyleAction() {
-        this.applyingNd30Style = true;
-        google.script.run
-          .withSuccessHandler((result) => {
-            this.applyingNd30Style = false;
-            if (result.success) {
-              this.toast('success', 'Đã áp dụng thể thức Nghị định 30.');
-            } else {
-              this.errorMessage = result.error === 'ND30_RULE_SET_NOT_FOUND'
-                ? 'Kho tài liệu này chưa gán bộ quy tắc Nghị định 30.'
-                : 'Lỗi: ' + result.error;
-            }
-          })
-          .withFailureHandler((e) => {
-            this.applyingNd30Style = false;
-            this.errorMessage = e.message;
-          })
-          .api_applyND30QuickStyle(this.currentDocument.DocumentID);
-      },
-
-      aiFormatErrorReason_(error) {
-        const map = {
-          AI_NOT_CONFIGURED: 'AI chưa được Admin bật/cấu hình.',
-          AI_RESPONSE_NOT_JSON: 'AI trả về không đúng định dạng, thử diễn đạt lại yêu cầu.',
-          AI_ACTION_NOT_RECOGNIZED: 'Không nhận diện được yêu cầu định dạng — thử diễn đạt lại (ví dụ: "In hoa toàn bộ văn bản", "Căn giữa", "Định dạng theo Nghị định 30").',
-          AI_ACTION_INVALID: 'Yêu cầu bị từ chối vì tham số không hợp lệ.'
-        };
-        return map[error] || ('Lỗi: ' + error);
-      },
-
-      runAiFormatCommand() {
-        if (!this.aiFormatCommand.trim()) return;
-        this.runningAiFormatCommand = true;
-        this.aiFormatCommandResultText = '';
-        google.script.run
-          .withSuccessHandler((result) => {
-            this.runningAiFormatCommand = false;
-            if (result.success) {
-              this.aiFormatCommandResultText = 'Đã thực hiện: ' + result.action;
-              this.toast('success', 'Đã áp dụng định dạng theo yêu cầu AI.');
-            } else {
-              this.aiFormatCommandResultText = this.aiFormatErrorReason_(result.error);
-            }
-          })
-          .withFailureHandler((e) => {
-            this.runningAiFormatCommand = false;
-            this.errorMessage = e.message;
-          })
-          .api_applyAiFormattingCommand(this.currentDocument.DocumentID, this.aiFormatCommand);
-      },
-
-      // --- Trang "Chỉnh sửa định dạng" (độc lập, không qua tạo văn bản theo mẫu) ---
-      // Dùng chung formatForm/aiFormatCommand/allowedFontFamilies/hasAnyFormatFieldSet/
-      // resetFormatForm/buildFormatOptionsFromForm_/aiFormatErrorReason_ với thẻ "Định dạng văn bản"
-      // ở DocumentEditor.html — chỉ khác API gọi (theo driveFileId thay vì documentId).
-      onFormatFileSelected(event) {
-        const file = event.target.files[0];
-        event.target.value = '';
-        if (!file) return;
-        this.stagingFile = true;
-        const reader = new FileReader();
-        reader.onload = () => {
-          const base64 = reader.result.split(',')[1];
-          google.script.run
-            .withSuccessHandler((result) => {
-              this.stagingFile = false;
-              this.stagedFile = result;
-              this.resetFormatForm();
-            })
-            .withFailureHandler((e) => {
-              this.stagingFile = false;
-              this.errorMessage = e.message;
-            })
-            .api_stageDocumentForFormatting(file.name, file.type || 'application/octet-stream', base64);
-        };
-        reader.readAsDataURL(file);
-      },
-
-      stagePastedFormatTextAction() {
-        if (!this.pasteFormatText.trim()) return;
-        this.stagingFile = true;
-        google.script.run
-          .withSuccessHandler((result) => {
-            this.stagingFile = false;
-            this.stagedFile = result;
-            this.pasteFormatText = '';
-            this.pasteFormatTitle = '';
-            this.resetFormatForm();
-          })
-          .withFailureHandler((e) => {
-            this.stagingFile = false;
-            this.errorMessage = e.message;
-          })
-          .api_stagePastedTextForFormatting(this.pasteFormatText, this.pasteFormatTitle);
-      },
-
-      discardFormatFileAction() {
-        if (!this.stagedFile) return;
-        const driveFileId = this.stagedFile.driveFileId;
-        this.stagedFile = null;
-        this.formatInputMode = 'upload';
-        this.resetFormatForm();
-        google.script.run
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_discardStagedFormattingFile(driveFileId);
-      },
-
-      downloadFormattedFileAction(format) {
-        this.downloadingFormattedFile = format;
-        const apiCall = format === 'pdf' ? 'api_exportFormattingResultAsPdf' : 'api_exportFormattingResultAsWord';
-        google.script.run
-          .withSuccessHandler((result) => {
-            this.downloadingFormattedFile = false;
-            const byteChars = atob(result.base64);
-            const bytes = new Uint8Array(byteChars.length);
-            for (let i = 0; i < byteChars.length; i++) bytes[i] = byteChars.charCodeAt(i);
-            const blob = new Blob([bytes], { type: result.mimeType });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = result.fileName;
-            link.click();
-            URL.revokeObjectURL(url);
-          })
-          .withFailureHandler((e) => {
-            this.downloadingFormattedFile = false;
-            this.errorMessage = e.message;
-          })
-          [apiCall](this.stagedFile.driveFileId, this.stagedFile.fileName);
-      },
-
-      applyFormatFileManualAction() {
-        this.applyingFormat = true;
-        google.script.run
-          .withSuccessHandler(() => {
-            this.applyingFormat = false;
-            this.toast('success', 'Đã áp dụng định dạng.');
-          })
-          .withFailureHandler((e) => {
-            this.applyingFormat = false;
-            this.errorMessage = e.message;
-          })
-          .api_applyManualFormattingToFile(this.stagedFile.driveFileId, this.buildFormatOptionsFromForm_());
-      },
-
-      applyFormatFileNd30Action() {
-        this.applyingNd30Style = true;
-        google.script.run
-          .withSuccessHandler((result) => {
-            this.applyingNd30Style = false;
-            if (result.success) {
-              this.toast('success', 'Đã áp dụng thể thức Nghị định 30.');
-            } else {
-              this.errorMessage = result.error === 'ND30_RULE_SET_NOT_FOUND'
-                ? 'Chưa có bộ quy tắc Nghị định 30 trong hệ thống.'
-                : 'Lỗi: ' + result.error;
-            }
-          })
-          .withFailureHandler((e) => {
-            this.applyingNd30Style = false;
-            this.errorMessage = e.message;
-          })
-          .api_applyND30QuickStyleToFile(this.stagedFile.driveFileId);
-      },
-
-      runFormatFileAiCommand() {
-        if (!this.aiFormatCommand.trim()) return;
-        this.runningAiFormatCommand = true;
-        this.aiFormatCommandResultText = '';
-        google.script.run
-          .withSuccessHandler((result) => {
-            this.runningAiFormatCommand = false;
-            if (result.success) {
-              this.aiFormatCommandResultText = 'Đã thực hiện: ' + result.action;
-              this.toast('success', 'Đã áp dụng định dạng theo yêu cầu AI.');
-            } else {
-              this.aiFormatCommandResultText = this.aiFormatErrorReason_(result.error);
-            }
-          })
-          .withFailureHandler((e) => {
-            this.runningAiFormatCommand = false;
-            this.errorMessage = e.message;
-          })
-          .api_applyAiFormattingCommandToFile(this.stagedFile.driveFileId, this.aiFormatCommand);
-      },
-
-      exportWord() {
-        this.exporting = true;
-        this.errorMessage = '';
-        google.script.run
-          .withSuccessHandler((result) => {
-            this.exporting = false;
-            this.exportResult = result;
-          })
-          .withFailureHandler((e) => {
-            this.exporting = false;
-            this.errorMessage = e.message;
-          })
-          .api_exportDocumentAsWord(this.currentDocument.DocumentID);
-      },
-
-      submitForApprovalAction() {
-        this.submittingApproval = true;
-        google.script.run
-          .withSuccessHandler(() => {
-            this.submittingApproval = false;
-            this.submittedForApproval = true;
-            this.loadMyDocuments();
-          })
-          .withFailureHandler((e) => {
-            this.submittingApproval = false;
-            this.errorMessage = e.message;
-          })
-          .api_submitForApproval(this.currentDocument.DocumentID);
-      },
-
-      runGlobalSearch() {
-        this.go('knowledge');
-        this.knowledgeTab = 'search';
-        this.searchKeyword = this.globalSearchKeyword;
-        this.runSearch();
-      },
-
       // --- Dashboard ---
+      dashboard: { myTasks: [], myShiftsThisWeek: [], pendingSwapConfirmations: [] },
       loadDashboard() {
         google.script.run
           .withSuccessHandler((summary) => { this.dashboard = summary; })
@@ -678,541 +226,492 @@
           .api_getDashboardSummary();
       },
 
-      // --- Workflow Inbox ---
-      loadPendingApprovals() {
+      // --- Nhân sự ---
+      employeeFilters: { departmentId: '' },
+      get employeesFiltered() {
+        return this.employeeFilters.departmentId
+          ? this.employees.filter((e) => e.DepartmentID === this.employeeFilters.departmentId)
+          : this.employees;
+      },
+      loadEmployeesPage() {
         google.script.run
-          .withSuccessHandler((rows) => { this.pendingApprovals = rows; })
+          .withSuccessHandler((emps) => { this.employees = emps; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listPendingApprovals();
+          .api_listEmployees();
       },
-
-      approveInstance(instanceId) {
-        google.script.run
-          .withSuccessHandler(() => { this.loadPendingApprovals(); })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_approveWorkflowInstance(instanceId, this.approvalComments[instanceId] || '');
+      newEmployeeForm: { employeeCode: '', email: '', fullName: '', departmentId: '', position: '', employeeType: '', phoneNumber: '', startDate: '' },
+      creatingEmployee: false,
+      openAddEmployeeModal() {
+        this.newEmployeeForm = { employeeCode: '', email: '', fullName: '', departmentId: '', position: '', employeeType: '', phoneNumber: '', startDate: '' };
+        this.openModal('addEmployee');
       },
-
-      rejectInstance(instanceId) {
-        if (!this.approvalComments[instanceId]) {
-          this.errorMessage = 'Cần nhập ý kiến khi từ chối.';
-          return;
-        }
-        google.script.run
-          .withSuccessHandler(() => { this.loadPendingApprovals(); })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_rejectWorkflowInstance(instanceId, this.approvalComments[instanceId]);
-      },
-
-      // --- AI Chat ---
-      chatScopeOpen: false,
-
-      scrollChatToBottom() {
-        this.$nextTick(() => {
-          const el = this.$refs.chatScroll;
-          if (el) el.scrollTop = el.scrollHeight;
-        });
-      },
-
-      chatAttachedFile: null,
-      onChatFileSelected(event) {
-        const file = event.target.files[0];
-        event.target.value = '';
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-          this.chatAttachedFile = { name: file.name, mimeType: file.type || 'application/octet-stream', base64: reader.result.split(',')[1] };
-        };
-        reader.readAsDataURL(file);
-      },
-      removeChatAttachedFile() { this.chatAttachedFile = null; },
-
-      chatErrorReason_(error) {
-        const map = {
-          AI_NOT_CONFIGURED: 'AI chưa được Admin bật/cấu hình. Vào mục Admin để cấu hình AI Provider.',
-          UNSUPPORTED_FILE_TYPE: 'Định dạng file này chưa hỗ trợ đọc nội dung (hỗ trợ: Google Docs, Word, PDF, ảnh, text).',
-          OCR_FAILED: 'Không đọc được nội dung file (OCR thất bại) — thử file khác hoặc ảnh rõ nét hơn.',
-          EMPTY_FILE: 'File không có nội dung văn bản để đọc.'
-        };
-        return map[error] || ('Lỗi: ' + error);
-      },
-
-      sendChatMessage() {
-        const question = this.chatInput;
-        const attached = this.chatAttachedFile;
-        this.chatMessages.push({ role: 'user', text: question, attachedFileName: attached ? attached.name : null });
-        this.chatInput = '';
-        this.chatAttachedFile = null;
-        this.chatAsking = true;
-        this.scrollChatToBottom();
-
-        const handleResult = (result) => {
-          this.chatAsking = false;
-          if (result.success) {
-            this.chatMessages.push({ role: 'assistant', text: result.answer, sources: result.sources });
-          } else {
-            this.chatMessages.push({ role: 'assistant', text: this.chatErrorReason_(result.error) });
-          }
-          this.scrollChatToBottom();
-        };
-        const handleFailure = (e) => {
-          this.chatAsking = false;
-          this.errorMessage = e.message;
-        };
-
-        if (attached) {
-          google.script.run
-            .withSuccessHandler(handleResult)
-            .withFailureHandler(handleFailure)
-            .api_askAboutAttachedFile(question, attached.name, attached.mimeType, attached.base64);
-        } else {
-          google.script.run
-            .withSuccessHandler(handleResult)
-            .withFailureHandler(handleFailure)
-            .api_askKnowledgeBase(question, this.chatLibraryIds);
-        }
-      },
-
-      toggleChatLibrary(libraryId, checked) {
-        if (checked) {
-          if (!this.chatLibraryIds.includes(libraryId)) this.chatLibraryIds.push(libraryId);
-        } else {
-          this.chatLibraryIds = this.chatLibraryIds.filter((id) => id !== libraryId);
-        }
-      },
-
-      suggestChatLibraries() {
-        if (!this.chatInput) return;
-        google.script.run
-          .withSuccessHandler((libs) => { this.chatLibraryIds = libs.map((l) => l.LibraryID); })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_suggestLibrariesForQuestion(this.chatInput);
-      },
-
-      // --- Kho tài liệu ---
-      loadLibraries() {
-        google.script.run
-          .withSuccessHandler((libs) => { this.libraries = libs; })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listLibraries();
-      },
-
-      selectLibrary(libraryId) {
-        this.selectedLibraryId = libraryId;
-        this.searchResults = [];
-        this.documentVersions = [];
-        this.compareResult = null;
-        this.canManageSelectedLibrary = false;
-        this.libraryPermissions = [];
-
-        google.script.run
-          .withSuccessHandler((cats) => { this.categories = cats; })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listCategories(libraryId);
-
-        google.script.run
-          .withSuccessHandler((canManage) => {
-            this.canManageSelectedLibrary = canManage;
-            if (canManage) this.loadLibraryPermissions();
-          })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_canManageLibrary(libraryId);
-
-        if (this.userDirectory.length === 0) {
-          google.script.run
-            .withSuccessHandler((dir) => { this.userDirectory = dir; })
-            .withFailureHandler((e) => { this.errorMessage = e.message; })
-            .api_listUserDirectory();
-        }
-      },
-
-      loadLibraryPermissions() {
-        google.script.run
-          .withSuccessHandler((perms) => { this.libraryPermissions = perms; })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listPermissionsForLibrary(this.selectedLibraryId);
-      },
-
-      userEmailById(userId) {
-        const u = this.userDirectory.find((x) => x.UserID === userId);
-        return u ? u.Email : userId;
-      },
-
-      libraryNameById(libraryId) {
-        const lib = this.libraries.find((x) => x.LibraryID === libraryId);
-        return lib ? lib.LibraryName : libraryId;
-      },
-
-      addPermissionRow() {
-        if (this.libraryPermissions.some((p) => p.UserID === this.newPermissionUserId)) {
-          this.newPermissionUserId = '';
-          return;
-        }
-        this.libraryPermissions.push({
-          PermissionID: 'NEW_' + this.newPermissionUserId,
-          UserID: this.newPermissionUserId,
-          LibraryID: this.selectedLibraryId,
-          CanView: true, CanCreate: false, CanEdit: false, CanDelete: false, CanApprove: false
-        });
-        this.newPermissionUserId = '';
-      },
-
-      savePermissionRow(perm) {
-        google.script.run
-          .withSuccessHandler(() => { this.loadLibraryPermissions(); })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_setUserPermissionOverride(perm.UserID, this.selectedLibraryId, {
-            CanView: perm.CanView, CanCreate: perm.CanCreate, CanEdit: perm.CanEdit,
-            CanDelete: perm.CanDelete, CanApprove: perm.CanApprove
-          });
-      },
-
-      openAddLibraryModal() {
-        if (this.userDirectory.length === 0) {
-          google.script.run
-            .withSuccessHandler((dir) => { this.userDirectory = dir; })
-            .withFailureHandler((e) => { this.errorMessage = e.message; })
-            .api_listUserDirectory();
-        }
-        this.newLibraryManagerId = '';
-        this.openModal('addLibrary');
-      },
-
-      createLibraryAction() {
-        this.creatingLibrary = true;
+      createEmployeeAction() {
+        this.creatingEmployee = true;
         google.script.run
           .withSuccessHandler(() => {
-            this.creatingLibrary = false;
-            this.newLibraryName = '';
-            this.newLibraryManagerId = '';
+            this.creatingEmployee = false;
             this.closeModal();
-            this.toast('success', 'Đã tạo kho tài liệu mới.');
-            this.loadLibraries();
+            this.toast('success', 'Đã thêm nhân viên mới.');
+            this.loadEmployeesPage();
           })
           .withFailureHandler((e) => {
-            this.creatingLibrary = false;
+            this.creatingEmployee = false;
             this.errorMessage = e.message;
           })
-          .api_createLibrary(this.newLibraryName, '', this.newLibraryManagerId, this.newLibraryRequiresReview);
+          .api_createEmployee(this.newEmployeeForm);
+      },
+      deactivateEmployeeAction(e) {
+        if (!confirm('Ngừng hoạt động nhân viên "' + e.FullName + '"? Tài khoản đăng nhập của họ cũng sẽ bị khoá.')) return;
+        google.script.run
+          .withSuccessHandler(() => { this.loadEmployeesPage(); })
+          .withFailureHandler((err) => { this.errorMessage = err.message; })
+          .api_deactivateEmployee(e.EmployeeID);
       },
 
-      createCategoryAction() {
+      resetPasswordTarget: null,
+      resetPasswordForm: { newPassword: '' },
+      resettingPassword: false,
+      openResetPasswordModal(e) {
+        this.resetPasswordTarget = e;
+        this.resetPasswordForm = { newPassword: '' };
+        this.openModal('resetEmployeePassword');
+      },
+      resetEmployeePasswordAction() {
+        this.resettingPassword = true;
         google.script.run
           .withSuccessHandler(() => {
-            this.newCategoryName = '';
-            this.selectLibrary(this.selectedLibraryId);
+            this.resettingPassword = false;
+            this.closeModal();
+            this.toast('success', 'Đã đặt lại mật khẩu.');
           })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_createCategory(this.selectedLibraryId, this.newCategoryName, '');
+          .withFailureHandler((e) => {
+            this.resettingPassword = false;
+            this.errorMessage = e.message;
+          })
+          .api_resetEmployeePassword(this.resetPasswordTarget.EmployeeID, this.resetPasswordForm.newPassword);
       },
 
-      onFileSelected(event) {
-        const files = Array.from(event.target.files || []);
-        this.pendingFiles = [];
-        this.readingFiles = files.length > 0;
-        if (files.length === 0) return;
+      changePasswordForm: { oldPassword: '', newPassword: '' },
+      changingPassword: false,
+      openChangePasswordModal() {
+        this.changePasswordForm = { oldPassword: '', newPassword: '' };
+        this.openModal('changePassword');
+      },
+      changeMyPasswordAction() {
+        this.changingPassword = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.changingPassword = false;
+            this.closeModal();
+            this.toast('success', 'Đã đổi mật khẩu.');
+          })
+          .withFailureHandler((e) => {
+            this.changingPassword = false;
+            this.errorMessage = e.message;
+          })
+          .api_changeMyPassword(this.changePasswordForm.oldPassword, this.changePasswordForm.newPassword);
+      },
 
-        // Đọc tất cả file trước rồi mới gán 1 lần (Promise.all) — tránh FileReader không đồng bộ
-        // khiến người dùng bấm "Phân loại" khi mới đọc xong một phần, gửi thiếu file lên server.
-        Promise.all(files.map((file) => new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve({
-            fileName: file.name,
-            mimeType: file.type || 'application/octet-stream',
-            base64: reader.result.split(',')[1]
+      // --- Khoa/Phòng ---
+      loadDepartmentsPage() {
+        google.script.run
+          .withSuccessHandler((depts) => { this.departments = depts; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listActiveDepartments();
+      },
+      newDepartmentForm: { departmentName: '', departmentType: 'KHOA_LAM_SANG', headUserId: '' },
+      creatingDepartment: false,
+      openAddDepartmentModal() {
+        this.newDepartmentForm = { departmentName: '', departmentType: 'KHOA_LAM_SANG', headUserId: '' };
+        this.openModal('addDepartment');
+      },
+      createDepartmentAction() {
+        this.creatingDepartment = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.creatingDepartment = false;
+            this.closeModal();
+            this.toast('success', 'Đã thêm khoa/phòng mới.');
+            this.loadDepartmentsPage();
+          })
+          .withFailureHandler((e) => {
+            this.creatingDepartment = false;
+            this.errorMessage = e.message;
+          })
+          .api_createDepartment(this.newDepartmentForm);
+      },
+      updateDepartmentHeadAction(d) {
+        google.script.run
+          .withSuccessHandler(() => { this.toast('success', 'Đã cập nhật trưởng khoa/phòng.'); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_updateDepartment(d.DepartmentID, { headUserId: d.HeadUserID });
+      },
+      deactivateDepartmentAction(d) {
+        if (!confirm('Ngừng hoạt động khoa/phòng "' + d.DepartmentName + '"?')) return;
+        google.script.run
+          .withSuccessHandler(() => { this.loadDepartmentsPage(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_deactivateDepartment(d.DepartmentID);
+      },
+
+      // --- Quản lý công việc ---
+      taskTab: 'mine',
+      myTasks: [],
+      departmentTasks: [],
+      taskDepartmentFilter: '',
+      loadMyTasksAction() {
+        google.script.run
+          .withSuccessHandler((tasks) => { this.myTasks = tasks; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listMyTasks();
+      },
+      loadDepartmentTasksAction() {
+        if (!this.taskDepartmentFilter) { this.departmentTasks = []; return; }
+        google.script.run
+          .withSuccessHandler((tasks) => { this.departmentTasks = tasks; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listTasksByDepartment(this.taskDepartmentFilter);
+      },
+      assignTaskForm: { departmentId: '', assigneeEmployeeId: '', title: '', description: '', dueDate: '', priority: 'NORMAL' },
+      assigningTask: false,
+      openAssignTaskModal() {
+        this.assignTaskForm = { departmentId: '', assigneeEmployeeId: '', title: '', description: '', dueDate: '', priority: 'NORMAL' };
+        this.openModal('assignTask');
+      },
+      onAssignTaskDepartmentChange() { this.assignTaskForm.assigneeEmployeeId = ''; },
+      assignTaskAction() {
+        this.assigningTask = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.assigningTask = false;
+            this.closeModal();
+            this.toast('success', 'Đã giao việc.');
+            this.loadMyTasksAction();
+            if (this.taskDepartmentFilter) this.loadDepartmentTasksAction();
+          })
+          .withFailureHandler((e) => {
+            this.assigningTask = false;
+            this.errorMessage = e.message;
+          })
+          .api_assignTask(this.assignTaskForm);
+      },
+      currentTask: null,
+      taskProgressInput: 0,
+      taskResultInput: '',
+      taskEvaluationForm: { score: null, comment: '' },
+      openTaskDetail(t) {
+        this.currentTask = t;
+        this.taskProgressInput = t.Progress || 0;
+        this.taskResultInput = '';
+        this.taskEvaluationForm = { score: null, comment: '' };
+        this.openModal('taskDetail');
+      },
+      refreshCurrentTask_(updated) {
+        this.currentTask = updated;
+        this.myTasks = this.myTasks.map((t) => t.TaskID === updated.TaskID ? updated : t);
+        this.departmentTasks = this.departmentTasks.map((t) => t.TaskID === updated.TaskID ? updated : t);
+      },
+      updateTaskProgressAction() {
+        google.script.run
+          .withSuccessHandler((updated) => { this.refreshCurrentTask_(updated); this.toast('success', 'Đã cập nhật tiến độ.'); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_updateTaskProgress(this.currentTask.TaskID, this.taskProgressInput);
+      },
+      submitTaskResultAction() {
+        google.script.run
+          .withSuccessHandler((updated) => { this.refreshCurrentTask_(updated); this.taskResultInput = ''; this.toast('success', 'Đã nộp kết quả.'); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_submitTaskResult(this.currentTask.TaskID, this.taskResultInput);
+      },
+      evaluateTaskAction() {
+        google.script.run
+          .withSuccessHandler((updated) => { this.refreshCurrentTask_(updated); this.toast('success', 'Đã lưu đánh giá.'); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_evaluateTask(this.currentTask.TaskID, this.taskEvaluationForm);
+      },
+
+      // --- Phân công khối lâm sàng ---
+      clinicalTab: 'mine',
+      myClinicalAssignments: [],
+      departmentClinicalAssignments: [],
+      clinicalDepartmentFilter: '',
+      loadMyClinicalAssignmentsAction() {
+        google.script.run
+          .withSuccessHandler((rows) => { this.myClinicalAssignments = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listMyClinicalAssignments(null, null);
+      },
+      loadDepartmentClinicalAssignmentsAction() {
+        if (!this.clinicalDepartmentFilter) { this.departmentClinicalAssignments = []; return; }
+        google.script.run
+          .withSuccessHandler((rows) => { this.departmentClinicalAssignments = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listClinicalAssignmentsByDepartment(this.clinicalDepartmentFilter, null, null);
+      },
+      clinicalAssignmentForm: { departmentId: '', employeeId: '', assignmentDate: '', workType: 'Khám', shiftStart: '', shiftEnd: '', notes: '' },
+      creatingClinicalAssignment: false,
+      openAddClinicalAssignmentModal() {
+        this.clinicalAssignmentForm = { departmentId: '', employeeId: '', assignmentDate: '', workType: 'Khám', shiftStart: '', shiftEnd: '', notes: '' };
+        this.openModal('addClinicalAssignment');
+      },
+      onClinicalAssignmentDepartmentChange() { this.clinicalAssignmentForm.employeeId = ''; },
+      createClinicalAssignmentAction() {
+        this.creatingClinicalAssignment = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.creatingClinicalAssignment = false;
+            this.closeModal();
+            this.toast('success', 'Đã lưu phân công.');
+            this.loadMyClinicalAssignmentsAction();
+            if (this.clinicalDepartmentFilter) this.loadDepartmentClinicalAssignmentsAction();
+          })
+          .withFailureHandler((e) => {
+            this.creatingClinicalAssignment = false;
+            this.errorMessage = e.message;
+          })
+          .api_createClinicalAssignment(this.clinicalAssignmentForm);
+      },
+      deleteClinicalAssignmentAction(a) {
+        if (!confirm('Xoá phân công ngày ' + a.AssignmentDate + '?')) return;
+        google.script.run
+          .withSuccessHandler(() => { this.loadDepartmentClinicalAssignmentsAction(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_deleteClinicalAssignment(a.AssignmentID);
+      },
+
+      // --- Lịch trực tuần ---
+      dutyDepartmentFilter: '',
+      dutySchedules: [],
+      currentDutySchedule: null,
+      loadDutySchedulesAction() {
+        if (!this.dutyDepartmentFilter) { this.dutySchedules = []; return; }
+        google.script.run
+          .withSuccessHandler((rows) => { this.dutySchedules = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listDutySchedulesByDepartment(this.dutyDepartmentFilter);
+      },
+      dutyStatusLabel(status) {
+        const map = {
+          DRAFT: 'Nháp', SUBMITTED: 'Đã gửi duyệt', UNDER_REVIEW: 'Đang xét duyệt',
+          NEED_REVISION: 'Cần chỉnh sửa', APPROVED: 'Đã duyệt', PUBLISHED: 'Đã công bố'
+        };
+        return map[status] || status;
+      },
+      dutyStatusBadgeClass(status) {
+        const map = {
+          DRAFT: 'badge-gray', SUBMITTED: 'badge-cyan', UNDER_REVIEW: 'badge-orange',
+          NEED_REVISION: 'badge-red', APPROVED: 'badge-purple', PUBLISHED: 'badge-green'
+        };
+        return map[status] || 'badge-gray';
+      },
+      isDutyScheduleEditable(schedule) {
+        return schedule.Status === 'DRAFT' || schedule.Status === 'NEED_REVISION';
+      },
+      newDutyScheduleForm: { weekStartDate: '', weekEndDate: '' },
+      creatingDutySchedule: false,
+      openAddDutyScheduleModal() {
+        this.newDutyScheduleForm = { weekStartDate: '', weekEndDate: '' };
+        this.openModal('addDutySchedule');
+      },
+      createDutyScheduleAction() {
+        this.creatingDutySchedule = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.creatingDutySchedule = false;
+            this.closeModal();
+            this.toast('success', 'Đã tạo lịch trực tuần.');
+            this.loadDutySchedulesAction();
+          })
+          .withFailureHandler((e) => {
+            this.creatingDutySchedule = false;
+            this.errorMessage = e.message;
+          })
+          .api_createDutySchedule(this.dutyDepartmentFilter, this.newDutyScheduleForm.weekStartDate, this.newDutyScheduleForm.weekEndDate);
+      },
+      openDutyScheduleDetail(s) {
+        google.script.run
+          .withSuccessHandler((detail) => {
+            this.currentDutySchedule = detail;
+            this.openModal('dutyScheduleDetail');
+          })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_getDutyScheduleDetail(s.DutyScheduleID);
+      },
+      refreshCurrentDutyScheduleDetail_() {
+        google.script.run
+          .withSuccessHandler((detail) => {
+            this.currentDutySchedule = detail;
+            this.dutySchedules = this.dutySchedules.map((s) => s.DutyScheduleID === detail.schedule.DutyScheduleID ? detail.schedule : s);
+          })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_getDutyScheduleDetail(this.currentDutySchedule.schedule.DutyScheduleID);
+      },
+      addShiftForm: { shiftDate: '', dutyType: '', employeeId: '', roleInShift: '', shiftStart: '', shiftEnd: '', notes: '' },
+      addingShift: false,
+      openAddShiftModal() {
+        this.addShiftForm = { shiftDate: this.currentDutySchedule.schedule.WeekStartDate, dutyType: '', employeeId: '', roleInShift: '', shiftStart: '', shiftEnd: '', notes: '' };
+        this.openModal('addShift');
+      },
+      addDutyShiftAction() {
+        this.addingShift = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.addingShift = false;
+            this.closeModal();
+            this.refreshCurrentDutyScheduleDetail_();
+            this.openModal('dutyScheduleDetail');
+          })
+          .withFailureHandler((e) => {
+            this.addingShift = false;
+            this.errorMessage = e.message;
+          })
+          .api_addDutyShift(this.currentDutySchedule.schedule.DutyScheduleID, this.addShiftForm);
+      },
+      removeDutyShiftAction(sh) {
+        if (!confirm('Xoá ca trực ngày ' + sh.ShiftDate + '?')) return;
+        google.script.run
+          .withSuccessHandler(() => { this.refreshCurrentDutyScheduleDetail_(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_removeDutyShift(sh.DutyShiftID);
+      },
+      submitDutyScheduleAction() {
+        google.script.run
+          .withSuccessHandler(() => { this.toast('success', 'Đã gửi duyệt lịch trực.'); this.refreshCurrentDutyScheduleDetail_(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_submitDutySchedule(this.currentDutySchedule.schedule.DutyScheduleID);
+      },
+      markDutyScheduleUnderReviewAction() {
+        google.script.run
+          .withSuccessHandler(() => { this.refreshCurrentDutyScheduleDetail_(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_markDutyScheduleUnderReview(this.currentDutySchedule.schedule.DutyScheduleID);
+      },
+      requestDutyScheduleRevisionAction() {
+        const comment = prompt('Lý do yêu cầu chỉnh sửa:');
+        if (comment === null) return;
+        google.script.run
+          .withSuccessHandler(() => { this.toast('info', 'Đã yêu cầu chỉnh sửa.'); this.refreshCurrentDutyScheduleDetail_(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_requestDutyScheduleRevision(this.currentDutySchedule.schedule.DutyScheduleID, comment);
+      },
+      approveDutyScheduleAction() {
+        google.script.run
+          .withSuccessHandler(() => { this.toast('success', 'Đã duyệt lịch trực.'); this.refreshCurrentDutyScheduleDetail_(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_approveDutySchedule(this.currentDutySchedule.schedule.DutyScheduleID, '');
+      },
+      publishDutyScheduleAction() {
+        google.script.run
+          .withSuccessHandler(() => { this.toast('success', 'Đã công bố lịch trực toàn viện.'); this.refreshCurrentDutyScheduleDetail_(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_publishDutySchedule(this.currentDutySchedule.schedule.DutyScheduleID);
+      },
+      printCurrentDutySchedule() {
+        window.print();
+      },
+
+      // --- Đổi trực ---
+      myOfficialDutyShifts: [],
+      mySwapRequests: [],
+      pendingSwapConfirmations: [],
+      loadSwapPageData() {
+        google.script.run
+          .withSuccessHandler((rows) => { this.myOfficialDutyShifts = rows.filter((s) => s.Status === 'OFFICIAL'); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listMyDutyShifts(null, null);
+        google.script.run
+          .withSuccessHandler((rows) => { this.mySwapRequests = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listMySwapRequests();
+        google.script.run
+          .withSuccessHandler((rows) => { this.pendingSwapConfirmations = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listPendingSwapConfirmations();
+      },
+      swapStatusLabel(status) {
+        const map = {
+          REQUESTED: 'Chờ người thay thế xác nhận', REPLACEMENT_CONFIRMED: 'Chờ trưởng khoa xác nhận',
+          DEPT_HEAD_CONFIRMED: 'Chờ Phòng KH-NV duyệt', KHNV_APPROVED: 'Đã duyệt', REJECTED: 'Đã từ chối'
+        };
+        return map[status] || status;
+      },
+      requestSwapForm: { shift: null, replacementEmployeeId: '', reason: '' },
+      requestingSwap: false,
+      openRequestSwapModal(shift) {
+        this.requestSwapForm = { shift: shift, replacementEmployeeId: '', reason: '' };
+        this.openModal('requestSwap');
+      },
+      requestDutySwapAction() {
+        this.requestingSwap = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.requestingSwap = false;
+            this.closeModal();
+            this.toast('success', 'Đã gửi đề nghị đổi trực.');
+            this.loadSwapPageData();
+          })
+          .withFailureHandler((e) => {
+            this.requestingSwap = false;
+            this.errorMessage = e.message;
+          })
+          .api_requestDutySwap({
+            originalShiftId: this.requestSwapForm.shift.DutyShiftID,
+            replacementEmployeeId: this.requestSwapForm.replacementEmployeeId,
+            reason: this.requestSwapForm.reason
           });
-          reader.onerror = () => reject(reader.error);
-          reader.readAsDataURL(file);
-        }))).then((results) => {
-          this.pendingFiles = results;
-          this.readingFiles = false;
-        }).catch((err) => {
-          this.errorMessage = 'Không đọc được file: ' + err;
-          this.readingFiles = false;
-        });
       },
-
-      get pendingFile() {
-        return this.pendingFiles[0] || null;
-      },
-
-      loadMaxBulkUploadCount() {
+      confirmSwapReplacementAction(sw) {
         google.script.run
-          .withSuccessHandler((count) => { this.maxBulkUploadCount = count; })
-          .withFailureHandler(() => {})
-          .api_getMaxBulkUploadCount();
-      },
-
-      // --- Tải lên có phân loại tự động (Rule Engine + AI + xác nhận người dùng) ---
-      // 1 file: dùng luồng đơn (stagingResult). Nhiều file: dùng luồng hàng loạt (stagingBatch)
-      // — xem docs/10-knowledge-design.md mục 13 (Bulk Document Import Policy).
-      runClassification() {
-        this.classifying = true;
-        if (this.pendingFiles.length <= 1) {
-          google.script.run
-            .withSuccessHandler((staging) => {
-              this.classifying = false;
-              this.stagingResult = staging;
-              this.uploadForm = this.buildUploadFormFromStaging(staging);
-            })
-            .withFailureHandler((e) => {
-              this.classifying = false;
-              this.errorMessage = e.message;
-            })
-            .api_stageUploadForClassification(this.pendingFiles[0].fileName, this.pendingFiles[0].mimeType, this.pendingFiles[0].base64);
-          return;
-        }
-
-        google.script.run
-          .withSuccessHandler((results) => {
-            this.classifying = false;
-            this.stagingBatch = results.map((r) => {
-              if (!r.success) return r;
-              return Object.assign({}, r, { form: this.buildUploadFormFromStaging(r.staging), selected: true, skip: false });
-            });
-          })
-          .withFailureHandler((e) => {
-            this.classifying = false;
-            this.errorMessage = e.message;
-          })
-          .api_stageBulkUpload(this.pendingFiles);
-      },
-
-      get bulkSummary() {
-        const items = this.stagingBatch;
-        return {
-          total: items.length,
-          failed: items.filter((i) => !i.success).length,
-          duplicates: items.filter((i) => i.success && i.staging.duplicateOf && !i.skip).length,
-          ready: items.filter((i) => i.success && (!i.staging.duplicateOf || i.skip)).length
-        };
-      },
-
-      applyBulkLibrary() {
-        if (!this.bulkApplyLibraryId) return;
-        this.stagingBatch.forEach((item) => {
-          if (item.success && item.selected) item.form.libraryId = this.bulkApplyLibraryId;
-        });
-      },
-
-      saveAllSelected() {
-        const queue = this.stagingBatch.filter((item) => item.success && item.selected && item.form.libraryId && (!item.staging.duplicateOf || item.skip));
-        if (queue.length === 0) return;
-        this.savingClassification = true;
-        this.bulkSaveResults = [];
-        this.saveNextInQueue_(queue, 0);
-      },
-
-      saveNextInQueue_(queue, index) {
-        if (index >= queue.length) {
-          this.savingClassification = false;
-          this.stagingBatch = this.stagingBatch.filter((item) => !queue.includes(item) || this.bulkSaveResults.some((r) => r.fileName === item.fileName && !r.success));
-          this.knowledgeTab = 'search';
-          this.runSearch();
-          return;
-        }
-        const item = queue[index];
-        const csvToArray = (csv) => (csv || '').split(',').map((s) => s.trim()).filter((s) => s.length > 0);
-        const f = item.form;
-        const finalFields = {
-          libraryId: f.libraryId, category: f.category, subCategory: f.subCategory,
-          documentType: f.documentType, issuer: f.issuer, importance: f.importance, summary: f.summary,
-          tags: csvToArray(f.tagsCsv), keywords: csvToArray(f.keywordsCsv), applicableDepartments: csvToArray(f.applicableDepartmentsCsv)
-        };
-        google.script.run
-          .withSuccessHandler(() => {
-            this.bulkSaveResults.push({ fileName: item.fileName, success: true });
-            this.saveNextInQueue_(queue, index + 1);
-          })
-          .withFailureHandler((e) => {
-            this.bulkSaveResults.push({ fileName: item.fileName, success: false, error: e.message });
-            this.saveNextInQueue_(queue, index + 1);
-          })
-          .api_confirmClassificationAndSave(
-            item.staging.fileId, item.staging.fileName, item.staging.parserCategory,
-            item.staging.metadata, item.staging.ocrStatus, finalFields, item.staging.allFields
-          );
-      },
-
-      cancelBulkUpload() {
-        this.stagingBatch.forEach((item) => {
-          if (item.success) {
-            google.script.run.withFailureHandler((e) => { this.errorMessage = e.message; }).api_discardStagedUpload(item.staging.fileId);
-          }
-        });
-        this.stagingBatch = [];
-        this.pendingFiles = [];
-      },
-
-      buildUploadFormFromStaging(staging) {
-        const merged = Object.assign({}, staging.accepted, staging.needsConfirmation);
-        const valueOf = (field, fallback) => (merged[field] ? merged[field].value : fallback);
-        const arrayOf = (field) => (merged[field] ? merged[field].value.join(', ') : '');
-        const suggestedLibraryName = merged.library ? merged.library.value : '';
-        const matchedLibrary = staging.availableLibraries.find((l) => l.LibraryName.toLowerCase() === (suggestedLibraryName || '').toLowerCase());
-        return {
-          libraryId: matchedLibrary ? matchedLibrary.LibraryID : '',
-          category: valueOf('category', ''),
-          subCategory: valueOf('subCategory', ''),
-          documentType: valueOf('documentType', ''),
-          issuer: valueOf('issuer', ''),
-          importance: valueOf('importance', ''),
-          summary: valueOf('summary', ''),
-          tagsCsv: arrayOf('tags'),
-          keywordsCsv: arrayOf('keywords'),
-          applicableDepartmentsCsv: arrayOf('applicableDepartments'),
-          _libraryConfidence: merged.library ? merged.library.confidence : undefined
-        };
-      },
-
-      cancelStagedUpload() {
-        if (this.stagingResult) {
-          google.script.run
-            .withFailureHandler((e) => { this.errorMessage = e.message; })
-            .api_discardStagedUpload(this.stagingResult.fileId);
-        }
-        this.stagingResult = null;
-        this.uploadForm = {};
-        this.pendingFiles = [];
-        this.showAdvancedMetadata = false;
-      },
-
-      saveClassifiedDocument() {
-        this.savingClassification = true;
-        const csvToArray = (csv) => (csv || '').split(',').map((s) => s.trim()).filter((s) => s.length > 0);
-        const finalFields = {
-          libraryId: this.uploadForm.libraryId,
-          category: this.uploadForm.category,
-          subCategory: this.uploadForm.subCategory,
-          documentType: this.uploadForm.documentType,
-          issuer: this.uploadForm.issuer,
-          importance: this.uploadForm.importance,
-          summary: this.uploadForm.summary,
-          tags: csvToArray(this.uploadForm.tagsCsv),
-          keywords: csvToArray(this.uploadForm.keywordsCsv),
-          applicableDepartments: csvToArray(this.uploadForm.applicableDepartmentsCsv)
-        };
-        google.script.run
-          .withSuccessHandler(() => {
-            this.savingClassification = false;
-            this.stagingResult = null;
-            this.uploadForm = {};
-            this.pendingFiles = [];
-            this.showAdvancedMetadata = false;
-            this.knowledgeTab = 'search';
-            this.runSearch();
-          })
-          .withFailureHandler((e) => {
-            this.savingClassification = false;
-            this.errorMessage = e.message;
-          })
-          .api_confirmClassificationAndSave(
-            this.stagingResult.fileId, this.stagingResult.fileName, this.stagingResult.parserCategory,
-            this.stagingResult.metadata, this.stagingResult.ocrStatus, finalFields, this.stagingResult.allFields
-          );
-      },
-
-      // --- Chờ duyệt tài liệu ---
-      loadPendingKnowledgeReviews() {
-        google.script.run
-          .withSuccessHandler((docs) => { this.pendingKnowledgeReviews = docs; })
+          .withSuccessHandler(() => { this.toast('success', 'Đã xác nhận.'); this.loadSwapPageData(); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listPendingKnowledgeReviews();
+          .api_confirmDutySwapByReplacement(sw.SwapRequestID);
       },
-
-      approveKnowledgeDocAction(documentId) {
+      confirmSwapDeptHeadAction(sw) {
         google.script.run
-          .withSuccessHandler(() => { this.loadPendingKnowledgeReviews(); })
+          .withSuccessHandler(() => { this.toast('success', 'Trưởng khoa đã xác nhận.'); this.loadSwapPageData(); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_approveKnowledgeDocument(documentId, this.reviewComments[documentId] || '');
+          .api_confirmDutySwapByDeptHead(sw.SwapRequestID);
       },
-
-      rejectKnowledgeDocAction(documentId) {
-        if (!this.reviewComments[documentId]) {
-          this.errorMessage = 'Cần nhập ý kiến khi từ chối.';
-          return;
-        }
+      approveSwapKhNvAction(sw) {
         google.script.run
-          .withSuccessHandler(() => { this.loadPendingKnowledgeReviews(); })
+          .withSuccessHandler(() => { this.toast('success', 'Đã duyệt đổi trực.'); this.loadSwapPageData(); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_rejectKnowledgeDocument(documentId, this.reviewComments[documentId]);
+          .api_approveDutySwapByKhNv(sw.SwapRequestID);
       },
-
-      searchFilters: { status: '', documentType: '', importance: '' },
-      searchFiltersActive() {
-        return this.searchFilters.status || this.searchFilters.documentType || this.searchFilters.importance;
-      },
-      clearSearchFilters() {
-        this.searchFilters = { status: '', documentType: '', importance: '' };
-        this.runSearch();
-      },
-
-      runSearch() {
+      rejectSwapAction(sw) {
+        const reason = prompt('Lý do từ chối:');
+        if (reason === null) return;
         google.script.run
-          .withSuccessHandler((results) => { this.searchResults = results; })
+          .withSuccessHandler(() => { this.toast('info', 'Đã từ chối đổi trực.'); this.loadSwapPageData(); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_searchDocuments(this.searchKeyword || '', this.selectedLibraryId, this.searchFilters);
-      },
-
-      openVersions(documentId) {
-        this.compareResult = null;
-        google.script.run
-          .withSuccessHandler((versions) => {
-            this.documentVersions = versions;
-            if (versions.length > 0) {
-              this.compareVersionA = versions[0].VersionID;
-              this.compareVersionB = versions[versions.length - 1].VersionID;
-            }
-          })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listDocumentVersions(documentId);
-      },
-
-      compareVersionsAction() {
-        this.comparing = true;
-        const documentId = this.documentVersions[0].DocumentID;
-        google.script.run
-          .withSuccessHandler((result) => {
-            this.comparing = false;
-            this.compareResult = result;
-          })
-          .withFailureHandler((e) => {
-            this.comparing = false;
-            this.errorMessage = e.message;
-          })
-          .api_compareDocumentVersions(documentId, this.compareVersionA, this.compareVersionB);
-      },
-
-      saveMaxBulkUploadCount() {
-        google.script.run
-          .withSuccessHandler((clamped) => { this.maxBulkUploadCount = clamped; })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_setMaxBulkUploadCount(this.maxBulkUploadCount);
-      },
-
-      syncSchemaAction() {
-        this.syncingSchema = true;
-        google.script.run
-          .withSuccessHandler((result) => {
-            this.syncingSchema = false;
-            this.schemaSyncResult = result;
-          })
-          .withFailureHandler((e) => {
-            this.syncingSchema = false;
-            this.errorMessage = e.message;
-          })
-          .api_syncSchemaWithSpreadsheet();
+          .api_rejectDutySwap(sw.SwapRequestID, reason);
       },
 
       // --- Quản trị ---
+      adminTab: 'users',
+      newUserForm: { email: '', fullName: '', role: 'NHAN_VIEN' },
+      creatingUser: false,
+      syncingSchema: false,
+      schemaSyncResult: null,
+      allUsers: [],
+      allRoles: [],
+      activeAiConfig: null,
+      aiProviders: [],
+      aiForm: { providerId: '', modelName: '', apiKey: '', temperature: 0.3, maxTokens: 1024, timeout: 30 },
+      savingAiConfig: false,
+      auditLogs: [],
+      exportingAuditLog: false,
+      auditExportResult: null,
+      permissionDepartmentFilter: '',
+      departmentPermissions: [],
+      newPermissionUserId: '',
+
       loadAdminData() {
-        if (this.libraries.length === 0) this.loadLibraries();
         google.script.run.withSuccessHandler((users) => { this.allUsers = users; }).withFailureHandler((e) => { this.errorMessage = e.message; }).api_listAllUsers();
         google.script.run.withSuccessHandler((roles) => { this.allRoles = roles; }).withFailureHandler((e) => { this.errorMessage = e.message; }).api_getAllRoles();
         google.script.run.withSuccessHandler((providers) => { this.aiProviders = providers; }).withFailureHandler((e) => { this.errorMessage = e.message; }).api_listAIProviders();
         google.script.run.withSuccessHandler((enabled) => { this.aiEnabled = enabled; }).withFailureHandler((e) => { this.errorMessage = e.message; }).api_isAiEnabled();
         google.script.run.withSuccessHandler((config) => { this.activeAiConfig = config; }).withFailureHandler((e) => { this.errorMessage = e.message; }).api_getActiveAIProviderConfig();
-        this.loadMaxBulkUploadCount();
       },
 
       saveUserRole(u) {
@@ -1221,7 +720,7 @@
           .api_assignRole(u.UserID, u.Role);
         google.script.run
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_updateUserProfile(u.UserID, u.FullName, u.Department);
+          .api_updateUserProfile(u.UserID, u.FullName, u.Department || '');
       },
 
       createUserAction() {
@@ -1229,7 +728,7 @@
         google.script.run
           .withSuccessHandler(() => {
             this.creatingUser = false;
-            this.newUserForm = { email: '', fullName: '', department: '', role: 'Guest' };
+            this.newUserForm = { email: '', fullName: '', role: 'NHAN_VIEN' };
             this.closeModal();
             this.toast('success', 'Đã thêm người dùng mới.');
             this.loadAdminData();
@@ -1238,7 +737,42 @@
             this.creatingUser = false;
             this.errorMessage = e.message;
           })
-          .api_createUser(this.newUserForm.email, this.newUserForm.fullName, this.newUserForm.role, this.newUserForm.department);
+          .api_createUser(this.newUserForm.email, this.newUserForm.fullName, this.newUserForm.role, '');
+      },
+
+      loadDepartmentPermissionsAction() {
+        if (!this.permissionDepartmentFilter) { this.departmentPermissions = []; return; }
+        google.script.run
+          .withSuccessHandler((perms) => { this.departmentPermissions = perms; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listPermissionsForDepartment(this.permissionDepartmentFilter);
+      },
+
+      addPermissionRowAction() {
+        if (!this.newPermissionUserId) return;
+        if (this.departmentPermissions.some((p) => p.UserID === this.newPermissionUserId)) {
+          this.newPermissionUserId = '';
+          return;
+        }
+        this.departmentPermissions.push({
+          PermissionID: 'NEW_' + this.newPermissionUserId,
+          UserID: this.newPermissionUserId,
+          DepartmentID: this.permissionDepartmentFilter,
+          CanView: true, CanCreate: false, CanEdit: false, CanDelete: false,
+          CanSubmit: false, CanApprove: false, CanReject: false, CanPublish: false, CanLock: false, CanExport: false
+        });
+        this.newPermissionUserId = '';
+      },
+
+      savePermissionRowAction(perm) {
+        google.script.run
+          .withSuccessHandler(() => { this.loadDepartmentPermissionsAction(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_setEmployeePermissionOverride(perm.UserID, this.permissionDepartmentFilter, {
+            CanView: perm.CanView, CanCreate: perm.CanCreate, CanEdit: perm.CanEdit, CanDelete: perm.CanDelete,
+            CanSubmit: perm.CanSubmit, CanApprove: perm.CanApprove, CanReject: perm.CanReject,
+            CanPublish: perm.CanPublish, CanLock: perm.CanLock, CanExport: perm.CanExport
+          });
       },
 
       toggleAi() {
@@ -1260,6 +794,20 @@
             this.errorMessage = e.message;
           })
           .api_updateAIProviderConfig(this.aiForm.providerId, this.aiForm.modelName, this.aiForm.apiKey, this.aiForm.temperature, this.aiForm.maxTokens, this.aiForm.timeout);
+      },
+
+      syncSchemaAction() {
+        this.syncingSchema = true;
+        google.script.run
+          .withSuccessHandler((result) => {
+            this.syncingSchema = false;
+            this.schemaSyncResult = result;
+          })
+          .withFailureHandler((e) => {
+            this.syncingSchema = false;
+            this.errorMessage = e.message;
+          })
+          .api_syncSchemaWithSpreadsheet();
       },
 
       auditFilters: { userId: '', action: '', fromDate: '', toDate: '' },
@@ -1302,77 +850,6 @@
             this.errorMessage = e.message;
           })
           .api_exportAuditLogToExcel(this.buildAuditApiFilters_());
-      },
-
-      loadAccuracyReport() {
-        this.loadingAccuracyReport = true;
-        google.script.run
-          .withSuccessHandler((report) => {
-            this.loadingAccuracyReport = false;
-            this.accuracyReport = report;
-          })
-          .withFailureHandler((e) => {
-            this.loadingAccuracyReport = false;
-            this.errorMessage = e.message;
-          })
-          .api_getClassificationAccuracyReport();
-      },
-
-      loadArchivedDocuments() {
-        google.script.run
-          .withSuccessHandler((docs) => { this.archivedDocuments = docs; })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listArchivedDocuments();
-      },
-
-      restoreDocumentAction(doc) {
-        google.script.run
-          .withSuccessHandler(() => {
-            this.archivedDocuments = this.archivedDocuments.filter(d => d.DocumentID !== doc.DocumentID);
-          })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_restoreDocument(doc.DocumentID);
-      },
-
-      // --- OCR ---
-      extractTextAction(documentId) {
-        google.script.run
-          .withSuccessHandler((text) => { this.ocrResults[documentId] = text; })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_extractTextFromDocument(documentId);
-      },
-
-      // --- Tạo mẫu văn bản (Admin) ---
-      onTemplateFileSelected(event) {
-        const file = event.target.files[0];
-        if (!file) { this.pendingTemplateFile = null; return; }
-        const reader = new FileReader();
-        reader.onload = () => {
-          this.pendingTemplateFile = {
-            fileName: file.name,
-            mimeType: file.type || 'application/octet-stream',
-            base64: reader.result.split(',')[1]
-          };
-        };
-        reader.readAsDataURL(file);
-      },
-
-      createTemplateAction() {
-        this.creatingTemplate = true;
-        google.script.run
-          .withSuccessHandler(() => {
-            this.creatingTemplate = false;
-            this.templateForm = { name: '', libraryId: '', fieldsCsv: '' };
-            this.pendingTemplateFile = null;
-            this.closeModal();
-            this.toast('success', 'Đã tạo mẫu văn bản mới.');
-            google.script.run.withSuccessHandler((templates) => { this.templates = templates; }).api_listTemplates(null);
-          })
-          .withFailureHandler((e) => {
-            this.creatingTemplate = false;
-            this.errorMessage = e.message;
-          })
-          .api_createTemplate(this.templateForm.name, this.templateForm.libraryId, '', this.pendingTemplateFile.fileName, this.pendingTemplateFile.mimeType, this.pendingTemplateFile.base64, this.templateForm.fieldsCsv);
       }
     };
   }

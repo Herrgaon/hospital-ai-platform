@@ -1,0 +1,140 @@
+<div x-show="currentView === 'clinical'" x-init="$watch('currentView', v => { if (v === 'clinical') loadMyClinicalAssignmentsAction(); }); if (currentView === 'clinical') loadMyClinicalAssignmentsAction();" class="max-w-5xl mx-auto">
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-header-icon">✚</div>
+      <div>
+        <h1 class="page-title-text">PHÂN CÔNG</h1>
+        <p class="page-subtitle">Lịch khám/điều trị/hội chẩn/phẫu thuật/thủ thuật (khối lâm sàng, cận lâm sàng) — khác Lịch trực</p>
+      </div>
+    </div>
+    <div class="page-header-actions" x-show="canAnywhere('CanCreate')">
+      <button @click="openAddClinicalAssignmentModal()" class="btn btn-primary">+ Phân công mới</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button @click="clinicalTab = 'mine'" class="tab" :class="clinicalTab === 'mine' ? 'active' : ''">Của tôi</button>
+    <button @click="clinicalTab = 'department'" class="tab" :class="clinicalTab === 'department' ? 'active' : ''">Theo khoa/phòng</button>
+  </div>
+
+  <div x-show="clinicalTab === 'mine'">
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Ngày</th><th>Loại công việc</th><th>Thời gian</th><th>Ghi chú</th></tr></thead>
+          <tbody>
+            <template x-for="a in myClinicalAssignments" :key="a.AssignmentID">
+              <tr>
+                <td x-text="a.AssignmentDate"></td>
+                <td x-text="a.WorkType"></td>
+                <td x-text="(a.ShiftStart || '') + (a.ShiftEnd ? ' - ' + a.ShiftEnd : '')"></td>
+                <td x-text="a.Notes"></td>
+              </tr>
+            </template>
+            <template x-if="myClinicalAssignments.length === 0">
+              <tr><td colspan="4" class="text-xs holo-text-dim py-4">Chưa có phân công nào.</td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div x-show="clinicalTab === 'department'">
+    <div class="toolbar">
+      <div class="filter-group">
+        <select x-model="clinicalDepartmentFilter" @change="loadDepartmentClinicalAssignmentsAction()" class="filter-select">
+          <option value="">-- Chọn khoa/phòng --</option>
+          <template x-for="d in departments" :key="d.DepartmentID">
+            <option :value="d.DepartmentID" x-text="d.DepartmentName"></option>
+          </template>
+        </select>
+      </div>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Ngày</th><th>Nhân viên</th><th>Loại công việc</th><th>Thời gian</th><th></th></tr></thead>
+          <tbody>
+            <template x-for="a in departmentClinicalAssignments" :key="a.AssignmentID">
+              <tr>
+                <td x-text="a.AssignmentDate"></td>
+                <td x-text="employeeNameById(a.EmployeeID)"></td>
+                <td x-text="a.WorkType"></td>
+                <td x-text="(a.ShiftStart || '') + (a.ShiftEnd ? ' - ' + a.ShiftEnd : '')"></td>
+                <td><button @click="deleteClinicalAssignmentAction(a)" class="btn-link">Xoá</button></td>
+              </tr>
+            </template>
+            <template x-if="clinicalDepartmentFilter && departmentClinicalAssignments.length === 0">
+              <tr><td colspan="5" class="text-xs holo-text-dim py-4">Khoa/phòng này chưa có phân công nào.</td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Phân công mới -->
+  <div x-show="modalOpen === 'addClinicalAssignment'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Phân công mới</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="required">Khoa/Phòng</label>
+          <select x-model="clinicalAssignmentForm.departmentId" @change="onClinicalAssignmentDepartmentChange()" class="form-control">
+            <option value="">-- Chọn khoa/phòng --</option>
+            <template x-for="d in departments.filter(d => can(d.DepartmentID, 'CanCreate'))" :key="d.DepartmentID">
+              <option :value="d.DepartmentID" x-text="d.DepartmentName"></option>
+            </template>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="required">Nhân viên</label>
+          <select x-model="clinicalAssignmentForm.employeeId" class="form-control">
+            <option value="">-- Chọn nhân viên --</option>
+            <template x-for="e in employeesByDepartment(clinicalAssignmentForm.departmentId)" :key="e.EmployeeID">
+              <option :value="e.EmployeeID" x-text="e.FullName"></option>
+            </template>
+          </select>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="required">Ngày</label>
+            <input type="date" x-model="clinicalAssignmentForm.assignmentDate" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="required">Loại công việc</label>
+            <select x-model="clinicalAssignmentForm.workType" class="form-control">
+              <option value="Khám">Khám</option>
+              <option value="Điều trị">Điều trị</option>
+              <option value="Hội chẩn">Hội chẩn</option>
+              <option value="Phẫu thuật">Phẫu thuật</option>
+              <option value="Thủ thuật">Thủ thuật</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Giờ bắt đầu</label>
+            <input type="time" x-model="clinicalAssignmentForm.shiftStart" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Giờ kết thúc</label>
+            <input type="time" x-model="clinicalAssignmentForm.shiftEnd" class="form-control">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Ghi chú</label>
+          <input type="text" x-model="clinicalAssignmentForm.notes" class="form-control">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="createClinicalAssignmentAction()" :disabled="creatingClinicalAssignment || !clinicalAssignmentForm.departmentId || !clinicalAssignmentForm.employeeId || !clinicalAssignmentForm.assignmentDate" class="btn btn-primary">
+          <span x-text="creatingClinicalAssignment ? 'Đang lưu...' : 'Lưu phân công'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

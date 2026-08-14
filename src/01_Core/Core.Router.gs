@@ -3,12 +3,12 @@
 function doGet(e) {
   if (!isSystemInitialized()) {
     return HtmlService.createTemplateFromFile('ui/Bootstrap').evaluate()
-      .setTitle('Hệ thống trợ lý hỗ trợ xử lý văn bản - Khởi tạo hệ thống')
+      .setTitle('Hệ thống Quản lý Công việc – BVĐK Đông Sơn - Khởi tạo hệ thống')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1');
   }
   const template = HtmlService.createTemplateFromFile('ui/Index');
   return template.evaluate()
-    .setTitle('Hệ thống trợ lý hỗ trợ xử lý văn bản')
+    .setTitle('Hệ thống Quản lý Công việc – BVĐK Đông Sơn')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 

@@ -1,10 +1,10 @@
 // Tra cứu Audit Log — xem docs/13-security.md mục 5.
-// Đúng ma trận tại docs/11-permission-design.md mục 3 ("Xem Audit Log toàn hệ thống": chỉ Admin).
-// Log theo phạm vi riêng cho Manager là cải tiến tương lai, chưa xây ở Phase 2 (YAGNI).
+// Xem Audit Log toàn hệ thống: chỉ SUPER_ADMIN. Log theo phạm vi riêng cho từng khoa/phòng là cải
+// tiến tương lai, chưa xây ở Giai đoạn 1 (YAGNI).
 
 function searchAuditLog(actingUser, filters) {
-  if (actingUser.Role !== ROLE_NAMES.ADMIN) {
-    throw new Error('Chỉ Admin được xem Audit Log.');
+  if (actingUser.Role !== ROLE_NAMES.SUPER_ADMIN) {
+    throw new Error('Chỉ Quản trị hệ thống được xem Audit Log.');
   }
   let logs = getSheetRepository(SHEETS.AUDIT_LOG).findAll();
 

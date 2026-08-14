@@ -4,16 +4,22 @@
 // toàn để chạy nhiều lần (idempotent).
 //
 // LỊCH SỬ: phiên bản đầu chỉ "thêm cột còn thiếu vào CUỐI sheet" — sai khi cột mới được chèn ở GIỮA
-// mảng SCHEMA (ví dụ RuleType), vì lúc đó vị trí cột trong SCHEMA không còn khớp vị trí cột vật lý
-// trong Sheet, khiến toàn bộ giá trị các cột phía sau bị đọc/ghi lệch. Bản này sửa triệt để bằng cách
-// luôn ghi lại theo đúng tên cột, không phụ thuộc vị trí.
+// mảng SCHEMA, vì lúc đó vị trí cột trong SCHEMA không còn khớp vị trí cột vật lý trong Sheet, khiến
+// toàn bộ giá trị các cột phía sau bị đọc/ghi lệch. Bản này sửa triệt để bằng cách luôn ghi lại theo
+// đúng tên cột, không phụ thuộc vị trí.
+//
+// 2026-08-15: hệ thống tái cấu trúc sang miền nghiệp vụ mới (Quản lý công việc/Lịch trực/KPI) — thêm
+// bước XOÁ hẳn các sheet không còn nằm trong SCHEMA (Documents/Libraries/Templates/Rules/Workflows...)
+// khỏi Google Sheet thật, tránh để lại dữ liệu cũ gây nhầm lẫn (Product Owner yêu cầu tái cấu trúc
+// toàn bộ, không chỉ ngừng tham chiếu trong code).
 function syncSchemaWithSpreadsheet(user) {
-  if (user.Role !== ROLE_NAMES.ADMIN) {
-    throw new Error('Chỉ Admin được đồng bộ cấu trúc dữ liệu.');
+  if (user.Role !== ROLE_NAMES.SUPER_ADMIN) {
+    throw new Error('Chỉ Quản trị hệ thống được đồng bộ cấu trúc dữ liệu.');
   }
 
   const spreadsheet = getSystemSpreadsheet_();
   const report = [];
+  const expectedSheetNames = Object.keys(SCHEMA);
 
   Object.keys(SCHEMA).forEach(function (sheetName) {
     const expectedHeaders = SCHEMA[sheetName];
@@ -63,55 +69,26 @@ function syncSchemaWithSpreadsheet(user) {
     spreadsheet.setNamedRange(rangeName, sheet.getRange(1, 1, Math.max(sheet.getMaxRows(), 2), expectedHeaders.length));
   });
 
-  const backfillCount = backfillRuleTypeForExistingRows_();
-  if (backfillCount > 0) {
-    report.push('Rules: gán lại RuleType cho ' + backfillCount + ' dòng cũ (dữ liệu tạo trước khi có cột RuleType)');
-  }
-
-  if (ensureClassificationRuleSeeded_()) {
-    report.push('Rules: bổ sung Rule phân loại tài liệu (Rule_Classification.json) — hệ thống này được Initialize System trước khi tính năng phân loại tồn tại nên chưa có sẵn');
-  }
+  const removedSheets = removeObsoleteSheets_(spreadsheet, expectedSheetNames);
+  removedSheets.forEach(function (name) { report.push(name + ': xoá sheet (thuộc miền nghiệp vụ cũ, không còn dùng)'); });
 
   logAudit(user.UserID, 'SCHEMA_SYNCED', 'System', spreadsheet.getId(), report.join(' | ') || 'Không có thay đổi');
   return { changes: report };
 }
 
-// Bù dữ liệu mặc định phát sinh THÊM sau khi hệ thống đã Initialize System (khác backfillRuleType,
-// vốn chỉ sửa cột cho dòng ĐÃ CÓ — đây là tạo mới nguyên 1 dòng+file còn thiếu hẳn). Idempotent —
-// không tạo trùng nếu đã có RuleType=CLASSIFICATION.
-function ensureClassificationRuleSeeded_() {
-  const alreadyExists = getSheetRepository(SHEETS.RULES).findAll().some(function (r) { return r.RuleType === RULE_TYPES.CLASSIFICATION; });
-  if (alreadyExists) return false;
-
-  const rootFolder = getRootFolder_();
-  const systemFolder = getOrCreateSubfolder(rootFolder, DRIVE_FOLDERS.SYSTEM);
-  const rulesFolder = getOrCreateSubfolder(systemFolder, DRIVE_FOLDERS.SYSTEM_RULES);
-  const file = rulesFolder.createFile('Rule_Classification.json', getDefaultClassificationRuleSetContent_(), MimeType.PLAIN_TEXT);
-
-  getSheetRepository(SHEETS.RULES).append({
-    RuleID: generateId('RULE'),
-    RuleSetName: CLASSIFICATION_RULE_SET_NAME,
-    RuleType: RULE_TYPES.CLASSIFICATION,
-    LibraryID: '*',
-    DriveFileID: file.getId(),
-    Version: 1,
-    Status: 'Active'
+// Xoá mọi sheet KHÔNG còn xuất hiện trong SCHEMA hiện tại — dữ liệu cũ (Documents/Libraries/
+// Templates/Rules/Categories/Workflows/WorkflowInstances/WorkflowStepLog/ClassificationFeedback...)
+// bị xoá thẳng khỏi bảng tính thật, không chỉ ngừng tham chiếu trong code (yêu cầu tái cấu trúc toàn
+// bộ của Product Owner, 2026-08-15). Google Sheets không cho phép xoá HẾT sheet — luôn giữ lại ít
+// nhất 1 sheet, nên bỏ qua nếu spreadsheet chỉ còn đúng 1 sheet thuộc diện xoá.
+function removeObsoleteSheets_(spreadsheet, expectedSheetNames) {
+  const removed = [];
+  spreadsheet.getSheets().forEach(function (sheet) {
+    const name = sheet.getName();
+    if (expectedSheetNames.indexOf(name) !== -1) return;
+    if (spreadsheet.getSheets().length <= 1) return;
+    spreadsheet.deleteSheet(sheet);
+    removed.push(name);
   });
-  return true;
-}
-
-// Sửa dữ liệu cũ: các dòng Rules tạo trước khi có cột RuleType (xem RuleEngine.Core.gs và
-// Knowledge.ClassificationRules.gs — 2 Rule Engine khác nhau dùng chung sheet, thiếu RuleType sẽ
-// khiến cả hai không tìm thấy rule của mình). Suy luận RuleType từ RuleSetName đã biết trước.
-function backfillRuleTypeForExistingRows_() {
-  const repo = getSheetRepository(SHEETS.RULES);
-  const rows = repo.findAll();
-  let count = 0;
-  rows.forEach(function (row) {
-    if (!isBlank(row.RuleType)) return;
-    const inferredType = row.RuleSetName === CLASSIFICATION_RULE_SET_NAME ? RULE_TYPES.CLASSIFICATION : RULE_TYPES.FORMAT_CHECK;
-    repo.updateById('RuleID', row.RuleID, { RuleType: inferredType });
-    count++;
-  });
-  return count;
+  return removed;
 }

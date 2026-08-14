@@ -1,5 +1,4 @@
-// Điểm vào duy nhất cho client (google.script.run) — xem docs/13-security.md mục 7:
-// "Giả mạo request google.script.run" — mọi hàm ở đây tự lấy user qua getCurrentUser(),
+// Điểm vào duy nhất cho client (google.script.run) — mọi hàm ở đây tự lấy user qua getCurrentUser(),
 // KHÔNG BAO GIỜ nhận UserID/Role từ tham số client. Service layer phía dưới vẫn tự kiểm tra
 // quyền lại (requirePermission/hasPermission) nên hàm ở đây không lặp lại việc đó.
 
@@ -36,11 +35,6 @@ function api_updateUserProfile(targetUserId, fullName, department) {
   return updateUserProfile(user, targetUserId, fullName, department);
 }
 
-function api_listMyDocuments() {
-  const user = getCurrentUser();
-  return listDocumentsByOwner(user.UserID);
-}
-
 function api_syncSchemaWithSpreadsheet() {
   const user = getCurrentUser();
   return syncSchemaWithSpreadsheet(user);
@@ -48,251 +42,12 @@ function api_syncSchemaWithSpreadsheet() {
 
 function api_getDashboardSummary() {
   const user = getCurrentUser();
+  const weekStart = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
   return {
-    pendingApprovals: listPendingApprovalsForUser(user),
-    myRecentDocuments: listDocumentsByOwner(user.UserID)
+    myTasks: listMyTasks(user),
+    myShiftsThisWeek: listMyDutyShifts(user, weekStart, null),
+    pendingSwapConfirmations: listPendingSwapConfirmations(user)
   };
-}
-
-function api_listLibraries() {
-  const user = getCurrentUser();
-  return listLibrariesForUser(user);
-}
-
-function api_listTemplates(libraryId) {
-  return listActiveTemplates(libraryId || '*');
-}
-
-function api_createDocumentFromTemplate(templateId, fieldValues) {
-  const user = getCurrentUser();
-  return createDocumentFromTemplate(user, templateId, fieldValues);
-}
-
-function api_checkDocumentRules(documentId) {
-  const user = getCurrentUser();
-  return checkDocument(user, documentId);
-}
-
-function api_applyDocumentFormatting(documentId, formatOptions) {
-  const user = getCurrentUser();
-  return applyManualFormatting(user, documentId, formatOptions);
-}
-
-function api_applyND30QuickStyle(documentId) {
-  const user = getCurrentUser();
-  return applyND30QuickStyle(user, documentId);
-}
-
-function api_applyAiFormattingCommand(documentId, commandText) {
-  const user = getCurrentUser();
-  return applyAiFormattingCommand(user, documentId, commandText);
-}
-
-// Trang "Chỉnh sửa định dạng" — luồng độc lập, thao tác trực tiếp theo driveFileId (file tải lên tạm,
-// không thuộc Document/Library nào). Xem Formatting.Upload.gs.
-function api_stageDocumentForFormatting(fileName, mimeType, base64Data) {
-  const user = getCurrentUser();
-  return stageDocumentForFormatting(user, fileName, mimeType, base64Data);
-}
-
-function api_stagePastedTextForFormatting(text, title) {
-  const user = getCurrentUser();
-  return stagePastedTextForFormatting(user, text, title);
-}
-
-function api_discardStagedFormattingFile(driveFileId) {
-  const user = getCurrentUser();
-  return discardStagedFormattingFile(user, driveFileId);
-}
-
-function api_exportFormattingResultAsWord(driveFileId, fileName) {
-  getCurrentUser();
-  return exportFormattingResultAsWord(driveFileId, fileName);
-}
-
-function api_exportFormattingResultAsPdf(driveFileId, fileName) {
-  getCurrentUser();
-  return exportFormattingResultAsPdf(driveFileId, fileName);
-}
-
-function api_applyManualFormattingToFile(driveFileId, formatOptions) {
-  const user = getCurrentUser();
-  return applyManualFormattingToFile(user, driveFileId, formatOptions);
-}
-
-function api_applyND30QuickStyleToFile(driveFileId) {
-  const user = getCurrentUser();
-  return applyND30QuickStyleToFile(user, driveFileId, '*');
-}
-
-function api_applyAiFormattingCommandToFile(driveFileId, commandText) {
-  const user = getCurrentUser();
-  return applyAiFormattingCommandToFile(user, driveFileId, commandText, '*');
-}
-
-function api_listDocuments(libraryId) {
-  const user = getCurrentUser();
-  const documents = libraryId ? listDocumentsByLibrary(libraryId) : getSheetRepository(SHEETS.DOCUMENTS).findAll();
-  return documents.filter(function (d) { return d.Status !== 'ARCHIVED' && hasPermission(user, d.LibraryID, 'CanView'); });
-}
-
-function api_getDocument(documentId) {
-  const user = getCurrentUser();
-  const document = getDocumentById(documentId);
-  requirePermission(user, document.LibraryID, 'CanView');
-  return document;
-}
-
-function api_deleteDocument(documentId) {
-  const user = getCurrentUser();
-  return deleteDocument(user, documentId);
-}
-
-function api_restoreDocument(documentId) {
-  const user = getCurrentUser();
-  return restoreDocument(user, documentId);
-}
-
-function api_listArchivedDocuments() {
-  const user = getCurrentUser();
-  return listArchivedDocuments(user);
-}
-
-function api_listCategories(libraryId) {
-  return listCategoriesByLibrary(libraryId);
-}
-
-function api_createCategory(libraryId, categoryName, parentCategoryId) {
-  const user = getCurrentUser();
-  return createCategory(user, libraryId, categoryName, parentCategoryId);
-}
-
-function api_createLibrary(libraryName, description, managerUserId, requiresReview) {
-  const user = getCurrentUser();
-  return createLibrary(user, libraryName, description, managerUserId || user.UserID, requiresReview);
-}
-
-function api_stageUploadForClassification(fileName, mimeType, base64Data) {
-  const user = getCurrentUser();
-  return stageUploadForClassification(user, fileName, mimeType, base64Data);
-}
-
-function api_stageBulkUpload(files) {
-  const user = getCurrentUser();
-  return stageBulkUpload(user, files);
-}
-
-function api_getMaxBulkUploadCount() {
-  return getMaxBulkUploadCount();
-}
-
-function api_setMaxBulkUploadCount(value) {
-  const user = getCurrentUser();
-  return setMaxBulkUploadCount(user, value);
-}
-
-function api_confirmClassificationAndSave(fileId, fileName, parserCategory, metadata, ocrStatus, finalFields, originalFields) {
-  const user = getCurrentUser();
-  return confirmClassificationAndSave(user, fileId, fileName, parserCategory, metadata, ocrStatus, finalFields, originalFields);
-}
-
-function api_discardStagedUpload(fileId) {
-  const user = getCurrentUser();
-  discardStagedUpload(user, fileId);
-}
-
-function api_listPendingKnowledgeReviews() {
-  const user = getCurrentUser();
-  return listPendingKnowledgeReviews(user);
-}
-
-function api_approveKnowledgeDocument(documentId, comment) {
-  const user = getCurrentUser();
-  return approveKnowledgeDocument(user, documentId, comment);
-}
-
-function api_rejectKnowledgeDocument(documentId, comment) {
-  const user = getCurrentUser();
-  return rejectKnowledgeDocument(user, documentId, comment);
-}
-
-function api_resubmitKnowledgeDocument(documentId) {
-  const user = getCurrentUser();
-  return resubmitKnowledgeDocument(user, documentId);
-}
-
-function api_getClassificationThreshold() {
-  return getClassificationThreshold();
-}
-
-function api_setClassificationThreshold(value) {
-  const user = getCurrentUser();
-  if (user.Role !== ROLE_NAMES.ADMIN) {
-    throw new Error('Chỉ Admin được đổi ngưỡng tự động chấp nhận phân loại AI.');
-  }
-  setConfig(CONFIG_KEYS.AI_CLASSIFICATION_THRESHOLD, String(value));
-  logAudit(user.UserID, 'AI_CLASSIFICATION_THRESHOLD_CHANGED', 'System', 'AI_CLASSIFICATION_THRESHOLD', String(value));
-}
-
-function api_searchDocuments(keyword, libraryId, filters) {
-  const user = getCurrentUser();
-  return searchDocumentsByKeyword(user, keyword, libraryId || null, filters || null);
-}
-
-function api_extractTextFromDocument(documentId) {
-  const user = getCurrentUser();
-  const document = getDocumentById(documentId);
-  requirePermission(user, document.LibraryID, 'CanView');
-  const text = extractTextFromImage(document.DriveFileID);
-  logAudit(user.UserID, 'DOCUMENT_OCR_EXTRACTED', 'Document', documentId, '');
-  return text;
-}
-
-function api_createTemplate(templateName, libraryId, categoryId, fileName, mimeType, base64Data, fieldNamesCsv) {
-  const user = getCurrentUser();
-  return createTemplateFromUpload(user, templateName, libraryId, categoryId, fileName, mimeType, base64Data, fieldNamesCsv);
-}
-
-function api_exportAuditLogToExcel(filters) {
-  const user = getCurrentUser();
-  return exportAuditLogToExcel(user, filters || {});
-}
-
-function api_reviewDocumentAgainstLibraries(documentId, libraryIds) {
-  const user = getCurrentUser();
-  return reviewDocumentAgainstLibraries(user, documentId, libraryIds);
-}
-
-function api_suggestLibrariesForDocument(documentId) {
-  const user = getCurrentUser();
-  return suggestLibrariesForDocument(user, documentId);
-}
-
-function api_askKnowledgeBase(question, libraryIds) {
-  const user = getCurrentUser();
-  return askKnowledgeBase(user, question, libraryIds || null);
-}
-
-function api_askAboutAttachedFile(question, fileName, mimeType, base64Data) {
-  const user = getCurrentUser();
-  return askAboutAttachedFile(user, question, fileName, mimeType, base64Data);
-}
-
-function api_suggestLibrariesForQuestion(questionText) {
-  const user = getCurrentUser();
-  return suggestLibrariesForQuestion(user, questionText);
-}
-
-function api_listDocumentVersions(documentId) {
-  const user = getCurrentUser();
-  const document = getDocumentById(documentId);
-  requirePermission(user, document.LibraryID, 'CanView');
-  return listDocumentVersions(documentId);
-}
-
-function api_compareDocumentVersions(documentId, versionIdA, versionIdB) {
-  const user = getCurrentUser();
-  return compareDocumentVersions(user, documentId, versionIdA, versionIdB);
 }
 
 function api_listAllUsers() {
@@ -309,24 +64,258 @@ function api_assignRole(targetUserId, newRole) {
   return assignRole(user, targetUserId, newRole);
 }
 
-function api_setUserPermissionOverride(targetUserId, libraryId, permissionPatch) {
+function api_setEmployeePermissionOverride(targetUserId, departmentId, permissionPatch) {
   const user = getCurrentUser();
-  return setUserPermissionOverride(user, targetUserId, libraryId, permissionPatch);
+  return setEmployeePermissionOverride(user, targetUserId, departmentId, permissionPatch);
+}
+
+function api_listPermissionsForDepartment(departmentId) {
+  const user = getCurrentUser();
+  return listPermissionsForDepartment(user, departmentId);
 }
 
 function api_listUserDirectory() {
   return listUserDirectory();
 }
 
-function api_canManageLibrary(libraryId) {
-  const user = getCurrentUser();
-  return hasPermission(user, libraryId, 'CanManage');
+// --- Employee ---
+
+function api_listEmployees() {
+  return listEmployees();
 }
 
-function api_listPermissionsForLibrary(libraryId) {
+function api_getMyEmployee() {
   const user = getCurrentUser();
-  return listPermissionsForLibrary(user, libraryId);
+  return getMyEmployee(user);
 }
+
+function api_getEmployeeById(employeeId) {
+  return getEmployeeById(employeeId);
+}
+
+function api_createEmployee(input) {
+  const user = getCurrentUser();
+  return createEmployee(user, input);
+}
+
+function api_updateEmployee(employeeId, patch) {
+  const user = getCurrentUser();
+  return updateEmployee(user, employeeId, patch);
+}
+
+function api_deactivateEmployee(employeeId) {
+  const user = getCurrentUser();
+  return deactivateEmployee(user, employeeId);
+}
+
+function api_resetEmployeePassword(employeeId, newPassword) {
+  const user = getCurrentUser();
+  return resetEmployeePassword(user, employeeId, newPassword);
+}
+
+function api_changeMyPassword(oldPassword, newPassword) {
+  const user = getCurrentUser();
+  return changeMyPassword(user, oldPassword, newPassword);
+}
+
+// --- Department ---
+
+function api_listActiveDepartments() {
+  return listActiveDepartments();
+}
+
+function api_createDepartment(input) {
+  const user = getCurrentUser();
+  return createDepartment(user, input);
+}
+
+function api_updateDepartment(departmentId, patch) {
+  const user = getCurrentUser();
+  return updateDepartment(user, departmentId, patch);
+}
+
+function api_deactivateDepartment(departmentId) {
+  const user = getCurrentUser();
+  return deactivateDepartment(user, departmentId);
+}
+
+// --- Task ---
+
+function api_listMyTasks() {
+  const user = getCurrentUser();
+  return listMyTasks(user);
+}
+
+function api_listTasksByDepartment(departmentId) {
+  const user = getCurrentUser();
+  return listTasksByDepartment(user, departmentId);
+}
+
+function api_assignTask(input) {
+  const user = getCurrentUser();
+  return assignTask(user, input);
+}
+
+function api_updateTaskProgress(taskId, progress) {
+  const user = getCurrentUser();
+  return updateTaskProgress(user, taskId, progress);
+}
+
+function api_submitTaskResult(taskId, resultText) {
+  const user = getCurrentUser();
+  return submitTaskResult(user, taskId, resultText);
+}
+
+function api_evaluateTask(taskId, input) {
+  const user = getCurrentUser();
+  return evaluateTask(user, taskId, input);
+}
+
+function api_uploadTaskAttachment(taskId, fileName, mimeType, base64Data) {
+  const user = getCurrentUser();
+  return uploadTaskAttachment(user, taskId, fileName, mimeType, base64Data);
+}
+
+function api_listTaskAttachments(taskId) {
+  return listTaskAttachments(taskId);
+}
+
+// --- Clinical Assignment (Phân công khối lâm sàng) ---
+
+function api_listMyClinicalAssignments(dateFrom, dateTo) {
+  const user = getCurrentUser();
+  return listMyClinicalAssignments(user, dateFrom, dateTo);
+}
+
+function api_listClinicalAssignmentsByDepartment(departmentId, dateFrom, dateTo) {
+  const user = getCurrentUser();
+  return listClinicalAssignmentsByDepartment(user, departmentId, dateFrom, dateTo);
+}
+
+function api_createClinicalAssignment(input) {
+  const user = getCurrentUser();
+  return createClinicalAssignment(user, input);
+}
+
+function api_updateClinicalAssignment(assignmentId, patch) {
+  const user = getCurrentUser();
+  return updateClinicalAssignment(user, assignmentId, patch);
+}
+
+function api_deleteClinicalAssignment(assignmentId) {
+  const user = getCurrentUser();
+  return deleteClinicalAssignment(user, assignmentId);
+}
+
+// --- Duty Schedule (Lịch trực tuần) ---
+
+function api_createDutySchedule(departmentId, weekStartDate, weekEndDate) {
+  const user = getCurrentUser();
+  return createDutySchedule(user, departmentId, weekStartDate, weekEndDate);
+}
+
+function api_addDutyShift(dutyScheduleId, input) {
+  const user = getCurrentUser();
+  return addDutyShift(user, dutyScheduleId, input);
+}
+
+function api_updateDutyShift(dutyShiftId, patch) {
+  const user = getCurrentUser();
+  return updateDutyShift(user, dutyShiftId, patch);
+}
+
+function api_removeDutyShift(dutyShiftId) {
+  const user = getCurrentUser();
+  return removeDutyShift(user, dutyShiftId);
+}
+
+function api_listDutySchedulesByDepartment(departmentId) {
+  const user = getCurrentUser();
+  return listDutySchedulesByDepartment(user, departmentId);
+}
+
+function api_getDutyScheduleDetail(dutyScheduleId) {
+  const user = getCurrentUser();
+  return getDutyScheduleDetail(user, dutyScheduleId);
+}
+
+function api_listMyDutyShifts(dateFrom, dateTo) {
+  const user = getCurrentUser();
+  return listMyDutyShifts(user, dateFrom, dateTo);
+}
+
+function api_listHospitalWideDutySchedules(weekStartDate) {
+  const user = getCurrentUser();
+  return listHospitalWideDutySchedules(user, weekStartDate);
+}
+
+function api_submitDutySchedule(dutyScheduleId) {
+  const user = getCurrentUser();
+  return submitDutySchedule(user, dutyScheduleId);
+}
+
+function api_markDutyScheduleUnderReview(dutyScheduleId) {
+  const user = getCurrentUser();
+  return markDutyScheduleUnderReview(user, dutyScheduleId);
+}
+
+function api_requestDutyScheduleRevision(dutyScheduleId, comment) {
+  const user = getCurrentUser();
+  return requestDutyScheduleRevision(user, dutyScheduleId, comment);
+}
+
+function api_approveDutySchedule(dutyScheduleId, comment) {
+  const user = getCurrentUser();
+  return approveDutySchedule(user, dutyScheduleId, comment);
+}
+
+function api_publishDutySchedule(dutyScheduleId) {
+  const user = getCurrentUser();
+  return publishDutySchedule(user, dutyScheduleId);
+}
+
+// --- Duty Swap (Đổi trực) ---
+
+function api_requestDutySwap(input) {
+  const user = getCurrentUser();
+  return requestSwap(user, input);
+}
+
+function api_confirmDutySwapByReplacement(swapRequestId) {
+  const user = getCurrentUser();
+  return confirmSwapByReplacement(user, swapRequestId);
+}
+
+function api_confirmDutySwapByDeptHead(swapRequestId) {
+  const user = getCurrentUser();
+  return confirmSwapByDeptHead(user, swapRequestId);
+}
+
+function api_approveDutySwapByKhNv(swapRequestId) {
+  const user = getCurrentUser();
+  return approveSwapByKhNv(user, swapRequestId);
+}
+
+function api_rejectDutySwap(swapRequestId, reason) {
+  const user = getCurrentUser();
+  return rejectSwap(user, swapRequestId, reason);
+}
+
+function api_listMySwapRequests() {
+  const user = getCurrentUser();
+  return listMySwapRequests(user);
+}
+
+function api_listPendingSwapConfirmations() {
+  const user = getCurrentUser();
+  return listPendingSwapConfirmations(user);
+}
+
+function api_listSwapHistoryForShift(originalShiftId) {
+  return listSwapHistoryForShift(originalShiftId);
+}
+
+// --- Admin / AI / Audit Log ---
 
 function api_listAIProviders() {
   return listAIProviders();
@@ -334,8 +323,8 @@ function api_listAIProviders() {
 
 function api_getActiveAIProviderConfig() {
   const user = getCurrentUser();
-  if (user.Role !== ROLE_NAMES.ADMIN) {
-    throw new Error('Chỉ Admin được xem cấu hình AI.');
+  if (user.Role !== ROLE_NAMES.SUPER_ADMIN) {
+    throw new Error('Chỉ Quản trị hệ thống được xem cấu hình AI.');
   }
   return getActiveAIProviderConfigMasked();
 }
@@ -360,32 +349,7 @@ function api_searchAuditLog(filters) {
   return searchAuditLog(user, filters || {});
 }
 
-function api_getClassificationAccuracyReport() {
+function api_exportAuditLogToExcel(filters) {
   const user = getCurrentUser();
-  return getClassificationAccuracyReport(user);
-}
-
-function api_exportDocumentAsWord(documentId) {
-  const user = getCurrentUser();
-  return publishDocumentAsWord(user, documentId);
-}
-
-function api_submitForApproval(documentId) {
-  const user = getCurrentUser();
-  return submitForApproval(user, documentId);
-}
-
-function api_listPendingApprovals() {
-  const user = getCurrentUser();
-  return listPendingApprovalsForUser(user);
-}
-
-function api_approveWorkflowInstance(instanceId, comment) {
-  const user = getCurrentUser();
-  return approveWorkflowInstance(user, instanceId, comment);
-}
-
-function api_rejectWorkflowInstance(instanceId, comment) {
-  const user = getCurrentUser();
-  return rejectWorkflowInstance(user, instanceId, comment);
+  return exportAuditLogToExcel(user, filters || {});
 }

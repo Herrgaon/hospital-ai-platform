@@ -1,83 +1,144 @@
-// Nguồn sự thật duy nhất cho tên Sheet/cột — xem docs/12-storage-design.md mục 2.1.
-// Không nơi nào khác được hard-code tên Sheet hay tên cột ngoài file này.
+// Nguồn sự thật duy nhất cho tên Sheet/cột — không nơi nào khác được hard-code tên Sheet hay tên cột
+// ngoài file này. Repurposed 2026-08-15: hệ thống chuyển từ "Quản lý tài liệu/tri thức" sang
+// "Quản lý công việc – Phân công – Lịch trực – Đánh giá – Hỗ trợ tổng hợp thu nhập" (Giai đoạn 1).
 
 const SHEETS = {
   USERS: 'Users',
   ROLES: 'Roles',
   PERMISSIONS: 'Permissions',
-  LIBRARIES: 'Libraries',
-  CATEGORIES: 'Categories',
-  DOCUMENTS: 'Documents',
-  DOCUMENT_VERSIONS: 'DocumentVersions',
-  TEMPLATES: 'Templates',
-  RULES: 'Rules',
-  WORKFLOWS: 'Workflows',
-  WORKFLOW_INSTANCES: 'WorkflowInstances',
-  WORKFLOW_STEP_LOG: 'WorkflowStepLog',
+  DEPARTMENTS: 'Departments',
+  EMPLOYEES: 'Employees',
+  TASKS: 'Tasks',
+  CLINICAL_ASSIGNMENTS: 'ClinicalAssignments',
+  DUTY_SCHEDULES: 'DutySchedules',
+  DUTY_SHIFTS: 'DutyShifts',
+  DUTY_SWAP_REQUESTS: 'DutySwapRequests',
   AI_PROVIDERS: 'AIProviders',
   AI_PROVIDER_CONFIG: 'AIProviderConfig',
   AI_PROVIDER_KEY_HISTORY: 'AIProviderKeyHistory',
   AUDIT_LOG: 'AuditLog',
-  SYSTEM_CONFIG: 'SystemConfig',
-  CLASSIFICATION_FEEDBACK: 'ClassificationFeedback'
+  SYSTEM_CONFIG: 'SystemConfig'
 };
 
 const SCHEMA = {
-  [SHEETS.USERS]: ['UserID', 'Email', 'FullName', 'Role', 'Department', 'Status', 'CreatedAt', 'UpdatedAt', 'AvatarUrl'],
+  // PasswordHash/PasswordSalt phục vụ đăng nhập mã nhân viên (Auth.Password.gs) — hash bằng PBKDF2 tự
+  // dựng qua HMAC-SHA256 (Apps Script không có bcrypt/argon2 sẵn). Rỗng nếu tài khoản chưa từng được
+  // đặt mật khẩu (ví dụ user vào bằng phiên Google, chưa có nhu cầu đăng nhập qua Gateway/Desktop).
+  [SHEETS.USERS]: ['UserID', 'Email', 'FullName', 'Role', 'Department', 'Status', 'CreatedAt', 'UpdatedAt', 'AvatarUrl', 'PasswordHash', 'PasswordSalt'],
   [SHEETS.ROLES]: ['RoleID', 'RoleName', 'Description'],
-  [SHEETS.PERMISSIONS]: ['PermissionID', 'RoleID', 'UserID', 'LibraryID', 'CanView', 'CanCreate', 'CanEdit', 'CanDelete', 'CanApprove', 'CanManage'],
-  // RequiresReview: false = tài liệu nạp vào kho này Published ngay, không cần chờ duyệt tri thức
-  // (ví dụ kho rủi ro thấp như Biểu mẫu nội bộ) — xem docs/10-knowledge-design.md mục 9.
-  [SHEETS.LIBRARIES]: ['LibraryID', 'LibraryName', 'Description', 'ManagerUserID', 'DriveFolderID', 'CreatedAt', 'Status', 'RequiresReview'],
-  [SHEETS.CATEGORIES]: ['CategoryID', 'LibraryID', 'CategoryName', 'ParentCategoryID'],
-  // Xem docs/10-knowledge-design.md mục 9 (Document Ingestion & Knowledge Classification).
-  [SHEETS.DOCUMENTS]: [
-    'DocumentID', 'LibraryID', 'CategoryID', 'SubCategory', 'Title', 'DriveFileID', 'FileType',
-    'CurrentVersion', 'Status', 'OwnerUserID', 'CreatedAt', 'UpdatedAt',
-    'DocumentType', 'Issuer', 'ApplicableDepartments', 'Tags', 'Keywords', 'Summary', 'Language',
-    'EffectiveDate', 'ExpireDate', 'FileHash', 'OcrStatus', 'AiConfidence', 'Importance'
+
+  // DepartmentID='*' = phạm vi toàn viện (role-global). 10 cờ hành động đúng theo đặc tả:
+  // Xem/Tạo/Sửa/Xóa/GửiDuyệt/Duyệt/TừChối/CôngBố/Chốt/XuấtDữLiệu. Không còn CanManage (phân quyền
+  // uỷ quyền phi tập trung bị bỏ ở Giai đoạn 1 — xem quyết định trong kế hoạch triển khai).
+  [SHEETS.PERMISSIONS]: [
+    'PermissionID', 'RoleID', 'UserID', 'DepartmentID',
+    'CanView', 'CanCreate', 'CanEdit', 'CanDelete',
+    'CanSubmit', 'CanApprove', 'CanReject', 'CanPublish', 'CanLock', 'CanExport'
   ],
-  [SHEETS.DOCUMENT_VERSIONS]: ['VersionID', 'DocumentID', 'VersionNumber', 'DriveFileID', 'ChangedByUserID', 'ChangeNote', 'CreatedAt'],
-  [SHEETS.TEMPLATES]: ['TemplateID', 'TemplateName', 'LibraryID', 'CategoryID', 'DriveFileID', 'Fields', 'Status', 'CreatedAt'],
-  // RuleType phân biệt 2 Rule Engine độc lập dùng chung sheet này — FORMAT_CHECK (kiểm tra thể thức,
-  // RuleEngine.Core.gs) và CLASSIFICATION (phân loại tài liệu, Knowledge.ClassificationRules.gs).
-  // Thiếu cột này thì getApplicableRuleSets sẽ vô tình nạp cả rule phân loại vào lúc kiểm tra thể thức
-  // và crash vì loại rule (FILENAME_REGEX) không có handler tương ứng.
-  [SHEETS.RULES]: ['RuleID', 'RuleSetName', 'RuleType', 'LibraryID', 'DriveFileID', 'Version', 'Status'],
-  [SHEETS.WORKFLOWS]: ['WorkflowID', 'WorkflowName', 'LibraryID', 'StepsDefinition', 'Status'],
-  [SHEETS.WORKFLOW_INSTANCES]: ['InstanceID', 'WorkflowID', 'DocumentID', 'CurrentStep', 'Status', 'StartedAt', 'CompletedAt'],
-  [SHEETS.WORKFLOW_STEP_LOG]: ['LogID', 'InstanceID', 'StepName', 'ActorUserID', 'Action', 'Comment', 'Timestamp'],
+
+  // Repurposed từ Libraries — vừa là đơn vị tổ chức (khoa/phòng) vừa là phạm vi phân quyền.
+  // DepartmentType: BAN_GIAM_DOC | PHONG_CHUC_NANG | KHOA_LAM_SANG | KHOA_CAN_LAM_SANG.
+  [SHEETS.DEPARTMENTS]: [
+    'DepartmentID', 'DepartmentName', 'DepartmentType', 'ParentDepartmentID',
+    'HeadUserID', 'Status', 'CreatedAt', 'UpdatedAt'
+  ],
+
+  // Hồ sơ nhân viên trung tâm — MỌI module khác đều tham chiếu qua EmployeeID, không lặp lại thông
+  // tin định danh (đăng nhập/identity vẫn thuộc Users, qua UserID). EmployeeType dùng cho việc chọn
+  // bộ chỉ tiêu KPI theo vai trò ở Giai đoạn 3 (Bác sĩ/Điều dưỡng/Kỹ thuật viên/Hành chính/Kế toán/Quản lý).
+  // EmployeeCode: mã nhân viên do HR/Admin gán (VD "BS001") — định danh đăng nhập cho Gateway/Desktop,
+  // KHÁC EmployeeID (khoá hệ thống tự sinh, không đổi được). Rỗng cho tới khi được gán.
+  [SHEETS.EMPLOYEES]: [
+    'EmployeeID', 'EmployeeCode', 'UserID', 'FullName', 'DepartmentID', 'Position', 'EmployeeType',
+    'PhoneNumber', 'Email', 'StartDate', 'Status', 'CreatedAt', 'UpdatedAt'
+  ],
+
+  // Quản lý công việc (khối hành chính) — TaskAssignment/TaskResult gộp vào 1 dòng, không tách sheet
+  // riêng (không có yêu cầu nhiều người nhận 1 việc ở Giai đoạn 1 — YAGNI).
+  // Status: ASSIGNED | IN_PROGRESS | SUBMITTED | EVALUATED.
+  [SHEETS.TASKS]: [
+    'TaskID', 'Title', 'Description', 'DepartmentID',
+    'AssignerEmployeeID', 'AssigneeEmployeeID', 'AssignedDate', 'DueDate',
+    'Priority', 'Progress', 'Status', 'Result', 'AttachmentFolderDriveID',
+    'EvaluatorEmployeeID', 'EvaluationScore', 'EvaluationComment', 'EvaluatedAt',
+    'CreatedAt', 'UpdatedAt'
+  ],
+
+  // Phân công khối lâm sàng (khám/điều trị/hội chẩn/phẫu thuật/thủ thuật) — cố tình tối giản, KHÁC
+  // Lịch trực (không có quy trình duyệt/công bố riêng, chỉ là lịch phân công công việc thường ngày).
+  [SHEETS.CLINICAL_ASSIGNMENTS]: [
+    'AssignmentID', 'EmployeeID', 'DepartmentID', 'AssignmentDate', 'WorkType',
+    'ShiftStart', 'ShiftEnd', 'AssignedByUserID', 'Status', 'Notes', 'CreatedAt', 'UpdatedAt'
+  ],
+
+  // Lịch trực tuần — module trọng tâm Giai đoạn 1. Status có nhánh yêu cầu chỉnh sửa riêng:
+  // DRAFT -> SUBMITTED -> UNDER_REVIEW -> (NEED_REVISION -> DRAFT lại) -> APPROVED -> PUBLISHED.
+  // Không dùng lại 08_Workflow (đã xoá — chỉ dùng cho Document, state machine không khớp).
+  [SHEETS.DUTY_SCHEDULES]: [
+    'DutyScheduleID', 'DepartmentID', 'WeekStartDate', 'WeekEndDate', 'Status',
+    'CreatedByUserID', 'SubmittedAt', 'ReviewedByUserID', 'ReviewComment', 'ReviewedAt',
+    'ApprovedByUserID', 'ApprovedAt', 'PublishedByUserID', 'PublishedAt',
+    'CreatedAt', 'UpdatedAt'
+  ],
+
+  // Status: PLANNED (khi lịch còn DRAFT/SUBMITTED/UNDER_REVIEW/NEED_REVISION) | OFFICIAL (lịch đã
+  // PUBLISHED) | SWAPPED_OUT (đã đổi trực, giữ lại để xem lịch sử) | CANCELLED.
+  [SHEETS.DUTY_SHIFTS]: [
+    'DutyShiftID', 'DutyScheduleID', 'DepartmentID', 'ShiftDate', 'DutyType',
+    'EmployeeID', 'RoleInShift', 'ShiftStart', 'ShiftEnd', 'AssignedByUserID',
+    'Status', 'OriginatingSwapRequestID', 'Notes', 'CreatedAt', 'UpdatedAt'
+  ],
+
+  // Đổi trực — lịch sử đầy đủ suy ra được từ OriginalShiftID (lịch ban đầu) + NewShiftID (lịch sau
+  // thay đổi), không cần lưu snapshot JSON. Status: REQUESTED -> REPLACEMENT_CONFIRMED ->
+  // DEPT_HEAD_CONFIRMED -> KHNV_APPROVED (hoặc REJECTED ở bất kỳ bước chờ nào).
+  [SHEETS.DUTY_SWAP_REQUESTS]: [
+    'SwapRequestID', 'OriginalShiftID', 'RequestingEmployeeID', 'ReplacementEmployeeID', 'Reason',
+    'Status', 'RequestedAt', 'ReplacementConfirmedAt',
+    'DeptHeadConfirmedByUserID', 'DeptHeadConfirmedAt',
+    'KhNvApprovedByUserID', 'KhNvApprovedAt', 'NewShiftID',
+    'RejectedByUserID', 'RejectedAt', 'RejectionReason',
+    'CreatedAt', 'UpdatedAt'
+  ],
+
   [SHEETS.AI_PROVIDERS]: ['ProviderID', 'ProviderName', 'BaseURL', 'IsActive'],
   [SHEETS.AI_PROVIDER_CONFIG]: ['ConfigID', 'ProviderID', 'ModelName', 'ApiKeySecretRef', 'Temperature', 'MaxTokens', 'Timeout', 'IsDefault', 'UpdatedByUserID', 'UpdatedAt'],
   [SHEETS.AI_PROVIDER_KEY_HISTORY]: ['HistoryID', 'ConfigID', 'ChangedByUserID', 'ChangedAt', 'Action'],
   [SHEETS.AUDIT_LOG]: ['LogID', 'Timestamp', 'UserID', 'Action', 'TargetType', 'TargetID', 'Detail'],
-  [SHEETS.SYSTEM_CONFIG]: ['Key', 'Value', 'Description', 'UpdatedAt'],
-  // "AI Learning" đơn giản hoá (docs/10-knowledge-design.md mục 9) — chỉ ghi nhận AI đề xuất gì
-  // và người dùng chốt lại là gì, KHÔNG tự động fine-tune model. Dùng để Admin xem AI Accuracy sau này.
-  [SHEETS.CLASSIFICATION_FEEDBACK]: ['FeedbackID', 'DocumentID', 'Field', 'SuggestedValue', 'FinalValue', 'Confidence', 'Source', 'Timestamp']
+  [SHEETS.SYSTEM_CONFIG]: ['Key', 'Value', 'Description', 'UpdatedAt']
 };
 
-const RULE_TYPES = {
-  FORMAT_CHECK: 'FORMAT_CHECK',
-  CLASSIFICATION: 'CLASSIFICATION'
-};
-
+// 11 vai trò theo đặc tả + GUEST (vai trò "chưa phân quyền" mặc định, dùng bởi
+// Auth.Session.gs#getCurrentUser khi tự tạo user lần đầu — fail-closed, không có quyền gì cho tới
+// khi Admin/Phòng TC-HC gán vai trò thật + tạo hồ sơ Nhân viên).
 const ROLE_NAMES = {
-  ADMIN: 'Admin',
-  MANAGER: 'Manager',
-  USER: 'User',
-  GUEST: 'Guest'
+  SUPER_ADMIN: 'SUPER_ADMIN',
+  BAN_GIAM_DOC: 'BAN_GIAM_DOC',
+  PHONG_KH_NV: 'PHONG_KH_NV',
+  PHONG_TC_KT: 'PHONG_TC_KT',
+  PHONG_TC_HC: 'PHONG_TC_HC',
+  TRUONG_KHOA: 'TRUONG_KHOA',
+  PHO_KHOA: 'PHO_KHOA',
+  NHAN_VIEN: 'NHAN_VIEN',
+  KE_TOAN: 'KE_TOAN',
+  NGUOI_LAP_LICH_TRUC: 'NGUOI_LAP_LICH_TRUC',
+  NGUOI_NHAP_SO_LIEU: 'NGUOI_NHAP_SO_LIEU',
+  GUEST: 'GUEST'
+};
+
+const DEPARTMENT_TYPES = {
+  BAN_GIAM_DOC: 'BAN_GIAM_DOC',
+  PHONG_CHUC_NANG: 'PHONG_CHUC_NANG',
+  KHOA_LAM_SANG: 'KHOA_LAM_SANG',
+  KHOA_CAN_LAM_SANG: 'KHOA_CAN_LAM_SANG'
 };
 
 const DRIVE_FOLDERS = {
-  ROOT: 'AIOP_ROOT',
-  LIBRARIES: 'Libraries',
-  TEMPLATES: 'Templates',
+  ROOT: 'BVDS_ROOT',
   SYSTEM: 'System',
-  SYSTEM_RULES: 'Rules',
   SYSTEM_LOGS: 'Logs',
   SYSTEM_BACKUPS: 'Backups',
   SYSTEM_AVATARS: 'Avatars',
   UPLOADS: 'Uploads',
-  UPLOADS_INBOX: '_Inbox'
+  UPLOADS_TASKS: 'TaskAttachments'
 };

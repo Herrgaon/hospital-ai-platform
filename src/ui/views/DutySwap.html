@@ -1,0 +1,114 @@
+<div x-show="currentView === 'swap'" x-init="$watch('currentView', v => { if (v === 'swap') loadSwapPageData(); }); if (currentView === 'swap') loadSwapPageData();" class="max-w-5xl mx-auto">
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-header-icon">⇄</div>
+      <div>
+        <h1 class="page-title-text">ĐỔI TRỰC</h1>
+        <p class="page-subtitle">Đề nghị → người thay thế xác nhận → trưởng khoa xác nhận → Phòng KH-NV duyệt</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><h3>Ca trực chính thức của tôi</h3></div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Ngày</th><th>Loại trực</th><th>Thời gian</th><th></th></tr></thead>
+        <tbody>
+          <template x-for="sh in myOfficialDutyShifts" :key="sh.DutyShiftID">
+            <tr>
+              <td x-text="sh.ShiftDate"></td>
+              <td x-text="sh.DutyType"></td>
+              <td x-text="sh.ShiftStart + ' - ' + sh.ShiftEnd"></td>
+              <td><button @click="openRequestSwapModal(sh)" class="btn-link">Đề nghị đổi trực</button></td>
+            </tr>
+          </template>
+          <template x-if="myOfficialDutyShifts.length === 0">
+            <tr><td colspan="4" class="text-xs holo-text-dim py-4">Bạn chưa có ca trực chính thức nào.</td></tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><h3>Yêu cầu đổi trực cần bạn xử lý</h3></div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Người đề nghị</th><th>Người thay thế</th><th>Lý do</th><th>Trạng thái</th><th></th></tr></thead>
+        <tbody>
+          <template x-for="sw in pendingSwapConfirmations" :key="sw.SwapRequestID">
+            <tr>
+              <td x-text="employeeNameById(sw.RequestingEmployeeID)"></td>
+              <td x-text="employeeNameById(sw.ReplacementEmployeeID)"></td>
+              <td x-text="sw.Reason"></td>
+              <td><span class="badge badge-orange" x-text="swapStatusLabel(sw.Status)"></span></td>
+              <td class="flex gap-2">
+                <button x-show="sw.Status === 'REQUESTED' && sw.ReplacementEmployeeID === myEmployeeId" @click="confirmSwapReplacementAction(sw)" class="btn-link">Xác nhận</button>
+                <button x-show="sw.Status === 'REPLACEMENT_CONFIRMED'" @click="confirmSwapDeptHeadAction(sw)" class="btn-link">Trưởng khoa xác nhận</button>
+                <button x-show="sw.Status === 'DEPT_HEAD_CONFIRMED'" @click="approveSwapKhNvAction(sw)" class="btn-link">KH-NV duyệt</button>
+                <button @click="rejectSwapAction(sw)" class="btn-link">Từ chối</button>
+              </td>
+            </tr>
+          </template>
+          <template x-if="pendingSwapConfirmations.length === 0">
+            <tr><td colspan="5" class="text-xs holo-text-dim py-4">Không có yêu cầu nào cần xử lý.</td></tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><h3>Yêu cầu đổi trực của tôi</h3></div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Ngày trực</th><th>Người thay thế</th><th>Trạng thái</th></tr></thead>
+        <tbody>
+          <template x-for="sw in mySwapRequests" :key="sw.SwapRequestID">
+            <tr>
+              <td x-text="sw.RequestedAt"></td>
+              <td x-text="employeeNameById(sw.ReplacementEmployeeID)"></td>
+              <td><span class="badge" :class="sw.Status === 'KHNV_APPROVED' ? 'badge-green' : (sw.Status === 'REJECTED' ? 'badge-red' : 'badge-orange')" x-text="swapStatusLabel(sw.Status)"></span></td>
+            </tr>
+          </template>
+          <template x-if="mySwapRequests.length === 0">
+            <tr><td colspan="3" class="text-xs holo-text-dim py-4">Bạn chưa gửi yêu cầu đổi trực nào.</td></tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Modal: Đề nghị đổi trực -->
+  <div x-show="modalOpen === 'requestSwap'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Đề nghị đổi trực</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body" x-show="requestSwapForm.shift">
+        <p class="text-sm holo-text-dim" x-text="requestSwapForm.shift && (requestSwapForm.shift.ShiftDate + ' — ' + requestSwapForm.shift.DutyType)"></p>
+        <div class="form-group">
+          <label class="required">Người thay thế</label>
+          <select x-model="requestSwapForm.replacementEmployeeId" class="form-control">
+            <option value="">-- Chọn nhân viên --</option>
+            <template x-for="e in employeesByDepartment(requestSwapForm.shift && requestSwapForm.shift.DepartmentID)" :key="e.EmployeeID">
+              <option :value="e.EmployeeID" x-text="e.FullName" x-show="e.EmployeeID !== myEmployeeId"></option>
+            </template>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Lý do</label>
+          <textarea x-model="requestSwapForm.reason" class="form-control" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="requestDutySwapAction()" :disabled="requestingSwap || !requestSwapForm.replacementEmployeeId" class="btn btn-primary">
+          <span x-text="requestingSwap ? 'Đang gửi...' : 'Gửi đề nghị'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

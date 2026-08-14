@@ -3,14 +3,14 @@
 // Mọi lỗi gửi mail đều bị NUỐT có chủ đích (try/catch) — một thông báo gửi lỗi không được phép làm
 // hỏng hành động nghiệp vụ chính (submit/duyệt/từ chối vẫn phải thành công dù mail gửi thất bại).
 
-function findApproversForLibrary(libraryId) {
+function findApproversForDepartment(departmentId) {
   return getSheetRepository(SHEETS.USERS).findAll()
     .filter(function (u) { return u.Status === 'Active'; })
-    .filter(function (u) { return hasPermission(u, libraryId, 'CanApprove'); });
+    .filter(function (u) { return hasPermission(u, departmentId, 'CanApprove'); });
 }
 
-function notifyApprovers(actingUser, libraryId, subject, body) {
-  const approvers = findApproversForLibrary(libraryId);
+function notifyApprovers(actingUser, departmentId, subject, body) {
+  const approvers = findApproversForDepartment(departmentId);
   const emails = approvers
     .map(function (u) { return u.Email; })
     .filter(function (email) { return email && email.toLowerCase() !== actingUser.Email.toLowerCase(); });
@@ -29,8 +29,8 @@ function sendNotificationEmail_(emails, subject, body) {
   try {
     MailApp.sendEmail({
       to: uniqueEmails.join(','),
-      subject: '[Trợ lý văn bản] ' + subject,
-      body: body + '\n\n--\nThư tự động từ Hệ thống trợ lý hỗ trợ xử lý văn bản, vui lòng không trả lời email này.'
+      subject: '[BVĐK Đông Sơn] ' + subject,
+      body: body + '\n\n--\nThư tự động từ Hệ thống Quản lý Công việc – Phân công – Lịch trực, vui lòng không trả lời email này.'
     });
   } catch (e) {
     // Không throw lại — hết quota MailApp hoặc lỗi mạng không được phép chặn hành động nghiệp vụ chính.

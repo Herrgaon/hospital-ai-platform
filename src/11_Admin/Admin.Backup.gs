@@ -10,7 +10,7 @@ function runScheduledBackup() {
   const backupsFolder = getOrCreateSubfolder(systemFolder, DRIVE_FOLDERS.SYSTEM_BACKUPS);
 
   const timestamp = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyyMMdd_HHmmss');
-  file.makeCopy('AIOP_SystemDB_Backup_' + timestamp, backupsFolder);
+  file.makeCopy('BVDS_SystemDB_Backup_' + timestamp, backupsFolder);
 
   pruneOldBackups_(backupsFolder, 8);
 }

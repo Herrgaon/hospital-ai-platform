@@ -1,0 +1,204 @@
+<div x-show="currentView === 'tasks'" x-init="$watch('currentView', v => { if (v === 'tasks') loadMyTasksAction(); }); if (currentView === 'tasks') loadMyTasksAction();" class="max-w-5xl mx-auto">
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-header-icon">▤</div>
+      <div>
+        <h1 class="page-title-text">QUẢN LÝ CÔNG VIỆC</h1>
+        <p class="page-subtitle">Giao việc – theo dõi tiến độ – đánh giá (khối hành chính)</p>
+      </div>
+    </div>
+    <div class="page-header-actions" x-show="canAnywhere('CanCreate')">
+      <button @click="openAssignTaskModal()" class="btn btn-primary">+ Giao việc mới</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button @click="taskTab = 'mine'" class="tab" :class="taskTab === 'mine' ? 'active' : ''">Việc của tôi</button>
+    <button @click="taskTab = 'department'" class="tab" :class="taskTab === 'department' ? 'active' : ''">Theo khoa/phòng</button>
+  </div>
+
+  <!-- Tab: Việc của tôi -->
+  <div x-show="taskTab === 'mine'">
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>Tiêu đề</th><th>Vai trò</th><th>Hạn</th><th>Tiến độ</th><th>Trạng thái</th><th></th></tr>
+          </thead>
+          <tbody>
+            <template x-for="t in myTasks" :key="t.TaskID">
+              <tr>
+                <td x-text="t.Title"></td>
+                <td><span class="badge badge-gray" x-text="t.AssigneeEmployeeID === myEmployeeId ? 'Được giao' : 'Đã giao'"></span></td>
+                <td x-text="t.DueDate"></td>
+                <td x-text="t.Progress + '%'"></td>
+                <td><span class="badge badge-cyan" x-text="t.Status"></span></td>
+                <td><button @click="openTaskDetail(t)" class="btn-link">Chi tiết</button></td>
+              </tr>
+            </template>
+            <template x-if="myTasks.length === 0">
+              <tr><td colspan="6" class="text-xs holo-text-dim py-4">Chưa có công việc nào.</td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Theo khoa/phòng -->
+  <div x-show="taskTab === 'department'">
+    <div class="toolbar">
+      <div class="filter-group">
+        <select x-model="taskDepartmentFilter" @change="loadDepartmentTasksAction()" class="filter-select">
+          <option value="">-- Chọn khoa/phòng --</option>
+          <template x-for="d in departments" :key="d.DepartmentID">
+            <option :value="d.DepartmentID" x-text="d.DepartmentName"></option>
+          </template>
+        </select>
+      </div>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>Tiêu đề</th><th>Người thực hiện</th><th>Hạn</th><th>Tiến độ</th><th>Trạng thái</th><th></th></tr>
+          </thead>
+          <tbody>
+            <template x-for="t in departmentTasks" :key="t.TaskID">
+              <tr>
+                <td x-text="t.Title"></td>
+                <td x-text="employeeNameById(t.AssigneeEmployeeID)"></td>
+                <td x-text="t.DueDate"></td>
+                <td x-text="t.Progress + '%'"></td>
+                <td><span class="badge badge-cyan" x-text="t.Status"></span></td>
+                <td><button @click="openTaskDetail(t)" class="btn-link">Chi tiết</button></td>
+              </tr>
+            </template>
+            <template x-if="taskDepartmentFilter && departmentTasks.length === 0">
+              <tr><td colspan="6" class="text-xs holo-text-dim py-4">Khoa/phòng này chưa có công việc nào.</td></tr>
+            </template>
+            <template x-if="!taskDepartmentFilter">
+              <tr><td colspan="6" class="text-xs holo-text-dim py-4">Chọn khoa/phòng để xem danh sách công việc.</td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Giao việc mới -->
+  <div x-show="modalOpen === 'assignTask'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Giao việc mới</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="required">Khoa/Phòng</label>
+          <select x-model="assignTaskForm.departmentId" @change="onAssignTaskDepartmentChange()" class="form-control">
+            <option value="">-- Chọn khoa/phòng --</option>
+            <template x-for="d in departments.filter(d => can(d.DepartmentID, 'CanCreate'))" :key="d.DepartmentID">
+              <option :value="d.DepartmentID" x-text="d.DepartmentName"></option>
+            </template>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="required">Người thực hiện</label>
+          <select x-model="assignTaskForm.assigneeEmployeeId" class="form-control">
+            <option value="">-- Chọn nhân viên --</option>
+            <template x-for="e in employeesByDepartment(assignTaskForm.departmentId)" :key="e.EmployeeID">
+              <option :value="e.EmployeeID" x-text="e.FullName"></option>
+            </template>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="required">Tiêu đề</label>
+          <input type="text" x-model="assignTaskForm.title" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>Mô tả</label>
+          <textarea x-model="assignTaskForm.description" class="form-control" rows="3"></textarea>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label>Hạn hoàn thành</label>
+            <input type="date" x-model="assignTaskForm.dueDate" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Mức ưu tiên</label>
+            <select x-model="assignTaskForm.priority" class="form-control">
+              <option value="LOW">Thấp</option>
+              <option value="NORMAL">Bình thường</option>
+              <option value="HIGH">Cao</option>
+              <option value="URGENT">Khẩn</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="assignTaskAction()" :disabled="assigningTask || !assignTaskForm.departmentId || !assignTaskForm.assigneeEmployeeId || !assignTaskForm.title" class="btn btn-primary">
+          <span x-text="assigningTask ? 'Đang giao...' : 'Giao việc'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Chi tiết công việc -->
+  <div x-show="modalOpen === 'taskDetail'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal modal-lg" x-show="currentTask">
+      <div class="modal-header">
+        <h2 x-text="currentTask && currentTask.Title"></h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body space-y-4" x-show="currentTask">
+        <p class="text-sm holo-text-dim" x-text="currentTask && currentTask.Description"></p>
+        <div class="form-grid-2 text-xs">
+          <div>Người giao: <strong x-text="currentTask && employeeNameById(currentTask.AssignerEmployeeID)"></strong></div>
+          <div>Người thực hiện: <strong x-text="currentTask && employeeNameById(currentTask.AssigneeEmployeeID)"></strong></div>
+          <div>Hạn: <strong x-text="currentTask && currentTask.DueDate"></strong></div>
+          <div>Trạng thái: <span class="badge badge-cyan" x-text="currentTask && currentTask.Status"></span></div>
+        </div>
+
+        <template x-if="currentTask && currentTask.AssigneeEmployeeID === myEmployeeId && currentTask.Status !== 'EVALUATED'">
+          <div class="space-y-2 border-t pt-3" style="border-color: var(--holo-border);">
+            <label>Cập nhật tiến độ (%)</label>
+            <div class="flex gap-2">
+              <input type="number" min="0" max="100" x-model.number="taskProgressInput" class="form-control form-control-sm w-24">
+              <button @click="updateTaskProgressAction()" class="btn btn-secondary btn-sm">Cập nhật</button>
+            </div>
+            <label>Nộp kết quả</label>
+            <textarea x-model="taskResultInput" class="form-control" rows="3"></textarea>
+            <button @click="submitTaskResultAction()" :disabled="!taskResultInput.trim()" class="btn btn-primary btn-sm">Nộp kết quả</button>
+          </div>
+        </template>
+
+        <template x-if="currentTask && currentTask.Result">
+          <div class="border-t pt-3" style="border-color: var(--holo-border);">
+            <p class="holo-label">Kết quả đã nộp</p>
+            <p class="text-sm" x-text="currentTask.Result"></p>
+          </div>
+        </template>
+
+        <template x-if="currentTask && currentTask.AssignerEmployeeID === myEmployeeId && currentTask.Status === 'SUBMITTED'">
+          <div class="space-y-2 border-t pt-3" style="border-color: var(--holo-border);">
+            <label>Đánh giá</label>
+            <div class="flex gap-2 items-center">
+              <input type="number" min="0" max="100" x-model.number="taskEvaluationForm.score" placeholder="Điểm" class="form-control form-control-sm w-24">
+              <input type="text" x-model="taskEvaluationForm.comment" placeholder="Nhận xét" class="form-control form-control-sm">
+            </div>
+            <button @click="evaluateTaskAction()" class="btn btn-primary btn-sm">Lưu đánh giá</button>
+          </div>
+        </template>
+
+        <template x-if="currentTask && currentTask.Status === 'EVALUATED'">
+          <div class="border-t pt-3" style="border-color: var(--holo-border);">
+            <p class="holo-label">Đánh giá</p>
+            <p class="text-sm">Điểm: <strong x-text="currentTask.EvaluationScore"></strong> — <span x-text="currentTask.EvaluationComment"></span></p>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+</div>

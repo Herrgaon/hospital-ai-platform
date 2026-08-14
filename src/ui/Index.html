@@ -12,18 +12,19 @@
       <div class="app-sidebar-logo">
         <div class="app-sidebar-logo-icon">⬡</div>
         <div>
-          <div class="app-sidebar-title font-display">TRỢ LÝ VĂN BẢN</div>
-          <div class="app-sidebar-sub">Hệ thống hỗ trợ xử lý văn bản</div>
+          <div class="app-sidebar-title font-display">BVĐK ĐÔNG SƠN</div>
+          <div class="app-sidebar-sub">Quản lý công việc – Lịch trực</div>
         </div>
       </div>
       <nav class="app-sidebar-menu">
         <a href="#dashboard" @click.prevent="go('dashboard')" class="app-nav-item" :class="active('dashboard')"><span class="app-nav-icon">▣</span> Dashboard</a>
-        <a href="#documents" @click.prevent="go('documents')" class="app-nav-item" :class="active('documents')"><span class="app-nav-icon">▤</span> Văn bản</a>
-        <a href="#formatting" @click.prevent="go('formatting')" class="app-nav-item" :class="active('formatting')"><span class="app-nav-icon">✎</span> Chỉnh sửa định dạng</a>
-        <a href="#knowledge" @click.prevent="go('knowledge')" class="app-nav-item" :class="active('knowledge')"><span class="app-nav-icon">▥</span> Tài liệu</a>
-        <a href="#aichat" @click.prevent="go('aichat')" class="app-nav-item" :class="active('aichat')"><span class="app-nav-icon">◈</span> AI Chat</a>
-        <a href="#workflow" @click.prevent="go('workflow')" class="app-nav-item" :class="active('workflow')"><span class="app-nav-icon">▧</span> Workflow</a>
-        <a href="#admin" @click.prevent="go('admin')" class="app-nav-item" x-show="isAdmin" :class="active('admin')"><span class="app-nav-icon">⚙</span> Admin</a>
+        <a href="#employees" @click.prevent="go('employees')" class="app-nav-item" :class="active('employees')"><span class="app-nav-icon">👤</span> Nhân sự</a>
+        <a href="#departments" @click.prevent="go('departments')" class="app-nav-item" :class="active('departments')"><span class="app-nav-icon">▥</span> Khoa/Phòng</a>
+        <a href="#tasks" @click.prevent="go('tasks')" class="app-nav-item" :class="active('tasks')"><span class="app-nav-icon">▤</span> Công việc</a>
+        <a href="#clinical" @click.prevent="go('clinical')" class="app-nav-item" :class="active('clinical')"><span class="app-nav-icon">✚</span> Phân công</a>
+        <a href="#duty" @click.prevent="go('duty')" class="app-nav-item" :class="active('duty')"><span class="app-nav-icon">▧</span> Lịch trực tuần</a>
+        <a href="#swap" @click.prevent="go('swap')" class="app-nav-item" :class="active('swap')"><span class="app-nav-icon">⇄</span> Đổi trực</a>
+        <a href="#admin" @click.prevent="go('admin')" class="app-nav-item" x-show="isSuperAdmin" :class="active('admin')"><span class="app-nav-icon">⚙</span> Admin</a>
       </nav>
       <div class="app-sidebar-footer">● STATUS: ONLINE</div>
     </aside>
@@ -31,14 +32,10 @@
     <!-- Main -->
     <div class="app-main">
       <header class="app-header">
-        <div class="app-header-search">
-          <span class="app-header-search-icon">🔍</span>
-          <input type="search" x-model="globalSearchKeyword" @keyup.enter="runGlobalSearch()" placeholder="Tìm kiếm tài liệu...">
-        </div>
         <div class="app-header-right relative">
           <button @click="toggleTheme()" class="btn btn-secondary btn-sm">☀/☾</button>
 
-          <div class="app-header-bell" @click="go('workflow')">
+          <div class="app-header-bell" @click="go('swap')">
             🔔
             <span x-show="pendingCount > 0" class="app-header-bell-badge" x-text="pendingCount > 9 ? '9+' : pendingCount"></span>
           </div>
@@ -72,21 +69,50 @@
             <button @click="saveProfileAction()" :disabled="savingProfile" class="btn btn-primary btn-sm w-full">
               <span x-text="savingProfile ? 'Đang lưu...' : 'Lưu thay đổi'"></span>
             </button>
+            <button @click="showProfileMenu = false; openChangePasswordModal()" class="btn btn-secondary btn-sm w-full">Đổi mật khẩu</button>
           </div>
         </div>
       </header>
       <main id="page-content">
-        <template x-if="currentView === 'admin' && !isAdmin">
-          <p class="holo-text-dim">Màn hình này sẽ được lập trình ở giai đoạn sau — xem docs/16-development-roadmap.md.</p>
+        <template x-if="currentView === 'admin' && !isSuperAdmin">
+          <p class="holo-text-dim">Bạn không có quyền truy cập màn hình này.</p>
         </template>
         <?!= include('ui/views/Dashboard') ?>
-        <?!= include('ui/views/DocumentEditor') ?>
-        <?!= include('ui/views/FormatEditor') ?>
-        <?!= include('ui/views/Knowledge') ?>
-        <?!= include('ui/views/WorkflowInbox') ?>
-        <?!= include('ui/views/AiChat') ?>
+        <?!= include('ui/views/Employees') ?>
+        <?!= include('ui/views/Departments') ?>
+        <?!= include('ui/views/Tasks') ?>
+        <?!= include('ui/views/ClinicalAssignments') ?>
+        <?!= include('ui/views/DutySchedule') ?>
+        <?!= include('ui/views/DutySwap') ?>
         <?!= include('ui/views/Admin') ?>
       </main>
+    </div>
+
+    <!-- Modal: Đổi mật khẩu (dùng chung toàn app, mở từ menu hồ sơ) -->
+    <div x-show="modalOpen === 'changePassword'" x-cloak class="modal-overlay" @click.self="closeModal()">
+      <div class="modal">
+        <div class="modal-header">
+          <h2>Đổi mật khẩu</h2>
+          <button @click="closeModal()" class="modal-close">×</button>
+        </div>
+        <div class="modal-body">
+          <p class="text-xs holo-text-dim mb-3">Chỉ áp dụng nếu bạn đã từng được đặt mật khẩu để đăng nhập qua Desktop App/Gateway. Không ảnh hưởng đến việc đăng nhập bằng tài khoản Google trên trình duyệt.</p>
+          <div class="form-group">
+            <label class="required">Mật khẩu hiện tại</label>
+            <input type="password" x-model="changePasswordForm.oldPassword" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="required">Mật khẩu mới (tối thiểu 8 ký tự)</label>
+            <input type="password" x-model="changePasswordForm.newPassword" class="form-control">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+          <button @click="changeMyPasswordAction()" :disabled="changingPassword || !changePasswordForm.oldPassword || changePasswordForm.newPassword.length < 8" class="btn btn-primary">
+            <span x-text="changingPassword ? 'Đang lưu...' : 'Đổi mật khẩu'"></span>
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Toasts -->

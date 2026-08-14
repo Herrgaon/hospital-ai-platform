@@ -1,0 +1,184 @@
+<div x-show="currentView === 'duty'" x-init="if (currentView === 'duty' && departments.length === 0) loadDepartmentsPage();" class="max-w-5xl mx-auto">
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-header-icon">▧</div>
+      <div>
+        <h1 class="page-title-text">LỊCH TRỰC TUẦN</h1>
+        <p class="page-subtitle">Khoa lập lịch → Trưởng khoa kiểm tra → gửi Phòng KH-NV duyệt → công bố toàn viện</p>
+      </div>
+    </div>
+    <div class="page-header-actions" x-show="dutyDepartmentFilter && can(dutyDepartmentFilter, 'CanCreate')">
+      <button @click="openAddDutyScheduleModal()" class="btn btn-primary">+ Tạo lịch trực tuần</button>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="filter-group">
+      <select x-model="dutyDepartmentFilter" @change="loadDutySchedulesAction()" class="filter-select">
+        <option value="">-- Chọn khoa/phòng --</option>
+        <template x-for="d in departments" :key="d.DepartmentID">
+          <option :value="d.DepartmentID" x-text="d.DepartmentName"></option>
+        </template>
+      </select>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Tuần</th><th>Trạng thái</th><th>Người tạo</th><th></th></tr></thead>
+        <tbody>
+          <template x-for="s in dutySchedules" :key="s.DutyScheduleID">
+            <tr>
+              <td x-text="s.WeekStartDate + ' — ' + s.WeekEndDate"></td>
+              <td><span class="badge" :class="dutyStatusBadgeClass(s.Status)" x-text="dutyStatusLabel(s.Status)"></span></td>
+              <td x-text="userEmailById(s.CreatedByUserID)"></td>
+              <td><button @click="openDutyScheduleDetail(s)" class="btn-link">Chi tiết</button></td>
+            </tr>
+          </template>
+          <template x-if="dutyDepartmentFilter && dutySchedules.length === 0">
+            <tr><td colspan="4" class="text-xs holo-text-dim py-4">Khoa/phòng này chưa có lịch trực nào.</td></tr>
+          </template>
+          <template x-if="!dutyDepartmentFilter">
+            <tr><td colspan="4" class="text-xs holo-text-dim py-4">Chọn khoa/phòng để xem lịch trực.</td></tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Modal: Tạo lịch trực tuần -->
+  <div x-show="modalOpen === 'addDutySchedule'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Tạo lịch trực tuần</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="required">Ngày đầu tuần</label>
+            <input type="date" x-model="newDutyScheduleForm.weekStartDate" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="required">Ngày cuối tuần</label>
+            <input type="date" x-model="newDutyScheduleForm.weekEndDate" class="form-control">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="createDutyScheduleAction()" :disabled="creatingDutySchedule || !newDutyScheduleForm.weekStartDate || !newDutyScheduleForm.weekEndDate" class="btn btn-primary">
+          <span x-text="creatingDutySchedule ? 'Đang tạo...' : 'Tạo lịch'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Chi tiết lịch trực tuần -->
+  <div x-show="modalOpen === 'dutyScheduleDetail'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal modal-lg" x-show="currentDutySchedule">
+      <div class="modal-header">
+        <h2 x-text="currentDutySchedule && (currentDutySchedule.schedule.WeekStartDate + ' — ' + currentDutySchedule.schedule.WeekEndDate)"></h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body space-y-4" x-show="currentDutySchedule">
+        <div class="flex items-center justify-between">
+          <span class="badge" :class="currentDutySchedule && dutyStatusBadgeClass(currentDutySchedule.schedule.Status)" x-text="currentDutySchedule && dutyStatusLabel(currentDutySchedule.schedule.Status)"></span>
+          <div class="flex gap-2 flex-wrap justify-end">
+            <button x-show="currentDutySchedule && isDutyScheduleEditable(currentDutySchedule.schedule) && can(currentDutySchedule.schedule.DepartmentID, 'CanEdit')" @click="openAddShiftModal()" class="btn btn-secondary btn-sm">+ Thêm ca trực</button>
+            <button x-show="currentDutySchedule && isDutyScheduleEditable(currentDutySchedule.schedule) && can(currentDutySchedule.schedule.DepartmentID, 'CanSubmit')" @click="submitDutyScheduleAction()" class="btn btn-primary btn-sm">Gửi duyệt</button>
+            <button x-show="currentDutySchedule && currentDutySchedule.schedule.Status === 'SUBMITTED' && can(currentDutySchedule.schedule.DepartmentID, 'CanApprove')" @click="markDutyScheduleUnderReviewAction()" class="btn btn-secondary btn-sm">Bắt đầu xét duyệt</button>
+            <button x-show="currentDutySchedule && ['SUBMITTED','UNDER_REVIEW'].includes(currentDutySchedule.schedule.Status) && can(currentDutySchedule.schedule.DepartmentID, 'CanReject')" @click="requestDutyScheduleRevisionAction()" class="btn btn-secondary btn-sm">Yêu cầu chỉnh sửa</button>
+            <button x-show="currentDutySchedule && ['SUBMITTED','UNDER_REVIEW'].includes(currentDutySchedule.schedule.Status) && can(currentDutySchedule.schedule.DepartmentID, 'CanApprove')" @click="approveDutyScheduleAction()" class="btn btn-primary btn-sm">Duyệt</button>
+            <button x-show="currentDutySchedule && currentDutySchedule.schedule.Status === 'APPROVED' && can(currentDutySchedule.schedule.DepartmentID, 'CanPublish')" @click="publishDutyScheduleAction()" class="btn btn-primary btn-sm">Công bố</button>
+            <button @click="printCurrentDutySchedule()" class="btn btn-secondary btn-sm">In danh sách</button>
+          </div>
+        </div>
+
+        <template x-if="currentDutySchedule && currentDutySchedule.schedule.ReviewComment">
+          <div class="notice notice-info">
+            <span class="notice-icon">ℹ</span>
+            <span x-text="'Ý kiến Phòng KH-NV: ' + currentDutySchedule.schedule.ReviewComment"></span>
+          </div>
+        </template>
+
+        <div class="table-wrap">
+          <table class="data-table" id="duty-shift-print-table">
+            <thead><tr><th>Ngày</th><th>Loại trực</th><th>Nhân viên</th><th>Vai trò</th><th>Thời gian</th><th x-show="currentDutySchedule && isDutyScheduleEditable(currentDutySchedule.schedule)"></th></tr></thead>
+            <tbody>
+              <template x-for="sh in (currentDutySchedule ? currentDutySchedule.shifts : [])" :key="sh.DutyShiftID">
+                <tr>
+                  <td x-text="sh.ShiftDate"></td>
+                  <td x-text="sh.DutyType"></td>
+                  <td x-text="employeeNameById(sh.EmployeeID)"></td>
+                  <td x-text="sh.RoleInShift"></td>
+                  <td x-text="sh.ShiftStart + ' - ' + sh.ShiftEnd"></td>
+                  <td x-show="currentDutySchedule && isDutyScheduleEditable(currentDutySchedule.schedule) && can(currentDutySchedule.schedule.DepartmentID, 'CanEdit')">
+                    <button @click="removeDutyShiftAction(sh)" class="btn-link">Xoá</button>
+                  </td>
+                </tr>
+              </template>
+              <template x-if="currentDutySchedule && currentDutySchedule.shifts.length === 0">
+                <tr><td colspan="6" class="text-xs holo-text-dim py-4">Chưa có ca trực nào.</td></tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Thêm ca trực -->
+  <div x-show="modalOpen === 'addShift'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Thêm ca trực</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="required">Ngày</label>
+            <input type="date" x-model="addShiftForm.shiftDate" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="required">Loại trực</label>
+            <input type="text" x-model="addShiftForm.dutyType" class="form-control" placeholder="Trực thường, Trực lãnh đạo...">
+          </div>
+          <div class="form-group">
+            <label class="required">Nhân viên</label>
+            <select x-model="addShiftForm.employeeId" class="form-control">
+              <option value="">-- Chọn nhân viên --</option>
+              <template x-for="e in employeesByDepartment(currentDutySchedule && currentDutySchedule.schedule.DepartmentID)" :key="e.EmployeeID">
+                <option :value="e.EmployeeID" x-text="e.FullName"></option>
+              </template>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Vai trò trong ca</label>
+            <input type="text" x-model="addShiftForm.roleInShift" class="form-control" placeholder="Trực chính, Trực phụ...">
+          </div>
+          <div class="form-group">
+            <label class="required">Giờ bắt đầu</label>
+            <input type="time" x-model="addShiftForm.shiftStart" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="required">Giờ kết thúc</label>
+            <input type="time" x-model="addShiftForm.shiftEnd" class="form-control">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Ghi chú</label>
+          <input type="text" x-model="addShiftForm.notes" class="form-control">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="addDutyShiftAction()" :disabled="addingShift || !addShiftForm.shiftDate || !addShiftForm.dutyType || !addShiftForm.employeeId || !addShiftForm.shiftStart || !addShiftForm.shiftEnd" class="btn btn-primary">
+          <span x-text="addingShift ? 'Đang thêm...' : 'Thêm ca trực'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -2,10 +2,10 @@ function getAllRoles() {
   return getSheetRepository(SHEETS.ROLES).findAll();
 }
 
-// Đúng ma trận tại docs/11-permission-design.md mục 3 ("Phân quyền người dùng": chỉ Admin).
+// Chỉ SUPER_ADMIN được đổi vai trò người dùng.
 function assignRole(actingUser, targetUserId, newRole) {
-  if (actingUser.Role !== ROLE_NAMES.ADMIN) {
-    throw new Error('Chỉ Admin được đổi vai trò người dùng.');
+  if (actingUser.Role !== ROLE_NAMES.SUPER_ADMIN) {
+    throw new Error('Chỉ Quản trị hệ thống được đổi vai trò người dùng.');
   }
   const updated = getSheetRepository(SHEETS.USERS).updateById('UserID', targetUserId, {
     Role: newRole,

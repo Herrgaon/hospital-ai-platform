@@ -3,8 +3,8 @@
 
 // Đúng ma trận tại docs/11-permission-design.md mục 3 ("Cấu hình AI Provider/API Key": chỉ Admin).
 function updateAIProviderConfig(actingUser, providerId, modelName, plainApiKey, temperature, maxTokens, timeout) {
-  if (actingUser.Role !== ROLE_NAMES.ADMIN) {
-    throw new Error('Chỉ Admin được cấu hình AI Provider.');
+  if (actingUser.Role !== ROLE_NAMES.SUPER_ADMIN) {
+    throw new Error('Chỉ Quản trị hệ thống được cấu hình AI Provider.');
   }
 
   const configsRepo = getSheetRepository(SHEETS.AI_PROVIDER_CONFIG);
@@ -57,8 +57,8 @@ function getActiveAIProviderConfigMasked() {
 }
 
 function setAiEnabled(actingUser, enabled) {
-  if (actingUser.Role !== ROLE_NAMES.ADMIN) {
-    throw new Error('Chỉ Admin được bật/tắt AI.');
+  if (actingUser.Role !== ROLE_NAMES.SUPER_ADMIN) {
+    throw new Error('Chỉ Quản trị hệ thống được bật/tắt AI.');
   }
   setConfig(CONFIG_KEYS.AI_ENABLED, enabled ? 'true' : 'false');
   logAudit(actingUser.UserID, 'AI_TOGGLE', 'System', 'AI_ENABLED', String(enabled));

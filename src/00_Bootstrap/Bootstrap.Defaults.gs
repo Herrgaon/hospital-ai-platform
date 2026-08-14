@@ -1,26 +1,41 @@
-// Dữ liệu mặc định được nạp bởi InitializeSystem — xem docs/11-permission-design.md, docs/07-workflow.md.
+// Dữ liệu mặc định được nạp bởi InitializeSystem.
 
 function getDefaultRoles_() {
   return [
-    { RoleID: ROLE_NAMES.ADMIN, RoleName: 'Admin', Description: 'Toàn quyền quản trị hệ thống' },
-    { RoleID: ROLE_NAMES.MANAGER, RoleName: 'Manager', Description: 'Quản lý dữ liệu trong phạm vi được giao' },
-    { RoleID: ROLE_NAMES.USER, RoleName: 'User', Description: 'Nhân viên nghiệp vụ' },
-    { RoleID: ROLE_NAMES.GUEST, RoleName: 'Guest', Description: 'Chỉ xem' }
+    { RoleID: ROLE_NAMES.SUPER_ADMIN, RoleName: 'Quản trị hệ thống', Description: 'Toàn quyền quản trị hệ thống' },
+    { RoleID: ROLE_NAMES.BAN_GIAM_DOC, RoleName: 'Ban Giám đốc', Description: 'Xem tổng quan toàn viện, xuất báo cáo' },
+    { RoleID: ROLE_NAMES.PHONG_KH_NV, RoleName: 'Phòng Kế hoạch – Nghiệp vụ', Description: 'Duyệt/công bố lịch trực, quản lý công việc chuyên môn toàn viện' },
+    { RoleID: ROLE_NAMES.PHONG_TC_KT, RoleName: 'Phòng Tài chính – Kế toán', Description: 'Xem dữ liệu tổng hợp phục vụ kế toán' },
+    { RoleID: ROLE_NAMES.PHONG_TC_HC, RoleName: 'Phòng Tổ chức – Hành chính', Description: 'Quản lý hồ sơ nhân viên, danh mục khoa/phòng' },
+    { RoleID: ROLE_NAMES.TRUONG_KHOA, RoleName: 'Trưởng khoa/phòng', Description: 'Quản lý công việc, phân công, lịch trực trong khoa/phòng phụ trách' },
+    { RoleID: ROLE_NAMES.PHO_KHOA, RoleName: 'Phó khoa/phòng', Description: 'Hỗ trợ Trưởng khoa/phòng' },
+    { RoleID: ROLE_NAMES.NHAN_VIEN, RoleName: 'Nhân viên', Description: 'Xem công việc/lịch trực của bản thân' },
+    { RoleID: ROLE_NAMES.KE_TOAN, RoleName: 'Kế toán', Description: 'Xem dữ liệu tổng hợp thu nhập (đầy đủ ở Giai đoạn 2)' },
+    { RoleID: ROLE_NAMES.NGUOI_LAP_LICH_TRUC, RoleName: 'Người lập lịch trực', Description: 'Được uỷ quyền lập lịch trực trong khoa/phòng' },
+    { RoleID: ROLE_NAMES.NGUOI_NHAP_SO_LIEU, RoleName: 'Người nhập số liệu', Description: 'Nhập số liệu hoạt động chuyên môn (đầy đủ ở Giai đoạn 3)' },
+    { RoleID: ROLE_NAMES.GUEST, RoleName: 'Chưa phân quyền', Description: 'Tài khoản mới đăng nhập lần đầu, chưa được gán vai trò/hồ sơ nhân viên' }
   ];
 }
 
+// Ma trận mặc định — chỉ seed các dòng phạm vi TOÀN VIỆN (DepartmentID='*'). Quyền của Trưởng
+// khoa/Phó khoa/Người lập lịch trực được seed RIÊNG theo từng khoa/phòng khi gán HeadUserID
+// (xem Department.Service.gs#seedHeadPermission_), không hard-code ở đây. Nhân viên không có dòng
+// Permissions nào — truy cập dữ liệu của chính mình qua các hàm listMy* (ownership-filtered),
+// không qua Permissions sheet.
 function getDefaultPermissions_() {
-  // Xem ma trận đầy đủ tại docs/11-permission-design.md mục 3.
-  // Chỉ Admin có quyền toàn hệ thống ('*'). Manager/User CHỈ được xem ('*' = mọi kho) theo mặc định —
-  // quyền Thêm/Sửa/Xoá/Quản lý trong một kho cụ thể do Trưởng khoa/phòng của kho đó cấp riêng
-  // (Permissions theo UserID+LibraryID, xem Knowledge.Library.gs#createLibrary và
-  // Admin.UserManagement.gs#setUserPermissionOverride) — đúng mô hình "mỗi khoa phòng quản lý
-  // riêng kho của mình, người khác chỉ xem" mà Product Owner mô tả (2026-08-05).
   return [
-    { RoleID: ROLE_NAMES.ADMIN, LibraryID: '*', CanView: true, CanCreate: true, CanEdit: true, CanDelete: true, CanApprove: true, CanManage: true },
-    { RoleID: ROLE_NAMES.MANAGER, LibraryID: '*', CanView: true, CanCreate: false, CanEdit: false, CanDelete: false, CanApprove: false, CanManage: false },
-    { RoleID: ROLE_NAMES.USER, LibraryID: '*', CanView: true, CanCreate: false, CanEdit: false, CanDelete: false, CanApprove: false, CanManage: false },
-    { RoleID: ROLE_NAMES.GUEST, LibraryID: '*', CanView: true, CanCreate: false, CanEdit: false, CanDelete: false, CanApprove: false, CanManage: false }
+    { RoleID: ROLE_NAMES.SUPER_ADMIN, DepartmentID: '*', CanView: true, CanCreate: true, CanEdit: true, CanDelete: true, CanSubmit: true, CanApprove: true, CanReject: true, CanPublish: true, CanLock: true, CanExport: true },
+    { RoleID: ROLE_NAMES.BAN_GIAM_DOC, DepartmentID: '*', CanView: true, CanCreate: false, CanEdit: false, CanDelete: false, CanSubmit: false, CanApprove: false, CanReject: false, CanPublish: false, CanLock: false, CanExport: true },
+    { RoleID: ROLE_NAMES.PHONG_KH_NV, DepartmentID: '*', CanView: true, CanCreate: false, CanEdit: false, CanDelete: false, CanSubmit: false, CanApprove: true, CanReject: true, CanPublish: true, CanLock: false, CanExport: true },
+    { RoleID: ROLE_NAMES.PHONG_TC_HC, DepartmentID: '*', CanView: true, CanCreate: false, CanEdit: false, CanDelete: false, CanSubmit: false, CanApprove: false, CanReject: false, CanPublish: false, CanLock: false, CanExport: true },
+    { RoleID: ROLE_NAMES.PHONG_TC_KT, DepartmentID: '*', CanView: true, CanCreate: false, CanEdit: false, CanDelete: false, CanSubmit: false, CanApprove: false, CanReject: false, CanPublish: false, CanLock: false, CanExport: true },
+    { RoleID: ROLE_NAMES.TRUONG_KHOA, DepartmentID: '*', CanView: false, CanCreate: false, CanEdit: false, CanDelete: false, CanSubmit: false, CanApprove: false, CanReject: false, CanPublish: false, CanLock: false, CanExport: false },
+    { RoleID: ROLE_NAMES.PHO_KHOA, DepartmentID: '*', CanView: false, CanCreate: false, CanEdit: false, CanDelete: false, CanSubmit: false, CanApprove: false, CanReject: false, CanPublish: false, CanLock: false, CanExport: false },
+    { RoleID: ROLE_NAMES.NHAN_VIEN, DepartmentID: '*', CanView: false, CanCreate: false, CanEdit: false, CanDelete: false, CanSubmit: false, CanApprove: false, CanReject: false, CanPublish: false, CanLock: false, CanExport: false },
+    { RoleID: ROLE_NAMES.KE_TOAN, DepartmentID: '*', CanView: true, CanCreate: false, CanEdit: false, CanDelete: false, CanSubmit: false, CanApprove: false, CanReject: false, CanPublish: false, CanLock: false, CanExport: false },
+    { RoleID: ROLE_NAMES.NGUOI_LAP_LICH_TRUC, DepartmentID: '*', CanView: false, CanCreate: false, CanEdit: false, CanDelete: false, CanSubmit: false, CanApprove: false, CanReject: false, CanPublish: false, CanLock: false, CanExport: false },
+    { RoleID: ROLE_NAMES.NGUOI_NHAP_SO_LIEU, DepartmentID: '*', CanView: true, CanCreate: false, CanEdit: false, CanDelete: false, CanSubmit: false, CanApprove: false, CanReject: false, CanPublish: false, CanLock: false, CanExport: false },
+    { RoleID: ROLE_NAMES.GUEST, DepartmentID: '*', CanView: false, CanCreate: false, CanEdit: false, CanDelete: false, CanSubmit: false, CanApprove: false, CanReject: false, CanPublish: false, CanLock: false, CanExport: false }
   ].map(function (p) {
     p.PermissionID = generateId('PERM');
     p.UserID = '';
@@ -29,9 +44,8 @@ function getDefaultPermissions_() {
 }
 
 function getDefaultAIProviders_() {
-  // Claude là Provider duy nhất kích hoạt sẵn ở giai đoạn đầu (quyết định Product Owner 2026-08-05,
-  // xem docs/99-bootstrap-report.md mục 3). Các Provider còn lại giữ trong danh mục nhưng IsActive=false
-  // cho tới khi có nhu cầu bổ sung — không cần sửa code khi bật, chỉ cần đổi dữ liệu Sheet.
+  // Claude là Provider duy nhất kích hoạt sẵn; các Provider còn lại giữ trong danh mục nhưng
+  // IsActive=false cho tới khi có nhu cầu bổ sung — không cần sửa code khi bật, chỉ cần đổi dữ liệu Sheet.
   return [
     { ProviderID: 'claude', ProviderName: 'Claude', BaseURL: 'https://api.anthropic.com', IsActive: true },
     { ProviderID: 'openai', ProviderName: 'OpenAI', BaseURL: 'https://api.openai.com', IsActive: false },
@@ -41,31 +55,31 @@ function getDefaultAIProviders_() {
   ];
 }
 
-function getDefaultTemplateFieldsJson_() {
-  // Khớp với placeholder [tenField] trong Bootstrap.InitializeSystem.gs#createDefaultTemplateDoc_.
-  return JSON.stringify([
-    { name: 'coQuanBanHanh', label: 'Cơ quan ban hành', multiline: false },
-    { name: 'docNumber', label: 'Số ký hiệu, không kèm chữ "Số:" (ví dụ: 12/CV-BVDS)', multiline: false },
-    { name: 'diaDanhNgayThang', label: 'Địa danh, ngày tháng', multiline: false },
-    { name: 'trichYeu', label: 'Trích yếu nội dung (V/v ...)', multiline: false },
-    { name: 'noiNhan', label: 'Kính gửi', multiline: true },
-    { name: 'noiDung', label: 'Nội dung', multiline: true },
-    { name: 'nguoiKy', label: 'Người ký (chức danh, họ tên)', multiline: false }
-  ]);
-}
-
-function getDefaultWorkflowStepsJson_() {
-  // Đúng workflow mặc định tại docs/07-workflow.md mục 3.
-  return JSON.stringify({
-    workflowId: 'WF_DEFAULT',
-    name: 'Quy trình văn bản hành chính mặc định',
-    scope: { libraryId: '*' },
-    steps: [
-      { id: 'UPLOAD', type: 'UPLOAD', next: 'RULE_CHECK' },
-      { id: 'RULE_CHECK', type: 'RULE_CHECK', onError: 'EDIT', onPass: 'EDIT' },
-      { id: 'EDIT', type: 'USER_EDIT', next: 'APPROVAL', allowAIAssist: true },
-      { id: 'APPROVAL', type: 'APPROVAL', approverRole: ROLE_NAMES.MANAGER, onApprove: 'EXPORT', onReject: 'EDIT' },
-      { id: 'EXPORT', type: 'EXPORT_WORD', next: null }
-    ]
+// 14 khoa/phòng thật của Bệnh viện Đa khoa Đông Sơn — danh mục cấu hình được (Admin/Phòng TC-HC có
+// thể thêm/sửa/ngừng hoạt động sau), đây chỉ là dữ liệu khởi tạo ban đầu để hệ thống dùng được ngay.
+function getDefaultDepartments_() {
+  return [
+    { DepartmentName: 'Ban Giám đốc', DepartmentType: DEPARTMENT_TYPES.BAN_GIAM_DOC },
+    { DepartmentName: 'Phòng Kế hoạch – Nghiệp vụ', DepartmentType: DEPARTMENT_TYPES.PHONG_CHUC_NANG },
+    { DepartmentName: 'Phòng Tổ chức – Hành chính', DepartmentType: DEPARTMENT_TYPES.PHONG_CHUC_NANG },
+    { DepartmentName: 'Phòng Tài chính – Kế toán', DepartmentType: DEPARTMENT_TYPES.PHONG_CHUC_NANG },
+    { DepartmentName: 'Khoa Dược – Vật tư thiết bị y tế', DepartmentType: DEPARTMENT_TYPES.KHOA_CAN_LAM_SANG },
+    { DepartmentName: 'Khoa Xét nghiệm – Chẩn đoán hình ảnh', DepartmentType: DEPARTMENT_TYPES.KHOA_CAN_LAM_SANG },
+    { DepartmentName: 'Khoa Kiểm soát nhiễm khuẩn', DepartmentType: DEPARTMENT_TYPES.KHOA_CAN_LAM_SANG },
+    { DepartmentName: 'Khoa Khám bệnh', DepartmentType: DEPARTMENT_TYPES.KHOA_LAM_SANG },
+    { DepartmentName: 'Khoa Ngoại – RHM – Mắt – TMH', DepartmentType: DEPARTMENT_TYPES.KHOA_LAM_SANG },
+    { DepartmentName: 'Khoa Phụ sản', DepartmentType: DEPARTMENT_TYPES.KHOA_LAM_SANG },
+    { DepartmentName: 'Khoa Nhi – Truyền nhiễm', DepartmentType: DEPARTMENT_TYPES.KHOA_LAM_SANG },
+    { DepartmentName: 'Khoa Cấp cứu – HSTC – Chống độc', DepartmentType: DEPARTMENT_TYPES.KHOA_LAM_SANG },
+    { DepartmentName: 'Khoa YHCT – PHCN', DepartmentType: DEPARTMENT_TYPES.KHOA_LAM_SANG },
+    { DepartmentName: 'Khoa Nội', DepartmentType: DEPARTMENT_TYPES.KHOA_LAM_SANG }
+  ].map(function (d) {
+    d.DepartmentID = generateId('DEPT');
+    d.ParentDepartmentID = '';
+    d.HeadUserID = '';
+    d.Status = 'Active';
+    d.CreatedAt = nowIso();
+    d.UpdatedAt = nowIso();
+    return d;
   });
 }
