@@ -22,7 +22,6 @@
       </div>
       <nav class="app-sidebar-menu">
         <a href="#dashboard" @click.prevent="go('dashboard')" class="app-nav-item" :class="active('dashboard')"><span class="app-nav-icon">🏠</span> Trang chủ</a>
-        <a href="#personnel" @click.prevent="go('personnel')" class="app-nav-item" :class="active('personnel')"><span class="app-nav-icon">👤</span> Nhân sự</a>
 
         <button type="button" @click="toggleNavGroup('work')" class="app-nav-group-label" :class="isNavGroupCollapsed('work') ? 'collapsed' : ''">
           <span>📋 Công việc &amp; Lịch trực</span><span class="app-nav-group-chevron">▾</span>
@@ -54,16 +53,13 @@
           <a href="#kpi" @click.prevent="go('kpi')" class="app-nav-item" :class="active('kpi')"><span class="app-nav-icon">🎯</span> KPI</a>
         </div>
 
-        <template x-if="isSuperAdmin">
-          <div>
-            <button type="button" @click="toggleNavGroup('admin')" class="app-nav-group-label" :class="isNavGroupCollapsed('admin') ? 'collapsed' : ''">
-              <span>⚙ Quản trị</span><span class="app-nav-group-chevron">▾</span>
-            </button>
-            <div x-show="!isNavGroupCollapsed('admin')">
-              <a href="#admin" @click.prevent="go('admin')" class="app-nav-item" :class="active('admin')"><span class="app-nav-icon">⚙</span> Quản trị hệ thống</a>
-            </div>
-          </div>
-        </template>
+        <button type="button" @click="toggleNavGroup('admin')" class="app-nav-group-label" :class="isNavGroupCollapsed('admin') ? 'collapsed' : ''">
+          <span>⚙ Quản trị</span><span class="app-nav-group-chevron">▾</span>
+        </button>
+        <div x-show="!isNavGroupCollapsed('admin')">
+          <a href="#personnel" @click.prevent="go('personnel')" class="app-nav-item" :class="active('personnel')"><span class="app-nav-icon">👤</span> Nhân sự</a>
+          <a href="#admin" @click.prevent="go('admin')" class="app-nav-item" x-show="isSuperAdmin" :class="active('admin')"><span class="app-nav-icon">⚙</span> Quản trị hệ thống</a>
+        </div>
       </nav>
       <div class="app-sidebar-footer">● STATUS: ONLINE</div>
     </aside>
