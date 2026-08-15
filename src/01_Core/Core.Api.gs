@@ -433,6 +433,92 @@ function api_exportPayrollAggregationToExcel(token, departmentId, yearMonth) {
   return exportPayrollAggregationToExcel(user, departmentId, yearMonth);
 }
 
+// --- Số liệu hoạt động chuyên môn theo tháng ---
+
+function api_recordMonthlyClinicalStat(token, input) {
+  const user = getCurrentUserFromToken_(token);
+  return recordMonthlyClinicalStat(user, input);
+}
+
+function api_importMonthlyClinicalStats(token, departmentId, yearMonth, rows) {
+  const user = getCurrentUserFromToken_(token);
+  return importMonthlyClinicalStats(user, departmentId, yearMonth, rows);
+}
+
+function api_deleteMonthlyClinicalStat(token, statId) {
+  const user = getCurrentUserFromToken_(token);
+  return deleteMonthlyClinicalStat(user, statId);
+}
+
+function api_listMonthlyClinicalStatsByDepartment(token, departmentId, yearMonth) {
+  const user = getCurrentUserFromToken_(token);
+  return listMonthlyClinicalStatsByDepartment(user, departmentId, yearMonth);
+}
+
+function api_listMyMonthlyClinicalStats(token, yearMonth) {
+  const user = getCurrentUserFromToken_(token);
+  return listMyMonthlyClinicalStats(user, yearMonth);
+}
+
+// --- BHYT / Xuất toán ---
+
+function api_recordInsuranceAudit(token, input) {
+  const user = getCurrentUserFromToken_(token);
+  return recordInsuranceAudit(user, input);
+}
+
+function api_updateInsuranceAuditExplanation(token, auditId, input) {
+  const user = getCurrentUserFromToken_(token);
+  return updateInsuranceAuditExplanation(user, auditId, input);
+}
+
+function api_listInsuranceAuditsByDepartment(token, departmentId, yearMonth) {
+  const user = getCurrentUserFromToken_(token);
+  return listInsuranceAuditsByDepartment(user, departmentId, yearMonth);
+}
+
+function api_listInsuranceAuditsHospitalWide(token, yearMonth) {
+  const user = getCurrentUserFromToken_(token);
+  return listInsuranceAuditsHospitalWide(user, yearMonth);
+}
+
+// --- KPI ---
+
+function api_createKpiRule(token, input) {
+  const user = getCurrentUserFromToken_(token);
+  return createKpiRule(user, input);
+}
+
+function api_deactivateKpiRule(token, ruleId) {
+  const user = getCurrentUserFromToken_(token);
+  return deactivateKpiRule(user, ruleId);
+}
+
+function api_listActiveKpiRules(token, objectGroup) {
+  getCurrentUserFromToken_(token);
+  return listActiveKpiRules(objectGroup);
+}
+
+function api_submitKpiResult(token, input) {
+  const user = getCurrentUserFromToken_(token);
+  return submitKpiResult(user, input);
+}
+
+function api_approveKpiResult(token, resultId, managerComment) {
+  const user = getCurrentUserFromToken_(token);
+  return approveKpiResult(user, resultId, managerComment);
+}
+
+function api_listMyKpiResults(token, period) {
+  const user = getCurrentUserFromToken_(token);
+  return listMyKpiResults(user, period);
+}
+
+function api_listKpiResultsByDepartment(token, departmentId, period) {
+  const user = getCurrentUserFromToken_(token);
+  return listKpiResultsByDepartment(user, departmentId, period);
+}
+
 // --- Admin / AI / Audit Log ---
 
 function api_listAIProviders(token) {

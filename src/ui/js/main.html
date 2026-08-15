@@ -943,6 +943,214 @@
           .api_exportPayrollAggregationToExcel(this.authToken, this.payrollDepartmentFilter || null, this.payrollYearMonth);
       },
 
+      // --- Số liệu hoạt động chuyên môn theo tháng ---
+      clinicalStatsDepartmentFilter: '',
+      clinicalStatsYearMonth: '',
+      departmentClinicalStats: [],
+      loadClinicalStatsAction() {
+        if (!this.clinicalStatsDepartmentFilter || !this.clinicalStatsYearMonth) { this.departmentClinicalStats = []; return; }
+        google.script.run
+          .withSuccessHandler((rows) => { this.departmentClinicalStats = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listMonthlyClinicalStatsByDepartment(this.authToken, this.clinicalStatsDepartmentFilter, this.clinicalStatsYearMonth);
+      },
+      newClinicalStatForm: { employeeId: '', statType: 'Khám ngoại trú', value: null },
+      savingClinicalStat: false,
+      openAddClinicalStatModal() {
+        this.newClinicalStatForm = { employeeId: '', statType: 'Khám ngoại trú', value: null };
+        this.openModal('addClinicalStat');
+      },
+      recordClinicalStatAction() {
+        this.savingClinicalStat = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.savingClinicalStat = false;
+            this.closeModal();
+            this.toast('success', 'Đã lưu số liệu.');
+            this.loadClinicalStatsAction();
+          })
+          .withFailureHandler((e) => {
+            this.savingClinicalStat = false;
+            this.errorMessage = e.message;
+          })
+          .api_recordMonthlyClinicalStat(this.authToken, {
+            employeeId: this.newClinicalStatForm.employeeId, departmentId: this.clinicalStatsDepartmentFilter,
+            yearMonth: this.clinicalStatsYearMonth, statType: this.newClinicalStatForm.statType, value: this.newClinicalStatForm.value
+          });
+      },
+      deleteClinicalStatAction(s) {
+        if (!confirm('Xoá số liệu "' + s.StatType + '" của nhân viên này?')) return;
+        google.script.run
+          .withSuccessHandler(() => { this.loadClinicalStatsAction(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_deleteMonthlyClinicalStat(this.authToken, s.StatID);
+      },
+      importClinicalStatsCsv: '',
+      importClinicalStatsResults: [],
+      importingClinicalStats: false,
+      openImportClinicalStatsModal() {
+        this.importClinicalStatsCsv = '';
+        this.importClinicalStatsResults = [];
+        this.openModal('importClinicalStats');
+      },
+      importClinicalStatsAction() {
+        const rows = this.importClinicalStatsCsv.split('\n').map((line) => line.trim()).filter((line) => line.length > 0).map((line) => {
+          const parts = line.split(',').map((p) => p.trim());
+          return { employeeCode: parts[0], statType: parts[1], value: Number(parts[2]) || 0 };
+        });
+        if (rows.length === 0) return;
+        this.importingClinicalStats = true;
+        google.script.run
+          .withSuccessHandler((results) => {
+            this.importingClinicalStats = false;
+            this.importClinicalStatsResults = results;
+            this.toast('success', 'Đã xử lý ' + results.length + ' dòng.');
+            this.loadClinicalStatsAction();
+          })
+          .withFailureHandler((e) => {
+            this.importingClinicalStats = false;
+            this.errorMessage = e.message;
+          })
+          .api_importMonthlyClinicalStats(this.authToken, this.clinicalStatsDepartmentFilter, this.clinicalStatsYearMonth, rows);
+      },
+
+      // --- BHYT / Xuất toán ---
+      insuranceDepartmentFilter: '',
+      insuranceYearMonth: '',
+      insuranceAudits: [],
+      loadInsuranceAuditsAction() {
+        if (!this.insuranceYearMonth) { this.insuranceAudits = []; return; }
+        const handler = (rows) => { this.insuranceAudits = rows; };
+        if (this.insuranceDepartmentFilter) {
+          google.script.run.withSuccessHandler(handler).withFailureHandler((e) => { this.errorMessage = e.message; })
+            .api_listInsuranceAuditsByDepartment(this.authToken, this.insuranceDepartmentFilter, this.insuranceYearMonth);
+        } else {
+          google.script.run.withSuccessHandler(handler).withFailureHandler((e) => { this.errorMessage = e.message; })
+            .api_listInsuranceAuditsHospitalWide(this.authToken, this.insuranceYearMonth);
+        }
+      },
+      newInsuranceAuditForm: { totalRecords: null, writeOffCount: null, writeOffAmount: null, reason: '' },
+      savingInsuranceAudit: false,
+      openAddInsuranceAuditModal() {
+        this.newInsuranceAuditForm = { totalRecords: null, writeOffCount: null, writeOffAmount: null, reason: '' };
+        this.openModal('addInsuranceAudit');
+      },
+      recordInsuranceAuditAction() {
+        this.savingInsuranceAudit = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.savingInsuranceAudit = false;
+            this.closeModal();
+            this.toast('success', 'Đã ghi nhận.');
+            this.loadInsuranceAuditsAction();
+          })
+          .withFailureHandler((e) => {
+            this.savingInsuranceAudit = false;
+            this.errorMessage = e.message;
+          })
+          .api_recordInsuranceAudit(this.authToken, Object.assign({ departmentId: this.insuranceDepartmentFilter, yearMonth: this.insuranceYearMonth }, this.newInsuranceAuditForm));
+      },
+      explainInsuranceAuditForm: { auditId: '', explanationResult: '', acceptedAmountAfterExplanation: null, explanationStatus: 'PENDING' },
+      openExplainInsuranceAuditModal(a) {
+        this.explainInsuranceAuditForm = { auditId: a.AuditID, explanationResult: a.ExplanationResult || '', acceptedAmountAfterExplanation: a.AcceptedAmountAfterExplanation || null, explanationStatus: a.ExplanationStatus || 'PENDING' };
+        this.openModal('explainInsuranceAudit');
+      },
+      updateInsuranceAuditExplanationAction() {
+        this.savingInsuranceAudit = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.savingInsuranceAudit = false;
+            this.closeModal();
+            this.toast('success', 'Đã lưu giải trình.');
+            this.loadInsuranceAuditsAction();
+          })
+          .withFailureHandler((e) => {
+            this.savingInsuranceAudit = false;
+            this.errorMessage = e.message;
+          })
+          .api_updateInsuranceAuditExplanation(this.authToken, this.explainInsuranceAuditForm.auditId, this.explainInsuranceAuditForm);
+      },
+
+      // --- KPI ---
+      kpiTab: 'mine',
+      kpiPeriod: '',
+      kpiDepartmentFilter: '',
+      myKpiResults: [],
+      departmentKpiResults: [],
+      activeKpiRules: [],
+      loadMyKpiResultsAction() {
+        google.script.run
+          .withSuccessHandler((rows) => { this.myKpiResults = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listMyKpiResults(this.authToken, this.kpiPeriod || null);
+      },
+      loadDepartmentKpiResultsAction() {
+        if (!this.kpiDepartmentFilter) { this.departmentKpiResults = []; return; }
+        google.script.run
+          .withSuccessHandler((rows) => { this.departmentKpiResults = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listKpiResultsByDepartment(this.authToken, this.kpiDepartmentFilter, this.kpiPeriod || null);
+      },
+      loadActiveKpiRulesAction() {
+        google.script.run
+          .withSuccessHandler((rows) => { this.activeKpiRules = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listActiveKpiRules(this.authToken, null);
+      },
+      newKpiRuleForm: { objectGroup: 'Bác sĩ', criterion: '', weight: 1, scoringMethodJson: '' },
+      savingKpiRule: false,
+      openAddKpiRuleModal() {
+        this.newKpiRuleForm = { objectGroup: 'Bác sĩ', criterion: '', weight: 1, scoringMethodJson: '' };
+        this.openModal('addKpiRule');
+      },
+      createKpiRuleAction() {
+        this.savingKpiRule = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.savingKpiRule = false;
+            this.closeModal();
+            this.toast('success', 'Đã lưu chỉ tiêu KPI.');
+            this.loadActiveKpiRulesAction();
+          })
+          .withFailureHandler((e) => {
+            this.savingKpiRule = false;
+            this.errorMessage = e.message;
+          })
+          .api_createKpiRule(this.authToken, this.newKpiRuleForm);
+      },
+      submitKpiResultForm: { employeeId: '', ruleId: '', actualValue: null },
+      savingKpiResult: false,
+      openSubmitKpiResultModal() {
+        this.submitKpiResultForm = { employeeId: '', ruleId: '', actualValue: null };
+        this.openModal('submitKpiResult');
+      },
+      submitKpiResultAction() {
+        this.savingKpiResult = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.savingKpiResult = false;
+            this.closeModal();
+            this.toast('success', 'Đã lưu kết quả KPI.');
+            this.loadDepartmentKpiResultsAction();
+          })
+          .withFailureHandler((e) => {
+            this.savingKpiResult = false;
+            this.errorMessage = e.message;
+          })
+          .api_submitKpiResult(this.authToken, {
+            employeeId: this.submitKpiResultForm.employeeId, departmentId: this.kpiDepartmentFilter,
+            period: this.kpiPeriod || new Date().toISOString().slice(0, 7), ruleId: this.submitKpiResultForm.ruleId,
+            actualValue: this.submitKpiResultForm.actualValue
+          });
+      },
+      approveKpiResultAction(r) {
+        const comment = prompt('Nhận xét (không bắt buộc):') || '';
+        google.script.run
+          .withSuccessHandler(() => { this.toast('success', 'Đã duyệt KPI.'); this.loadDepartmentKpiResultsAction(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_approveKpiResult(this.authToken, r.ResultID, comment);
+      },
+
       // --- Quản trị ---
       adminTab: 'users',
       newUserForm: { email: '', fullName: '', role: 'NHAN_VIEN' },

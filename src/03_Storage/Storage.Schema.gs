@@ -16,6 +16,10 @@ const SHEETS = {
   ATTENDANCE: 'Attendance',
   ATTENDANCE_ADJUSTMENTS: 'AttendanceAdjustments',
   OVERTIME: 'Overtime',
+  MONTHLY_CLINICAL_STATS: 'MonthlyClinicalStats',
+  INSURANCE_AUDITS: 'InsuranceAudits',
+  KPI_RULES: 'KpiRules',
+  KPI_RESULTS: 'KpiResults',
   AI_PROVIDERS: 'AIProviders',
   AI_PROVIDER_CONFIG: 'AIProviderConfig',
   AI_PROVIDER_KEY_HISTORY: 'AIProviderKeyHistory',
@@ -131,6 +135,39 @@ const SCHEMA = {
     'OvertimeType', 'Reason', 'WorkDescription', 'Status',
     'ApprovedByUserID', 'ApprovedAt', 'RejectedByUserID', 'RejectedAt', 'RejectionReason',
     'CreatedAt', 'UpdatedAt'
+  ],
+
+  // Số liệu hoạt động chuyên môn theo tháng — Giai đoạn 3. CHỈ số liệu tổng hợp (không có tên/mã bệnh
+  // nhân, không chẩn đoán) — đúng nguyên tắc "không kết nối HIS, không lấy dữ liệu bệnh nhân" xuyên
+  // suốt toàn bộ hệ thống. Nguồn: Excel/CSV, form nội bộ, hoặc người được phân quyền
+  // (NGUOI_NHAP_SO_LIEU) nhập trực tiếp.
+  [SHEETS.MONTHLY_CLINICAL_STATS]: [
+    'StatID', 'EmployeeID', 'DepartmentID', 'YearMonth', 'StatType', 'Value',
+    'Source', 'EnteredByUserID', 'Notes', 'CreatedAt', 'UpdatedAt'
+  ],
+
+  // BHYT/Xuất toán theo tháng, theo khoa/phòng — KHÔNG có cột "điểm KPI bị trừ" (đúng nguyên tắc
+  // "không tự động quy đổi 1 ca xuất toán thành điểm trừ KPI" — muốn dùng làm căn cứ đánh giá phải qua
+  // KpiResults thủ công, có phân loại nguyên nhân/trách nhiệm trước).
+  [SHEETS.INSURANCE_AUDITS]: [
+    'AuditID', 'DepartmentID', 'YearMonth', 'TotalRecords', 'WriteOffCount', 'WriteOffAmount',
+    'Reason', 'RelatedDepartmentID', 'RelatedEmployeeID', 'ExplanationStatus', 'ExplanationResult',
+    'AcceptedAmountAfterExplanation', 'EnteredByUserID', 'CreatedAt', 'UpdatedAt'
+  ],
+
+  // KPI là lớp đánh giá, không phải nơi nhân viên tự nhập số liệu — chỉ tiêu/trọng số/cách quy đổi
+  // điểm đều cấu hình được qua đây, KHÔNG hard-code công thức trong code. ScoringMethod lưu JSON mô tả
+  // cách quy đổi (VD {"type":"LINEAR","target":100,"maxScore":10} hoặc {"type":"THRESHOLD",
+  // "thresholds":[...]})  — xem Kpi.Engine.gs.
+  [SHEETS.KPI_RULES]: [
+    'RuleID', 'ObjectGroup', 'Criterion', 'Weight', 'ScoringMethodJson',
+    'EffectiveFrom', 'EffectiveTo', 'Version', 'Status', 'CreatedAt', 'UpdatedAt'
+  ],
+
+  [SHEETS.KPI_RESULTS]: [
+    'ResultID', 'EmployeeID', 'DepartmentID', 'Period', 'RuleID', 'Criterion',
+    'ActualValue', 'Score', 'ManagerComment', 'Status',
+    'EvaluatedByUserID', 'EvaluatedAt', 'CreatedAt', 'UpdatedAt'
   ],
 
   [SHEETS.AI_PROVIDERS]: ['ProviderID', 'ProviderName', 'BaseURL', 'IsActive'],

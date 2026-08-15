@@ -121,5 +121,24 @@ const GATEWAY_ACTIONS_ = {
   'overtime.listByDepartment': function (user, params) { return listOvertimeByDepartment(user, params.departmentId, params.dateFrom, params.dateTo); },
 
   'payroll.dutySummary': function (user, params) { return getDutySummaryForMonth(user, params.departmentId, params.yearMonth); },
-  'payroll.aggregation': function (user, params) { return getPayrollAggregationForMonth(user, params.departmentId, params.yearMonth); }
+  'payroll.aggregation': function (user, params) { return getPayrollAggregationForMonth(user, params.departmentId, params.yearMonth); },
+
+  'clinicalStats.record': function (user, params) { return recordMonthlyClinicalStat(user, params); },
+  'clinicalStats.import': function (user, params) { return importMonthlyClinicalStats(user, params.departmentId, params.yearMonth, params.rows); },
+  'clinicalStats.delete': function (user, params) { return deleteMonthlyClinicalStat(user, params.statId); },
+  'clinicalStats.listByDepartment': function (user, params) { return listMonthlyClinicalStatsByDepartment(user, params.departmentId, params.yearMonth); },
+  'clinicalStats.listMine': function (user, params) { return listMyMonthlyClinicalStats(user, params.yearMonth); },
+
+  'insuranceAudit.record': function (user, params) { return recordInsuranceAudit(user, params); },
+  'insuranceAudit.updateExplanation': function (user, params) { return updateInsuranceAuditExplanation(user, params.auditId, params); },
+  'insuranceAudit.listByDepartment': function (user, params) { return listInsuranceAuditsByDepartment(user, params.departmentId, params.yearMonth); },
+  'insuranceAudit.listHospitalWide': function (user, params) { return listInsuranceAuditsHospitalWide(user, params.yearMonth); },
+
+  'kpi.createRule': function (user, params) { return createKpiRule(user, params); },
+  'kpi.deactivateRule': function (user, params) { return deactivateKpiRule(user, params.ruleId); },
+  'kpi.listActiveRules': function (user, params) { return listActiveKpiRules(params.objectGroup); },
+  'kpi.submitResult': function (user, params) { return submitKpiResult(user, params); },
+  'kpi.approveResult': function (user, params) { return approveKpiResult(user, params.resultId, params.managerComment); },
+  'kpi.listMyResults': function (user, params) { return listMyKpiResults(user, params.period); },
+  'kpi.listResultsByDepartment': function (user, params) { return listKpiResultsByDepartment(user, params.departmentId, params.period); }
 };

@@ -1,0 +1,131 @@
+<div x-show="currentView === 'clinicalStats'" class="max-w-5xl mx-auto">
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-header-icon">📈</div>
+      <div>
+        <h1 class="page-title-text">SỐ LIỆU HOẠT ĐỘNG CHUYÊN MÔN</h1>
+        <p class="page-subtitle">Số liệu tổng hợp theo tháng — không lấy dữ liệu bệnh nhân, không kết nối HIS</p>
+      </div>
+    </div>
+    <div class="page-header-actions flex gap-2" x-show="clinicalStatsDepartmentFilter && can(clinicalStatsDepartmentFilter, 'CanCreate')">
+      <button @click="openAddClinicalStatModal()" class="btn btn-secondary">+ Nhập 1 dòng</button>
+      <button @click="openImportClinicalStatsModal()" class="btn btn-primary">Nhập hàng loạt (dán CSV)</button>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="filter-group">
+      <select x-model="clinicalStatsDepartmentFilter" @change="loadClinicalStatsAction()" class="filter-select">
+        <option value="">-- Chọn khoa/phòng --</option>
+        <template x-for="d in departments" :key="d.DepartmentID">
+          <option :value="d.DepartmentID" x-text="d.DepartmentName"></option>
+        </template>
+      </select>
+      <input type="month" x-model="clinicalStatsYearMonth" @change="loadClinicalStatsAction()" class="filter-input">
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Nhân viên</th><th>Loại số liệu</th><th>Giá trị</th><th>Nguồn</th><th></th></tr></thead>
+        <tbody>
+          <template x-for="s in departmentClinicalStats" :key="s.StatID">
+            <tr>
+              <td x-text="employeeNameById(s.EmployeeID)"></td>
+              <td x-text="s.StatType"></td>
+              <td x-text="s.Value"></td>
+              <td><span class="badge badge-gray" x-text="s.Source"></span></td>
+              <td x-show="can(clinicalStatsDepartmentFilter, 'CanDelete')"><button @click="deleteClinicalStatAction(s)" class="btn-link">Xoá</button></td>
+            </tr>
+          </template>
+          <template x-if="clinicalStatsDepartmentFilter && clinicalStatsYearMonth && departmentClinicalStats.length === 0">
+            <tr><td colspan="5" class="text-xs holo-text-dim py-4">Chưa có số liệu cho tháng này.</td></tr>
+          </template>
+          <template x-if="!clinicalStatsDepartmentFilter || !clinicalStatsYearMonth">
+            <tr><td colspan="5" class="text-xs holo-text-dim py-4">Chọn khoa/phòng và tháng để xem số liệu.</td></tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Modal: Nhập 1 dòng -->
+  <div x-show="modalOpen === 'addClinicalStat'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Nhập số liệu chuyên môn</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="required">Nhân viên</label>
+          <select x-model="newClinicalStatForm.employeeId" class="form-control">
+            <option value="">-- Chọn nhân viên --</option>
+            <template x-for="e in employeesByDepartment(clinicalStatsDepartmentFilter)" :key="e.EmployeeID">
+              <option :value="e.EmployeeID" x-text="e.FullName"></option>
+            </template>
+          </select>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="required">Loại số liệu</label>
+            <select x-model="newClinicalStatForm.statType" class="form-control">
+              <option value="Khám ngoại trú">Khám ngoại trú</option>
+              <option value="Điều trị nội trú">Điều trị nội trú</option>
+              <option value="Cấp cứu">Cấp cứu</option>
+              <option value="Hội chẩn">Hội chẩn</option>
+              <option value="Thủ thuật">Thủ thuật</option>
+              <option value="Phẫu thuật">Phẫu thuật</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="required">Giá trị</label>
+            <input type="number" x-model.number="newClinicalStatForm.value" class="form-control">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="recordClinicalStatAction()" :disabled="savingClinicalStat || !newClinicalStatForm.employeeId || !clinicalStatsYearMonth" class="btn btn-primary">
+          <span x-text="savingClinicalStat ? 'Đang lưu...' : 'Lưu'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Nhập hàng loạt -->
+  <div x-show="modalOpen === 'importClinicalStats'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h2>Nhập hàng loạt từ CSV</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="text-xs holo-text-dim mb-2">Dán dữ liệu dạng CSV, mỗi dòng: <code>mã nhân viên,loại số liệu,giá trị</code>. VD: <code>BS001,Khám ngoại trú,426</code></p>
+        <textarea x-model="importClinicalStatsCsv" class="form-control" rows="8" placeholder="BS001,Khám ngoại trú,426&#10;BS001,Hội chẩn,37"></textarea>
+        <template x-if="importClinicalStatsResults.length > 0">
+          <div class="table-wrap mt-3">
+            <table class="data-table">
+              <thead><tr><th>Mã NV</th><th>Kết quả</th></tr></thead>
+              <tbody>
+                <template x-for="(r, idx) in importClinicalStatsResults" :key="idx">
+                  <tr>
+                    <td x-text="r.employeeCode"></td>
+                    <td><span class="badge" :class="r.success ? 'badge-green' : 'badge-red'" x-text="r.success ? 'OK' : r.error"></span></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </template>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Đóng</button>
+        <button @click="importClinicalStatsAction()" :disabled="importingClinicalStats || !importClinicalStatsCsv.trim() || !clinicalStatsYearMonth" class="btn btn-primary">
+          <span x-text="importingClinicalStats ? 'Đang nhập...' : 'Nhập dữ liệu'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

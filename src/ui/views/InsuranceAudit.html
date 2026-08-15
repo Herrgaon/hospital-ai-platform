@@ -1,0 +1,120 @@
+<div x-show="currentView === 'insurance'" class="max-w-5xl mx-auto">
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-header-icon">🏥</div>
+      <div>
+        <h1 class="page-title-text">BHYT / XUẤT TOÁN</h1>
+        <p class="page-subtitle">Số liệu tổng hợp theo tháng — không tự động trừ điểm KPI theo số ca xuất toán</p>
+      </div>
+    </div>
+    <div class="page-header-actions" x-show="insuranceDepartmentFilter && can(insuranceDepartmentFilter, 'CanCreate')">
+      <button @click="openAddInsuranceAuditModal()" class="btn btn-primary">+ Ghi nhận</button>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="filter-group">
+      <select x-model="insuranceDepartmentFilter" @change="loadInsuranceAuditsAction()" class="filter-select">
+        <option value="">Toàn viện (cần quyền xem toàn viện)</option>
+        <template x-for="d in departments" :key="d.DepartmentID">
+          <option :value="d.DepartmentID" x-text="d.DepartmentName"></option>
+        </template>
+      </select>
+      <input type="month" x-model="insuranceYearMonth" @change="loadInsuranceAuditsAction()" class="filter-input">
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Khoa/Phòng</th><th>Tổng hồ sơ</th><th>Số ca xuất toán</th><th>Số tiền</th><th>Nguyên nhân</th><th>Giải trình</th><th></th></tr></thead>
+        <tbody>
+          <template x-for="a in insuranceAudits" :key="a.AuditID">
+            <tr>
+              <td x-text="departmentNameById(a.DepartmentID)"></td>
+              <td x-text="a.TotalRecords"></td>
+              <td x-text="a.WriteOffCount"></td>
+              <td x-text="a.WriteOffAmount"></td>
+              <td x-text="a.Reason"></td>
+              <td><span class="badge" :class="a.ExplanationStatus === 'ACCEPTED' ? 'badge-green' : (a.ExplanationStatus === 'REJECTED' ? 'badge-red' : 'badge-orange')" x-text="a.ExplanationStatus"></span></td>
+              <td x-show="can(a.DepartmentID, 'CanEdit')"><button @click="openExplainInsuranceAuditModal(a)" class="btn-link">Giải trình</button></td>
+            </tr>
+          </template>
+          <template x-if="insuranceYearMonth && insuranceAudits.length === 0">
+            <tr><td colspan="7" class="text-xs holo-text-dim py-4">Chưa có dữ liệu cho tháng này.</td></tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Modal: Ghi nhận BHYT/Xuất toán -->
+  <div x-show="modalOpen === 'addInsuranceAudit'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Ghi nhận BHYT / Xuất toán</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="required">Tổng số hồ sơ</label>
+            <input type="number" x-model.number="newInsuranceAuditForm.totalRecords" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="required">Số ca xuất toán</label>
+            <input type="number" x-model.number="newInsuranceAuditForm.writeOffCount" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Số tiền xuất toán</label>
+            <input type="number" x-model.number="newInsuranceAuditForm.writeOffAmount" class="form-control">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Nguyên nhân</label>
+          <textarea x-model="newInsuranceAuditForm.reason" class="form-control" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="recordInsuranceAuditAction()" :disabled="savingInsuranceAudit || !insuranceDepartmentFilter || !insuranceYearMonth" class="btn btn-primary">
+          <span x-text="savingInsuranceAudit ? 'Đang lưu...' : 'Lưu'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Giải trình -->
+  <div x-show="modalOpen === 'explainInsuranceAudit'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Giải trình xuất toán</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Kết quả giải trình</label>
+          <textarea x-model="explainInsuranceAuditForm.explanationResult" class="form-control" rows="3"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Số tiền chấp nhận sau giải trình</label>
+          <input type="number" x-model.number="explainInsuranceAuditForm.acceptedAmountAfterExplanation" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>Trạng thái</label>
+          <select x-model="explainInsuranceAuditForm.explanationStatus" class="form-control">
+            <option value="PENDING">Đang giải trình</option>
+            <option value="ACCEPTED">Đã chấp nhận</option>
+            <option value="REJECTED">Không chấp nhận</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="updateInsuranceAuditExplanationAction()" :disabled="savingInsuranceAudit" class="btn btn-primary">
+          <span x-text="savingInsuranceAudit ? 'Đang lưu...' : 'Lưu giải trình'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
