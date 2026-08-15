@@ -21,22 +21,35 @@
         </div>
       </div>
       <nav class="app-sidebar-menu">
-        <a href="#dashboard" @click.prevent="go('dashboard')" class="app-nav-item" :class="active('dashboard')"><span class="app-nav-icon">▣</span> Dashboard</a>
+        <div class="app-nav-group-label">🏢 Tổ chức</div>
+        <a href="#dashboard" @click.prevent="go('dashboard')" class="app-nav-item" :class="active('dashboard')"><span class="app-nav-icon">▣</span> Tổng quan</a>
         <a href="#employees" @click.prevent="go('employees')" class="app-nav-item" :class="active('employees')"><span class="app-nav-icon">👤</span> Nhân sự</a>
         <a href="#departments" @click.prevent="go('departments')" class="app-nav-item" :class="active('departments')"><span class="app-nav-icon">▥</span> Khoa/Phòng</a>
+
+        <div class="app-nav-group-label">📋 Công việc &amp; Lịch trực</div>
         <a href="#tasks" @click.prevent="go('tasks')" class="app-nav-item" :class="active('tasks')"><span class="app-nav-icon">▤</span> Công việc</a>
-        <a href="#clinical" @click.prevent="go('clinical')" class="app-nav-item" :class="active('clinical')"><span class="app-nav-icon">✚</span> Phân công</a>
+        <a href="#clinical" @click.prevent="go('clinical')" class="app-nav-item" :class="active('clinical')"><span class="app-nav-icon">✚</span> Phân công chuyên môn</a>
         <a href="#duty" @click.prevent="go('duty')" class="app-nav-item" :class="active('duty')"><span class="app-nav-icon">▧</span> Lịch trực tuần</a>
         <a href="#swap" @click.prevent="go('swap')" class="app-nav-item" :class="active('swap')"><span class="app-nav-icon">⇄</span> Đổi trực</a>
+
+        <div class="app-nav-group-label">⏱ Chấm công &amp; Thu nhập</div>
         <a href="#attendance" @click.prevent="go('attendance')" class="app-nav-item" :class="active('attendance')"><span class="app-nav-icon">🕘</span> Chấm công</a>
         <a href="#overtime" @click.prevent="go('overtime')" class="app-nav-item" :class="active('overtime')"><span class="app-nav-icon">⏱</span> Làm thêm giờ</a>
         <a href="#overtimeList" @click.prevent="go('overtimeList')" class="app-nav-item" :class="active('overtimeList')"><span class="app-nav-icon">🌙</span> DS ngoài giờ theo ca</a>
-        <a href="#payroll" @click.prevent="go('payroll')" class="app-nav-item" x-show="canAnywhere('CanExport')" :class="active('payroll')"><span class="app-nav-icon">📊</span> Tổng hợp kế toán</a>
+        <a href="#payroll" @click.prevent="go('payroll')" class="app-nav-item" x-show="canAnywhere('CanExport')" :class="active('payroll')"><span class="app-nav-icon">📊</span> Tổng hợp thu nhập</a>
+
+        <div class="app-nav-group-label">📊 Số liệu &amp; Đánh giá</div>
         <a href="#clinicalStats" @click.prevent="go('clinicalStats')" class="app-nav-item" :class="active('clinicalStats')"><span class="app-nav-icon">📈</span> Số liệu chuyên môn</a>
         <a href="#insurance" @click.prevent="go('insurance')" class="app-nav-item" :class="active('insurance')"><span class="app-nav-icon">🏥</span> BHYT / Xuất toán</a>
         <a href="#incident" @click.prevent="go('incident')" class="app-nav-item" :class="active('incident')"><span class="app-nav-icon">⚠</span> Sự cố / An toàn</a>
         <a href="#kpi" @click.prevent="go('kpi')" class="app-nav-item" :class="active('kpi')"><span class="app-nav-icon">🎯</span> KPI</a>
-        <a href="#admin" @click.prevent="go('admin')" class="app-nav-item" x-show="isSuperAdmin" :class="active('admin')"><span class="app-nav-icon">⚙</span> Admin</a>
+
+        <template x-if="isSuperAdmin">
+          <div>
+            <div class="app-nav-group-label">⚙ Quản trị</div>
+            <a href="#admin" @click.prevent="go('admin')" class="app-nav-item" :class="active('admin')"><span class="app-nav-icon">⚙</span> Quản trị hệ thống</a>
+          </div>
+        </template>
       </nav>
       <div class="app-sidebar-footer">● STATUS: ONLINE</div>
     </aside>
