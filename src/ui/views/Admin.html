@@ -1,10 +1,10 @@
-<div x-show="currentView === 'admin' && isSuperAdmin" x-init="$watch('currentView', v => { if (v === 'admin' && isSuperAdmin) loadAdminData(); })" class="max-w-5xl mx-auto">
+<div x-show="currentView === 'admin' && isSuperAdmin" x-init="$watch('currentView', v => { if (v === 'admin' && isSuperAdmin) { loadAdminData(); loadUsersAndRoles(); } }); if (currentView === 'admin' && isSuperAdmin) { loadAdminData(); loadUsersAndRoles(); }" class="max-w-5xl mx-auto">
   <div class="page-header">
     <div class="page-header-left">
       <div class="page-header-icon">⚙</div>
       <div>
         <h1 class="page-title-text">QUẢN TRỊ HỆ THỐNG</h1>
-        <p class="page-subtitle">Cấu hình AI, danh mục trực &amp; nhật ký hệ thống — quản lý người dùng/phân quyền đã chuyển sang trang Nhân sự</p>
+        <p class="page-subtitle">Tài khoản, vai trò, phân quyền, cấu hình AI, danh mục trực &amp; nhật ký hệ thống</p>
       </div>
     </div>
     <div class="page-header-actions">
@@ -26,9 +26,104 @@
 
   <!-- Tab bar -->
   <div class="tabs">
+    <button @click="adminTab = 'users'; if (allUsers.length === 0) loadUsersAndRoles();" class="tab" :class="adminTab === 'users' ? 'active' : ''">Tài khoản &amp; Vai trò</button>
+    <button @click="adminTab = 'permissions'" class="tab" :class="adminTab === 'permissions' ? 'active' : ''">Phân quyền phụ trách</button>
     <button @click="adminTab = 'ai'" class="tab" :class="adminTab === 'ai' ? 'active' : ''">Cấu hình AI</button>
     <button @click="adminTab = 'dutyCatalog'" class="tab" :class="adminTab === 'dutyCatalog' ? 'active' : ''">Danh mục trực</button>
     <button @click="adminTab = 'log'" class="tab" :class="adminTab === 'log' ? 'active' : ''">Audit Log</button>
+  </div>
+
+  <!-- Tab: Tài khoản & Vai trò -->
+  <div x-show="adminTab === 'users'">
+    <div class="card">
+      <div class="card-header">
+        <h3>Danh sách người dùng</h3>
+        <button @click="openModal('addUser')" class="btn btn-primary btn-sm">+ Thêm người dùng</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Email</th>
+              <th>Tên hiển thị</th>
+              <th>Vai trò</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="u in allUsers" :key="u.UserID">
+              <tr>
+                <td>
+                  <img x-show="u.AvatarUrl" :src="u.AvatarUrl" class="w-7 h-7 rounded-full object-cover">
+                  <div x-show="!u.AvatarUrl" class="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-tech text-white" :style="avatarColorStyle(u)" x-text="initials(u)"></div>
+                </td>
+                <td x-text="u.Email"></td>
+                <td><input type="text" x-model="u.FullName" class="form-control form-control-sm"></td>
+                <td>
+                  <select x-model="u.Role" class="form-control form-control-sm">
+                    <template x-for="r in allRoles" :key="r.RoleID">
+                      <option :value="r.RoleID" x-text="r.RoleName"></option>
+                    </template>
+                  </select>
+                </td>
+                <td><button @click="saveUserRole(u)" class="btn-link">Lưu</button></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Phân quyền phụ trách theo khoa/phòng -->
+  <div x-show="adminTab === 'permissions'">
+    <div class="card">
+      <div class="card-header"><h3>Phân quyền phụ trách theo khoa/phòng</h3></div>
+      <div class="card-body space-y-3">
+        <p class="text-xs holo-text-dim">Quyền của Trưởng khoa/phòng được tự động cấp khi gán "Trưởng khoa/phòng" ở Nhân sự &gt; Cơ cấu tổ chức. Dùng màn này để chỉ định 1 người CỤ THỂ phụ trách 1 chức năng trong 1 khoa/phòng — VD uỷ quyền lập lịch trực, hoặc chỉ định người duyệt phân trực thay Trưởng khoa khi vắng mặt — không cần đổi Vai trò hệ thống của họ.</p>
+        <div class="form-grid-2 max-w-lg">
+          <div class="form-group">
+            <label>Khoa/Phòng</label>
+            <select x-model="permissionDepartmentFilter" @change="loadDepartmentPermissionsAction()" class="form-control">
+              <option value="">-- Chọn khoa/phòng --</option>
+              <template x-for="d in departments" :key="d.DepartmentID">
+                <option :value="d.DepartmentID" x-text="d.DepartmentName"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="table-wrap" x-show="permissionDepartmentFilter">
+        <table class="data-table">
+          <thead><tr><th>Người dùng</th><th>Xem</th><th>Tạo</th><th>Sửa</th><th>Xoá</th><th>Gửi duyệt</th><th>Duyệt</th><th>Từ chối</th><th>Công bố</th><th>Chốt</th><th>Xuất DL</th></tr></thead>
+          <tbody>
+            <template x-for="p in departmentPermissions" :key="p.PermissionID">
+              <tr>
+                <td x-text="userEmailById(p.UserID)"></td>
+                <template x-for="action in ['CanView','CanCreate','CanEdit','CanDelete','CanSubmit','CanApprove','CanReject','CanPublish','CanLock','CanExport']" :key="action">
+                  <td><input type="checkbox" x-model="p[action]" @change="savePermissionRowAction(p)"></td>
+                </template>
+              </tr>
+            </template>
+            <template x-if="departmentPermissions.length === 0">
+              <tr><td colspan="11" class="text-xs holo-text-dim py-4">Chưa có ai được chỉ định phụ trách riêng trong khoa/phòng này.</td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+      <div class="card-body" x-show="permissionDepartmentFilter">
+        <div class="form-group max-w-xs">
+          <label>Chỉ định thêm người phụ trách</label>
+          <select x-model="newPermissionUserId" @change="addPermissionRowAction()" class="form-control form-control-sm">
+            <option value="">-- Chọn người dùng --</option>
+            <template x-for="u in userDirectory" :key="u.UserID">
+              <option :value="u.UserID" x-text="u.FullName + ' (' + u.Email + ')'"></option>
+            </template>
+          </select>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Tab: Cấu hình AI -->
@@ -316,6 +411,45 @@
         <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
         <button @click="createDutyPositionAction()" :disabled="creatingDutyPosition || !newDutyPositionForm.positionName" class="btn btn-primary">
           <span x-text="creatingDutyPosition ? 'Đang thêm...' : '+ Thêm'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Thêm người dùng mới -->
+  <div x-show="modalOpen === 'addUser'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Thêm người dùng mới</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="text-xs holo-text-dim mb-3">Tạo trước tài khoản cho nhân viên chưa từng đăng nhập — khi họ đăng nhập lần đầu, hệ thống nhận đúng Vai trò đã gán sẵn ở đây.</p>
+        <div class="form-group">
+          <label class="required">Email (@domain bệnh viện)</label>
+          <input type="email" x-model="newUserForm.email" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="required">Tên đăng nhập</label>
+          <input type="text" x-model="newUserForm.username" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>Tên hiển thị</label>
+          <input type="text" x-model="newUserForm.fullName" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>Vai trò</label>
+          <select x-model="newUserForm.role" class="form-control">
+            <template x-for="r in allRoles" :key="r.RoleID">
+              <option :value="r.RoleID" x-text="r.RoleName"></option>
+            </template>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="createUserAction()" :disabled="creatingUser || !newUserForm.email || !newUserForm.username" class="btn btn-primary">
+          <span x-text="creatingUser ? 'Đang thêm...' : '+ Thêm người dùng'"></span>
         </button>
       </div>
     </div>

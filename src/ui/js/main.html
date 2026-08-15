@@ -180,6 +180,12 @@
           window.history.replaceState(null, '', '#' + view);
         }
       },
+      goToPersonnelTab(tab) {
+        this.personnelTab = tab;
+        if (tab === 'orgStructure') this.loadOrganizationTreeAction();
+        if (tab === 'catalog' && this.positionsCatalog.length === 0) this.loadPositionAndJobTitleCatalogs();
+        this.go('personnel');
+      },
 
       toggleTheme() {
         document.documentElement.classList.toggle('dark');
@@ -299,36 +305,45 @@
           .api_getDashboardSummary(this.authToken);
       },
 
-      // --- Nhân sự (gộp Nhân sự + Khoa/Phòng + Người dùng/Vai trò + Phân quyền phụ trách vào 1 trang,
-      // theo yêu cầu Product Owner — bỏ nhóm điều hướng "Tổ chức" riêng) ---
+      // --- Nhân sự (đặc tả Tái cấu trúc Nhân sự V1 — trung tâm là "con người + cơ cấu tổ chức +
+      // chức danh/chức vụ + phân công"; Tài khoản/Vai trò/Phân quyền tách sang Quản trị) ---
       personnelTab: 'list',
-      employeeFilters: { departmentId: '', position: '', status: '', recordOwnerUserId: '' },
+      employeeFilters: { search: '', departmentId: '', position: '', jobTitle: '', status: '' },
       get employeesFiltered() {
+        const q = this.employeeFilters.search.trim().toLowerCase();
         return this.employees.filter((e) => {
+          if (q && !(e.FullName || '').toLowerCase().includes(q) && !(e.EmployeeCode || '').toLowerCase().includes(q)) return false;
           if (this.employeeFilters.departmentId && e.DepartmentID !== this.employeeFilters.departmentId) return false;
           if (this.employeeFilters.position && e.Position !== this.employeeFilters.position) return false;
+          if (this.employeeFilters.jobTitle && e.JobTitle !== this.employeeFilters.jobTitle) return false;
           if (this.employeeFilters.status && (e.Status || 'Active') !== this.employeeFilters.status) return false;
-          if (this.employeeFilters.recordOwnerUserId && e.RecordOwnerUserID !== this.employeeFilters.recordOwnerUserId) return false;
           return true;
         });
       },
       get distinctEmployeePositions() {
         return [...new Set(this.employees.map((e) => e.Position).filter((p) => p))].sort();
       },
+      get distinctEmployeeJobTitles() {
+        return [...new Set(this.employees.map((e) => e.JobTitle).filter((j) => j))].sort();
+      },
+      // Đặc tả Tái cấu trúc Nhân sự V1 §4: thống kê PHẢI tính trên tập kết quả ĐÃ LỌC, không phải toàn
+      // viện cố định — cố ý dùng employeesFiltered (không phải employees) để tránh gây hiểu nhầm khi
+      // đang lọc theo khoa/phòng hoặc chức danh cụ thể.
       get employeeStats() {
+        const base = this.employeesFiltered;
         return {
-          total: this.employees.length,
-          active: this.employees.filter((e) => (e.Status || 'Active') === 'Active').length,
-          onLeave: this.employees.filter((e) => e.Status === 'OnLeave').length,
-          inactive: this.employees.filter((e) => e.Status === 'Inactive').length
+          total: base.length,
+          active: base.filter((e) => (e.Status || 'Active') === 'Active').length,
+          onLeave: base.filter((e) => e.Status === 'OnLeave').length,
+          inactive: base.filter((e) => e.Status === 'Inactive').length
         };
       },
       employeeFiltersActive() {
         const f = this.employeeFilters;
-        return !!(f.departmentId || f.position || f.status || f.recordOwnerUserId);
+        return !!(f.search || f.departmentId || f.position || f.jobTitle || f.status);
       },
       clearEmployeeFilters() {
-        this.employeeFilters = { departmentId: '', position: '', status: '', recordOwnerUserId: '' };
+        this.employeeFilters = { search: '', departmentId: '', position: '', jobTitle: '', status: '' };
       },
       employeeStatusLabel(status) {
         const map = { Active: 'Đang làm việc', OnLeave: 'Nghỉ phép/Thai sản', Inactive: 'Ngừng làm việc' };
@@ -476,17 +491,17 @@
           .api_changeMyPassword(this.authToken, this.changePasswordForm.oldPassword, this.changePasswordForm.newPassword);
       },
 
-      // --- Khoa/Phòng ---
+      // --- Khoa/Phòng / Cơ cấu tổ chức ---
       loadDepartmentsPage() {
         google.script.run
           .withSuccessHandler((depts) => { this.departments = depts; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_listActiveDepartments(this.authToken);
       },
-      newDepartmentForm: { departmentName: '', departmentType: 'KHOA_LAM_SANG', headUserId: '' },
+      newDepartmentForm: { departmentName: '', departmentType: 'KHOA_LAM_SANG', parentDepartmentId: '', headUserId: '' },
       creatingDepartment: false,
       openAddDepartmentModal() {
-        this.newDepartmentForm = { departmentName: '', departmentType: 'KHOA_LAM_SANG', headUserId: '' };
+        this.newDepartmentForm = { departmentName: '', departmentType: 'KHOA_LAM_SANG', parentDepartmentId: '', headUserId: '' };
         this.openModal('addDepartment');
       },
       createDepartmentAction() {
@@ -497,6 +512,7 @@
             this.closeModal();
             this.toast('success', 'Đã thêm khoa/phòng mới.');
             this.loadDepartmentsPage();
+            this.loadOrganizationTreeAction();
           })
           .withFailureHandler((e) => {
             this.creatingDepartment = false;
@@ -506,16 +522,155 @@
       },
       updateDepartmentHeadAction(d) {
         google.script.run
-          .withSuccessHandler(() => { this.toast('success', 'Đã cập nhật trưởng khoa/phòng.'); })
+          .withSuccessHandler(() => { this.toast('success', 'Đã cập nhật trưởng khoa/phòng.'); this.openDepartmentDetail(d.DepartmentID); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_updateDepartment(this.authToken, d.DepartmentID, { headUserId: d.HeadUserID });
+      },
+
+      // "Cơ cấu tổ chức" (đặc tả Tái cấu trúc Nhân sự V1 §12-13) — cây dựng từ ParentDepartmentID có
+      // sẵn; hiển thị dạng phẳng có thụt lề (đơn giản hơn nhiều so với template Alpine đệ quy, vẫn giữ
+      // đúng thứ tự cha-con).
+      organizationTree: [],
+      selectedDepartmentId: '',
+      departmentDetail: null,
+      loadOrganizationTreeAction() {
+        google.script.run
+          .withSuccessHandler((tree) => { this.organizationTree = tree; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_getOrganizationTree(this.authToken);
+      },
+      get flatOrganizationTree() {
+        const rows = [];
+        const walk = (nodes, depth) => {
+          nodes.forEach((node) => {
+            const { children, ...department } = node;
+            rows.push({ department, depth });
+            if (children && children.length > 0) walk(children, depth + 1);
+          });
+        };
+        walk(this.organizationTree, 0);
+        return rows;
+      },
+      openDepartmentDetail(departmentId) {
+        this.selectedDepartmentId = departmentId;
+        google.script.run
+          .withSuccessHandler((detail) => { this.departmentDetail = detail; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_getDepartmentDetail(this.authToken, departmentId);
       },
       deactivateDepartmentAction(d) {
         if (!confirm('Ngừng hoạt động khoa/phòng "' + d.DepartmentName + '"?')) return;
         google.script.run
-          .withSuccessHandler(() => { this.loadDepartmentsPage(); })
+          .withSuccessHandler(() => { this.loadDepartmentsPage(); this.loadOrganizationTreeAction(); this.departmentDetail = null; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_deactivateDepartment(this.authToken, d.DepartmentID);
+      },
+
+      // --- Chức danh & chức vụ (đặc tả Tái cấu trúc Nhân sự V1 §14) ---
+      positionsCatalog: [],
+      jobTitlesCatalog: [],
+      loadPositionAndJobTitleCatalogs() {
+        google.script.run
+          .withSuccessHandler((rows) => { this.positionsCatalog = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listActivePositions(this.authToken);
+        google.script.run
+          .withSuccessHandler((rows) => { this.jobTitlesCatalog = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listActiveJobTitles(this.authToken);
+      },
+      newPositionForm: { positionName: '', description: '' },
+      creatingPosition: false,
+      openAddPositionModal() {
+        this.newPositionForm = { positionName: '', description: '' };
+        this.openModal('addPosition');
+      },
+      createPositionAction() {
+        this.creatingPosition = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.creatingPosition = false;
+            this.closeModal();
+            this.toast('success', 'Đã thêm chức danh.');
+            this.loadPositionAndJobTitleCatalogs();
+          })
+          .withFailureHandler((e) => { this.creatingPosition = false; this.errorMessage = e.message; })
+          .api_createPosition(this.authToken, this.newPositionForm);
+      },
+      deactivatePositionAction(p) {
+        if (!confirm('Ngừng dùng chức danh "' + p.PositionName + '"?')) return;
+        google.script.run
+          .withSuccessHandler(() => { this.loadPositionAndJobTitleCatalogs(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_deactivatePosition(this.authToken, p.PositionID);
+      },
+      newJobTitleForm: { jobTitleName: '', description: '' },
+      creatingJobTitle: false,
+      openAddJobTitleModal() {
+        this.newJobTitleForm = { jobTitleName: '', description: '' };
+        this.openModal('addJobTitle');
+      },
+      createJobTitleAction() {
+        this.creatingJobTitle = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.creatingJobTitle = false;
+            this.closeModal();
+            this.toast('success', 'Đã thêm chức vụ.');
+            this.loadPositionAndJobTitleCatalogs();
+          })
+          .withFailureHandler((e) => { this.creatingJobTitle = false; this.errorMessage = e.message; })
+          .api_createJobTitle(this.authToken, this.newJobTitleForm);
+      },
+      deactivateJobTitleAction(j) {
+        if (!confirm('Ngừng dùng chức vụ "' + j.JobTitleName + '"?')) return;
+        google.script.run
+          .withSuccessHandler(() => { this.loadPositionAndJobTitleCatalogs(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_deactivateJobTitle(this.authToken, j.JobTitleID);
+      },
+
+      // --- Phân công nhân sự (đặc tả Tái cấu trúc Nhân sự V1 §15 — KHÁC Phân quyền hệ thống, dùng lại
+      // getEmployeeProfileBundle vì đã có sẵn employee/departmentName/assignments trong 1 lần gọi) ---
+      assignmentTabEmployeeId: '',
+      assignmentTabBundle: null,
+      get assignmentTabDepartmentHeadName() {
+        if (!this.assignmentTabBundle) return '—';
+        const dept = this.departments.find((d) => d.DepartmentID === this.assignmentTabBundle.employee.DepartmentID);
+        if (!dept || !dept.HeadUserID) return '—';
+        const head = this.userDirectory.find((u) => u.UserID === dept.HeadUserID);
+        return head ? head.FullName : '—';
+      },
+      loadAssignmentTabBundle() {
+        if (!this.assignmentTabEmployeeId) { this.assignmentTabBundle = null; return; }
+        google.script.run
+          .withSuccessHandler((bundle) => { this.assignmentTabBundle = bundle; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_getEmployeeProfileBundle(this.authToken, this.assignmentTabEmployeeId);
+      },
+      newAssignmentForm: { assignmentText: '', startDate: '' },
+      addingAssignment: false,
+      openAddAssignmentModal() {
+        this.newAssignmentForm = { assignmentText: '', startDate: '' };
+        this.openModal('addAssignment');
+      },
+      addAssignmentAction() {
+        this.addingAssignment = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.addingAssignment = false;
+            this.closeModal();
+            this.loadAssignmentTabBundle();
+          })
+          .withFailureHandler((e) => { this.addingAssignment = false; this.errorMessage = e.message; })
+          .api_addEmployeeAssignment(this.authToken, this.assignmentTabEmployeeId, this.newAssignmentForm);
+      },
+      endAssignmentAction(a) {
+        if (!confirm('Kết thúc phân công "' + a.AssignmentText + '"?')) return;
+        google.script.run
+          .withSuccessHandler(() => { this.loadAssignmentTabBundle(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_endEmployeeAssignment(this.authToken, a.AssignmentID);
       },
 
       // --- Hồ sơ nhân viên (trang "Thông tin cá nhân") ---
@@ -615,6 +770,89 @@
           })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_removeFamilyMember(this.authToken, m.FamilyMemberID);
+      },
+
+      // "Chuyển đơn vị/chức danh/chức vụ" (đặc tả Tái cấu trúc Nhân sự V1 §8) — chỉ Quản trị/TC-HC,
+      // tự động khép + mở dòng Quá trình công tác ở backend (changeEmployeeAssignment).
+      changeAssignmentForm: { departmentId: '', position: '', jobTitle: '', effectiveDate: '', note: '' },
+      changingAssignment: false,
+      openChangeAssignmentModal() {
+        if (this.positionsCatalog.length === 0 || this.jobTitlesCatalog.length === 0) this.loadPositionAndJobTitleCatalogs();
+        this.changeAssignmentForm = {
+          departmentId: this.profileBundle.employee.DepartmentID, position: '', jobTitle: '',
+          effectiveDate: this.todayDateStr_(), note: ''
+        };
+        this.openModal('changeAssignment');
+      },
+      changeEmployeeAssignmentAction() {
+        this.changingAssignment = true;
+        google.script.run
+          .withSuccessHandler((updated) => {
+            this.changingAssignment = false;
+            this.closeModal();
+            this.toast('success', 'Đã chuyển đơn vị/chức danh/chức vụ.');
+            this.profileBundle.employee = updated;
+            this.profileBundle.departmentName = this.departmentNameById(updated.DepartmentID);
+            this.loadProfileBundleAction();
+          })
+          .withFailureHandler((e) => { this.changingAssignment = false; this.errorMessage = e.message; })
+          .api_changeEmployeeAssignment(this.authToken, this.profileBundle.employee.EmployeeID, this.changeAssignmentForm);
+      },
+
+      // --- Bằng cấp & Chứng chỉ (trong Hồ sơ nhân viên) ---
+      newQualificationForm: { type: '', name: '', issueDate: '', expiryDate: '', issuingOrg: '', evidenceNote: '' },
+      addingQualification: false,
+      openAddQualificationModal() {
+        this.newQualificationForm = { type: '', name: '', issueDate: '', expiryDate: '', issuingOrg: '', evidenceNote: '' };
+        this.openModal('addQualification');
+      },
+      addQualificationAction() {
+        this.addingQualification = true;
+        google.script.run
+          .withSuccessHandler((qualification) => {
+            this.addingQualification = false;
+            this.profileBundle.qualifications.push(qualification);
+            this.closeModal();
+          })
+          .withFailureHandler((e) => { this.addingQualification = false; this.errorMessage = e.message; })
+          .api_addQualification(this.authToken, this.profileBundle.employee.EmployeeID, this.newQualificationForm);
+      },
+      removeQualificationAction(q) {
+        if (!confirm('Xoá "' + q.Name + '" khỏi hồ sơ?')) return;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.profileBundle.qualifications = this.profileBundle.qualifications.filter((x) => x.QualificationID !== q.QualificationID);
+          })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_removeQualification(this.authToken, q.QualificationID);
+      },
+
+      // --- Phân công (trong Hồ sơ nhân viên) ---
+      newProfileAssignmentForm: { assignmentText: '', startDate: '' },
+      addingProfileAssignment: false,
+      openAddProfileAssignmentModal() {
+        this.newProfileAssignmentForm = { assignmentText: '', startDate: '' };
+        this.openModal('addProfileAssignment');
+      },
+      addProfileAssignmentAction() {
+        this.addingProfileAssignment = true;
+        google.script.run
+          .withSuccessHandler((assignment) => {
+            this.addingProfileAssignment = false;
+            this.profileBundle.assignments.push(assignment);
+            this.closeModal();
+          })
+          .withFailureHandler((e) => { this.addingProfileAssignment = false; this.errorMessage = e.message; })
+          .api_addEmployeeAssignment(this.authToken, this.profileBundle.employee.EmployeeID, this.newProfileAssignmentForm);
+      },
+      endProfileAssignmentAction(a) {
+        if (!confirm('Kết thúc phân công "' + a.AssignmentText + '"?')) return;
+        google.script.run
+          .withSuccessHandler((updated) => {
+            this.profileBundle.assignments = this.profileBundle.assignments.map((x) => x.AssignmentID === updated.AssignmentID ? updated : x);
+          })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_endEmployeeAssignment(this.authToken, a.AssignmentID);
       },
 
       // --- Quản lý công việc ---
@@ -2109,7 +2347,7 @@
       },
 
       // --- Quản trị ---
-      adminTab: 'ai',
+      adminTab: 'users',
       newUserForm: { email: '', username: '', fullName: '', role: 'NHAN_VIEN' },
       creatingUser: false,
       syncingSchema: false,

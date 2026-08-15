@@ -1,29 +1,26 @@
-<div x-show="currentView === 'personnel'" x-init="if (currentView === 'personnel' && employees.length === 0) loadEmployeesPage(); if (currentView === 'personnel' && departments.length === 0) loadDepartmentsPage();" class="max-w-5xl mx-auto">
+<div x-show="currentView === 'personnel'" x-init="if (currentView === 'personnel' && employees.length === 0) loadEmployeesPage(); if (currentView === 'personnel' && departments.length === 0) loadDepartmentsPage(); if (currentView === 'personnel' && positionsCatalog.length === 0) loadPositionAndJobTitleCatalogs();" class="max-w-5xl mx-auto">
   <div class="page-header">
     <div class="page-header-left">
       <div class="page-header-icon">👤</div>
       <div>
         <h1 class="page-title-text">NHÂN SỰ</h1>
-        <p class="page-subtitle">Con người, khoa/phòng, tài khoản đăng nhập &amp; phân quyền — 1 nơi duy nhất</p>
+        <p class="page-subtitle">Con người, cơ cấu tổ chức, chức danh/chức vụ &amp; phân công</p>
       </div>
     </div>
   </div>
 
   <div class="tabs">
     <button @click="personnelTab = 'list'" class="tab" :class="personnelTab === 'list' ? 'active' : ''">Danh sách nhân sự</button>
-    <button @click="personnelTab = 'departments'" class="tab" :class="personnelTab === 'departments' ? 'active' : ''">Khoa/Phòng</button>
-    <template x-if="isSuperAdmin">
-      <button @click="personnelTab = 'users'; if (allUsers.length === 0) loadUsersAndRoles();" class="tab" :class="personnelTab === 'users' ? 'active' : ''">Người dùng &amp; Vai trò</button>
-    </template>
-    <template x-if="isSuperAdmin">
-      <button @click="personnelTab = 'permissions'" class="tab" :class="personnelTab === 'permissions' ? 'active' : ''">Phân quyền phụ trách</button>
-    </template>
+    <button @click="personnelTab = 'orgStructure'; loadOrganizationTreeAction();" class="tab" :class="personnelTab === 'orgStructure' ? 'active' : ''">Cơ cấu tổ chức</button>
+    <button @click="personnelTab = 'catalog'" class="tab" :class="personnelTab === 'catalog' ? 'active' : ''">Chức danh &amp; chức vụ</button>
+    <button @click="personnelTab = 'assignment'" class="tab" :class="personnelTab === 'assignment' ? 'active' : ''">Phân công nhân sự</button>
   </div>
 
   <!-- Tab: Danh sách nhân sự -->
   <div x-show="personnelTab === 'list'">
     <div class="toolbar flex-wrap">
       <div class="filter-group flex-wrap">
+        <input type="text" x-model="employeeFilters.search" placeholder="Tìm theo tên / mã nhân viên..." class="filter-input">
         <select x-model="employeeFilters.departmentId" class="filter-select">
           <option value="">Khoa/Phòng: Tất cả</option>
           <template x-for="d in departments" :key="d.DepartmentID">
@@ -36,17 +33,17 @@
             <option :value="p" x-text="p"></option>
           </template>
         </select>
+        <select x-model="employeeFilters.jobTitle" class="filter-select">
+          <option value="">Chức vụ: Tất cả</option>
+          <template x-for="j in distinctEmployeeJobTitles" :key="j">
+            <option :value="j" x-text="j"></option>
+          </template>
+        </select>
         <select x-model="employeeFilters.status" class="filter-select">
           <option value="">Trạng thái: Tất cả</option>
           <option value="Active">Đang làm việc</option>
           <option value="OnLeave">Nghỉ phép/Thai sản</option>
           <option value="Inactive">Ngừng làm việc</option>
-        </select>
-        <select x-model="employeeFilters.recordOwnerUserId" class="filter-select">
-          <option value="">Người phụ trách hồ sơ: Tất cả</option>
-          <template x-for="u in userDirectory" :key="u.UserID">
-            <option :value="u.UserID" x-text="u.FullName"></option>
-          </template>
         </select>
         <span x-show="employeeFiltersActive()" class="filter-active-badge">
           Đang lọc <button @click="clearEmployeeFilters()">×</button>
@@ -81,7 +78,6 @@
               <th>Chức danh</th>
               <th>Chức vụ</th>
               <th>Trạng thái</th>
-              <th>Người phụ trách hồ sơ</th>
               <th x-show="isSuperAdmin || isTcHc"></th>
             </tr>
           </thead>
@@ -94,32 +90,16 @@
                 <td class="font-tech" x-text="e.EmployeeCode"></td>
                 <td><button @click="openEmployeeProfile(e.EmployeeID)" class="btn-link !p-0" x-text="e.FullName"></button></td>
                 <td x-text="departmentNameById(e.DepartmentID)"></td>
-                <td x-text="e.Position"></td>
+                <td x-text="e.Position || '—'"></td>
                 <td x-text="e.JobTitle || '—'"></td>
-                <td>
-                  <select x-show="isSuperAdmin || isTcHc" x-model="e.Status" @change="saveEmployeeFieldAction(e, { Status: e.Status })" class="form-control form-control-sm">
-                    <option value="Active">Đang làm việc</option>
-                    <option value="OnLeave">Nghỉ phép/Thai sản</option>
-                    <option value="Inactive">Ngừng làm việc</option>
-                  </select>
-                  <span x-show="!(isSuperAdmin || isTcHc)" class="badge" :class="employeeStatusBadgeClass(e.Status)" x-text="employeeStatusLabel(e.Status)"></span>
-                </td>
-                <td>
-                  <select x-show="isSuperAdmin || isTcHc" x-model="e.RecordOwnerUserID" @change="saveEmployeeFieldAction(e, { RecordOwnerUserID: e.RecordOwnerUserID })" class="form-control form-control-sm">
-                    <option value="">-- Chưa gán --</option>
-                    <template x-for="u in userDirectory" :key="u.UserID">
-                      <option :value="u.UserID" x-text="u.FullName"></option>
-                    </template>
-                  </select>
-                  <span x-show="!(isSuperAdmin || isTcHc)" x-text="e.RecordOwnerUserID ? userEmailById(e.RecordOwnerUserID) : '—'"></span>
-                </td>
+                <td><span class="badge" :class="employeeStatusBadgeClass(e.Status)" x-text="employeeStatusLabel(e.Status)"></span></td>
                 <td x-show="isSuperAdmin || isTcHc" class="flex gap-2">
                   <button @click="openResetPasswordModal(e)" class="btn-link">Đặt lại mật khẩu</button>
                 </td>
               </tr>
             </template>
             <template x-if="employeesFiltered.length === 0">
-              <tr><td colspan="9" class="text-xs holo-text-dim py-4">Không có nhân sự nào khớp bộ lọc.</td></tr>
+              <tr><td colspan="8" class="text-xs holo-text-dim py-4">Không có nhân sự nào khớp bộ lọc.</td></tr>
             </template>
           </tbody>
         </table>
@@ -130,145 +110,183 @@
     </div>
   </div>
 
-  <!-- Tab: Khoa/Phòng -->
-  <div x-show="personnelTab === 'departments'">
+  <!-- Tab: Cơ cấu tổ chức -->
+  <div x-show="personnelTab === 'orgStructure'">
     <div class="page-header-actions mb-3" x-show="isSuperAdmin || isTcHc">
       <button @click="openAddDepartmentModal()" class="btn btn-primary btn-sm">+ Thêm khoa/phòng</button>
     </div>
-    <div class="card">
-      <div class="table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Tên khoa/phòng</th>
-              <th>Loại</th>
-              <th>Trưởng khoa/phòng</th>
-              <th>Trạng thái</th>
-              <th x-show="isSuperAdmin || isTcHc"></th>
-            </tr>
-          </thead>
-          <tbody>
-            <template x-for="d in departments" :key="d.DepartmentID">
-              <tr>
-                <td x-text="d.DepartmentName"></td>
-                <td><span class="badge badge-gray" x-text="departmentTypeLabel(d.DepartmentType)"></span></td>
-                <td x-show="!(isSuperAdmin || isTcHc)" x-text="d.HeadUserID ? userEmailById(d.HeadUserID) : '—'"></td>
-                <td x-show="isSuperAdmin || isTcHc">
-                  <select x-model="d.HeadUserID" @change="updateDepartmentHeadAction(d)" class="form-control form-control-sm">
-                    <option value="">-- Chưa gán --</option>
-                    <template x-for="u in userDirectory" :key="u.UserID">
-                      <option :value="u.UserID" x-text="u.FullName + ' (' + u.Email + ')'"></option>
-                    </template>
-                  </select>
-                </td>
-                <td><span class="badge" :class="d.Status === 'Active' ? 'badge-green' : 'badge-gray'" x-text="d.Status"></span></td>
-                <td x-show="isSuperAdmin || isTcHc">
-                  <button @click="deactivateDepartmentAction(d)" x-show="d.Status === 'Active'" class="btn-link">Ngừng hoạt động</button>
-                </td>
-              </tr>
+    <div class="flex gap-4 items-start">
+      <div class="card p-3 flex-1 min-w-0">
+        <p class="holo-label mb-2">Cây tổ chức</p>
+        <div class="space-y-1">
+          <template x-for="row in flatOrganizationTree" :key="row.department.DepartmentID">
+            <button @click="openDepartmentDetail(row.department.DepartmentID)" class="app-nav-item w-full text-left flex items-center gap-2"
+                    :class="selectedDepartmentId === row.department.DepartmentID ? 'active' : ''"
+                    :style="'padding-left:' + (10 + row.depth * 18) + 'px;'">
+              <span x-text="row.depth === 0 ? '🏢' : '↳'"></span>
+              <span x-text="row.department.DepartmentName"></span>
+              <span class="badge badge-gray ml-auto" x-text="departmentTypeLabel(row.department.DepartmentType)"></span>
+            </button>
+          </template>
+          <p class="text-xs holo-text-dim py-2" x-show="flatOrganizationTree.length === 0">Chưa có khoa/phòng nào.</p>
+        </div>
+      </div>
+
+      <div class="card p-4 flex-1 min-w-0" x-show="departmentDetail">
+        <template x-if="departmentDetail">
+          <div class="space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="font-semibold text-base" x-text="departmentDetail.department.DepartmentName"></h3>
+              <span class="badge" :class="departmentDetail.department.Status === 'Active' ? 'badge-green' : 'badge-gray'" x-text="departmentDetail.department.Status"></span>
+            </div>
+
+            <div class="form-group !mb-2" x-show="isSuperAdmin || isTcHc">
+              <label>Trưởng khoa/phòng</label>
+              <select x-model="departmentDetail.department.HeadUserID" @change="updateDepartmentHeadAction(departmentDetail.department)" class="form-control form-control-sm">
+                <option value="">-- Chưa gán --</option>
+                <template x-for="u in userDirectory" :key="u.UserID">
+                  <option :value="u.UserID" x-text="u.FullName + ' (' + u.Email + ')'"></option>
+                </template>
+              </select>
+            </div>
+            <p class="text-sm" x-show="!(isSuperAdmin || isTcHc)">
+              Trưởng khoa/phòng: <strong x-text="departmentDetail.headEmployee ? departmentDetail.headEmployee.FullName : '—'"></strong>
+            </p>
+
+            <template x-for="grp in departmentDetail.leadershipByJobTitle" :key="grp.jobTitle">
+              <p class="text-sm">
+                <span x-text="grp.jobTitle + ':'"></span>
+                <strong x-text="grp.employees.map(e => e.FullName).join(', ')"></strong>
+              </p>
             </template>
-          </tbody>
-        </table>
+
+            <p class="text-sm">Số nhân sự: <strong x-text="departmentDetail.employeeCount"></strong></p>
+
+            <div>
+              <p class="holo-label mb-1">Danh sách nhân sự</p>
+              <div class="table-wrap">
+                <table class="data-table">
+                  <thead><tr><th>Họ tên</th><th>Chức danh</th><th>Chức vụ</th></tr></thead>
+                  <tbody>
+                    <template x-for="e in departmentDetail.employees" :key="e.EmployeeID">
+                      <tr>
+                        <td><button @click="openEmployeeProfile(e.EmployeeID)" class="btn-link !p-0" x-text="e.FullName"></button></td>
+                        <td x-text="e.Position || '—'"></td>
+                        <td x-text="e.JobTitle || '—'"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <button x-show="(isSuperAdmin || isTcHc) && departmentDetail.department.Status === 'Active'" @click="deactivateDepartmentAction(departmentDetail.department)" class="btn btn-secondary btn-sm">Ngừng hoạt động khoa/phòng</button>
+          </div>
+        </template>
+      </div>
+      <div class="card p-4 flex-1 min-w-0 text-xs holo-text-dim" x-show="!departmentDetail">Chọn 1 khoa/phòng bên trái để xem chi tiết.</div>
+    </div>
+  </div>
+
+  <!-- Tab: Chức danh & chức vụ -->
+  <div x-show="personnelTab === 'catalog'">
+    <div class="flex gap-4 items-start">
+      <div class="card flex-1 min-w-0">
+        <div class="card-header">
+          <h3>Chức danh (chuyên môn)</h3>
+          <button x-show="isSuperAdmin || isTcHc" @click="openAddPositionModal()" class="btn btn-primary btn-sm">+ Thêm chức danh</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Tên chức danh</th><th>Mô tả</th><th x-show="isSuperAdmin || isTcHc"></th></tr></thead>
+            <tbody>
+              <template x-for="p in positionsCatalog" :key="p.PositionID">
+                <tr>
+                  <td x-text="p.PositionName"></td>
+                  <td x-text="p.Description || '—'"></td>
+                  <td x-show="isSuperAdmin || isTcHc"><button @click="deactivatePositionAction(p)" class="btn-link">Ngừng dùng</button></td>
+                </tr>
+              </template>
+              <template x-if="positionsCatalog.length === 0">
+                <tr><td colspan="3" class="text-xs holo-text-dim py-4">Chưa có chức danh nào.</td></tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card flex-1 min-w-0">
+        <div class="card-header">
+          <h3>Chức vụ (quản lý)</h3>
+          <button x-show="isSuperAdmin || isTcHc" @click="openAddJobTitleModal()" class="btn btn-primary btn-sm">+ Thêm chức vụ</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Tên chức vụ</th><th>Mô tả</th><th x-show="isSuperAdmin || isTcHc"></th></tr></thead>
+            <tbody>
+              <template x-for="j in jobTitlesCatalog" :key="j.JobTitleID">
+                <tr>
+                  <td x-text="j.JobTitleName"></td>
+                  <td x-text="j.Description || '—'"></td>
+                  <td x-show="isSuperAdmin || isTcHc"><button @click="deactivateJobTitleAction(j)" class="btn-link">Ngừng dùng</button></td>
+                </tr>
+              </template>
+              <template x-if="jobTitlesCatalog.length === 0">
+                <tr><td colspan="3" class="text-xs holo-text-dim py-4">Chưa có chức vụ nào.</td></tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Tab: Người dùng & Vai trò -->
-  <template x-if="isSuperAdmin">
-    <div x-show="personnelTab === 'users'">
-      <div class="card">
-        <div class="card-header">
-          <h3>Danh sách người dùng</h3>
-          <button @click="openModal('addUser')" class="btn btn-primary btn-sm">+ Thêm người dùng</button>
-        </div>
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th></th>
-                <th>Email</th>
-                <th>Tên hiển thị</th>
-                <th>Vai trò</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <template x-for="u in allUsers" :key="u.UserID">
-                <tr>
-                  <td>
-                    <img x-show="u.AvatarUrl" :src="u.AvatarUrl" class="w-7 h-7 rounded-full object-cover">
-                    <div x-show="!u.AvatarUrl" class="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-tech text-white" :style="avatarColorStyle(u)" x-text="initials(u)"></div>
-                  </td>
-                  <td x-text="u.Email"></td>
-                  <td><input type="text" x-model="u.FullName" class="form-control form-control-sm"></td>
-                  <td>
-                    <select x-model="u.Role" class="form-control form-control-sm">
-                      <template x-for="r in allRoles" :key="r.RoleID">
-                        <option :value="r.RoleID" x-text="r.RoleName"></option>
-                      </template>
-                    </select>
-                  </td>
-                  <td><button @click="saveUserRole(u)" class="btn-link">Lưu</button></td>
-                </tr>
-              </template>
-            </tbody>
-          </table>
-        </div>
+  <!-- Tab: Phân công nhân sự -->
+  <div x-show="personnelTab === 'assignment'">
+    <div class="card p-4 mb-4">
+      <div class="form-group max-w-md !mb-0">
+        <label>Chọn nhân sự</label>
+        <select x-model="assignmentTabEmployeeId" @change="loadAssignmentTabBundle()" class="form-control">
+          <option value="">-- Chọn nhân sự --</option>
+          <template x-for="e in employees" :key="e.EmployeeID">
+            <option :value="e.EmployeeID" x-text="e.FullName + ' (' + e.EmployeeCode + ')'"></option>
+          </template>
+        </select>
       </div>
     </div>
-  </template>
 
-  <!-- Tab: Phân quyền phụ trách theo khoa/phòng -->
-  <template x-if="isSuperAdmin">
-    <div x-show="personnelTab === 'permissions'">
-      <div class="card">
-        <div class="card-header"><h3>Phân quyền phụ trách theo khoa/phòng</h3></div>
-        <div class="card-body space-y-3">
-          <p class="text-xs holo-text-dim">Quyền của Trưởng khoa/phòng được tự động cấp khi gán "Trưởng khoa/phòng" ở tab Khoa/Phòng. Dùng màn này để chỉ định 1 người CỤ THỂ phụ trách 1 chức năng trong 1 khoa/phòng — VD uỷ quyền lập lịch trực, hoặc chỉ định người duyệt phân trực thay Trưởng khoa khi vắng mặt — không cần đổi Vai trò hệ thống của họ.</p>
-          <div class="form-grid-2 max-w-lg">
-            <div class="form-group">
-              <label>Khoa/Phòng</label>
-              <select x-model="permissionDepartmentFilter" @change="loadDepartmentPermissionsAction()" class="form-control">
-                <option value="">-- Chọn khoa/phòng --</option>
-                <template x-for="d in departments" :key="d.DepartmentID">
-                  <option :value="d.DepartmentID" x-text="d.DepartmentName"></option>
-                </template>
-              </select>
-            </div>
-          </div>
+    <template x-if="assignmentTabBundle">
+      <div class="card p-4 space-y-4">
+        <div class="form-grid-2 text-sm">
+          <div><span class="holo-text-dim text-xs">Đơn vị</span><br><strong x-text="assignmentTabBundle.departmentName"></strong></div>
+          <div><span class="holo-text-dim text-xs">Chức danh</span><br><strong x-text="assignmentTabBundle.employee.Position || '—'"></strong></div>
+          <div><span class="holo-text-dim text-xs">Chức vụ</span><br><strong x-text="assignmentTabBundle.employee.JobTitle || '—'"></strong></div>
+          <div><span class="holo-text-dim text-xs">Quản lý trực tiếp</span><br><strong x-text="assignmentTabDepartmentHeadName"></strong></div>
         </div>
-        <div class="table-wrap" x-show="permissionDepartmentFilter">
-          <table class="data-table">
-            <thead><tr><th>Người dùng</th><th>Xem</th><th>Tạo</th><th>Sửa</th><th>Xoá</th><th>Gửi duyệt</th><th>Duyệt</th><th>Từ chối</th><th>Công bố</th><th>Chốt</th><th>Xuất DL</th></tr></thead>
-            <tbody>
-              <template x-for="p in departmentPermissions" :key="p.PermissionID">
-                <tr>
-                  <td x-text="userEmailById(p.UserID)"></td>
-                  <template x-for="action in ['CanView','CanCreate','CanEdit','CanDelete','CanSubmit','CanApprove','CanReject','CanPublish','CanLock','CanExport']" :key="action">
-                    <td><input type="checkbox" x-model="p[action]" @change="savePermissionRowAction(p)"></td>
-                  </template>
-                </tr>
-              </template>
-              <template x-if="departmentPermissions.length === 0">
-                <tr><td colspan="11" class="text-xs holo-text-dim py-4">Chưa có ai được chỉ định phụ trách riêng trong khoa/phòng này.</td></tr>
-              </template>
-            </tbody>
-          </table>
+
+        <div class="flex items-center justify-between">
+          <p class="holo-label">Phân công</p>
+          <button x-show="isSuperAdmin || isTcHc" @click="openAddAssignmentModal()" class="btn-link">+ Thêm phân công</button>
         </div>
-        <div class="card-body" x-show="permissionDepartmentFilter">
-          <div class="form-group max-w-xs">
-            <label>Chỉ định thêm người phụ trách</label>
-            <select x-model="newPermissionUserId" @change="addPermissionRowAction()" class="form-control form-control-sm">
-              <option value="">-- Chọn người dùng --</option>
-              <template x-for="u in userDirectory" :key="u.UserID">
-                <option :value="u.UserID" x-text="u.FullName + ' (' + u.Email + ')'"></option>
-              </template>
-            </select>
-          </div>
-        </div>
+        <table class="data-table">
+          <thead><tr><th>Nội dung phân công</th><th>Từ ngày</th><th>Đến ngày</th><th x-show="isSuperAdmin || isTcHc"></th></tr></thead>
+          <tbody>
+            <template x-for="a in assignmentTabBundle.assignments" :key="a.AssignmentID">
+              <tr>
+                <td x-text="a.AssignmentText"></td>
+                <td x-text="a.StartDate"></td>
+                <td x-text="a.EndDate || 'Đang hiệu lực'"></td>
+                <td x-show="isSuperAdmin || isTcHc"><button x-show="!a.EndDate" @click="endAssignmentAction(a)" class="btn-link">Kết thúc</button></td>
+              </tr>
+            </template>
+            <template x-if="assignmentTabBundle.assignments.length === 0">
+              <tr><td colspan="4" class="text-xs holo-text-dim py-2">Chưa có phân công nào.</td></tr>
+            </template>
+          </tbody>
+        </table>
       </div>
-    </div>
-  </template>
+    </template>
+  </div>
 
   <!-- Modal: Thêm nhân sự -->
   <div x-show="modalOpen === 'addEmployee'" x-cloak class="modal-overlay" @click.self="closeModal()">
@@ -309,11 +327,21 @@
           </div>
           <div class="form-group">
             <label>Chức danh</label>
-            <input type="text" x-model="newEmployeeForm.position" class="form-control" placeholder="Bác sĩ, Điều dưỡng, Kế toán viên...">
+            <select x-model="newEmployeeForm.position" class="form-control">
+              <option value="">-- Chọn chức danh --</option>
+              <template x-for="p in positionsCatalog" :key="p.PositionID">
+                <option :value="p.PositionName" x-text="p.PositionName"></option>
+              </template>
+            </select>
           </div>
           <div class="form-group">
             <label>Chức vụ</label>
-            <input type="text" x-model="newEmployeeForm.jobTitle" class="form-control" placeholder="Trưởng khoa, Điều dưỡng trưởng...">
+            <select x-model="newEmployeeForm.jobTitle" class="form-control">
+              <option value="">-- Chọn chức vụ --</option>
+              <template x-for="j in jobTitlesCatalog" :key="j.JobTitleID">
+                <option :value="j.JobTitleName" x-text="j.JobTitleName"></option>
+              </template>
+            </select>
           </div>
           <div class="form-group">
             <label>Loại nhân viên</label>
@@ -335,15 +363,6 @@
           <div class="form-group">
             <label>Ngày bắt đầu</label>
             <input type="date" x-model="newEmployeeForm.startDate" class="form-control">
-          </div>
-          <div class="form-group">
-            <label>Người phụ trách hồ sơ</label>
-            <select x-model="newEmployeeForm.recordOwnerUserId" class="form-control">
-              <option value="">-- Chưa gán --</option>
-              <template x-for="u in userDirectory" :key="u.UserID">
-                <option :value="u.UserID" x-text="u.FullName"></option>
-              </template>
-            </select>
           </div>
         </div>
       </div>
@@ -445,6 +464,15 @@
           </select>
         </div>
         <div class="form-group">
+          <label>Trực thuộc</label>
+          <select x-model="newDepartmentForm.parentDepartmentId" class="form-control">
+            <option value="">-- Đơn vị gốc (không trực thuộc) --</option>
+            <template x-for="d in departments" :key="d.DepartmentID">
+              <option :value="d.DepartmentID" x-text="d.DepartmentName"></option>
+            </template>
+          </select>
+        </div>
+        <div class="form-group">
           <label>Trưởng khoa/phòng</label>
           <select x-model="newDepartmentForm.headUserId" class="form-control">
             <option value="">-- Chưa gán --</option>
@@ -463,40 +491,79 @@
     </div>
   </div>
 
-  <!-- Modal: Thêm người dùng mới -->
-  <div x-show="modalOpen === 'addUser'" x-cloak class="modal-overlay" @click.self="closeModal()">
+  <!-- Modal: Thêm chức danh -->
+  <div x-show="modalOpen === 'addPosition'" x-cloak class="modal-overlay" @click.self="closeModal()">
     <div class="modal">
       <div class="modal-header">
-        <h2>Thêm người dùng mới</h2>
+        <h2>Thêm chức danh</h2>
         <button @click="closeModal()" class="modal-close">×</button>
       </div>
       <div class="modal-body">
-        <p class="text-xs holo-text-dim mb-3">Tạo trước tài khoản cho nhân viên chưa từng đăng nhập — khi họ đăng nhập lần đầu, hệ thống nhận đúng Vai trò đã gán sẵn ở đây.</p>
         <div class="form-group">
-          <label class="required">Email (@domain bệnh viện)</label>
-          <input type="email" x-model="newUserForm.email" class="form-control">
+          <label class="required">Tên chức danh</label>
+          <input type="text" x-model="newPositionForm.positionName" class="form-control" placeholder="VD: Bác sĩ, Điều dưỡng, Dược sĩ...">
         </div>
         <div class="form-group">
-          <label class="required">Tên đăng nhập</label>
-          <input type="text" x-model="newUserForm.username" class="form-control">
-        </div>
-        <div class="form-group">
-          <label>Tên hiển thị</label>
-          <input type="text" x-model="newUserForm.fullName" class="form-control">
-        </div>
-        <div class="form-group">
-          <label>Vai trò</label>
-          <select x-model="newUserForm.role" class="form-control">
-            <template x-for="r in allRoles" :key="r.RoleID">
-              <option :value="r.RoleID" x-text="r.RoleName"></option>
-            </template>
-          </select>
+          <label>Mô tả</label>
+          <input type="text" x-model="newPositionForm.description" class="form-control">
         </div>
       </div>
       <div class="modal-footer">
         <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
-        <button @click="createUserAction()" :disabled="creatingUser || !newUserForm.email || !newUserForm.username" class="btn btn-primary">
-          <span x-text="creatingUser ? 'Đang thêm...' : '+ Thêm người dùng'"></span>
+        <button @click="createPositionAction()" :disabled="creatingPosition || !newPositionForm.positionName" class="btn btn-primary">
+          <span x-text="creatingPosition ? 'Đang thêm...' : '+ Thêm'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Thêm chức vụ -->
+  <div x-show="modalOpen === 'addJobTitle'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Thêm chức vụ</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="required">Tên chức vụ</label>
+          <input type="text" x-model="newJobTitleForm.jobTitleName" class="form-control" placeholder="VD: Trưởng khoa, Điều dưỡng trưởng...">
+        </div>
+        <div class="form-group">
+          <label>Mô tả</label>
+          <input type="text" x-model="newJobTitleForm.description" class="form-control">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="createJobTitleAction()" :disabled="creatingJobTitle || !newJobTitleForm.jobTitleName" class="btn btn-primary">
+          <span x-text="creatingJobTitle ? 'Đang thêm...' : '+ Thêm'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Thêm phân công -->
+  <div x-show="modalOpen === 'addAssignment'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Thêm phân công</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="required">Nội dung phân công</label>
+          <input type="text" x-model="newAssignmentForm.assignmentText" class="form-control" placeholder="VD: Phụ trách công tác dược lâm sàng">
+        </div>
+        <div class="form-group">
+          <label>Từ ngày</label>
+          <input type="date" x-model="newAssignmentForm.startDate" class="form-control">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="addAssignmentAction()" :disabled="addingAssignment || !newAssignmentForm.assignmentText" class="btn btn-primary">
+          <span x-text="addingAssignment ? 'Đang thêm...' : '+ Thêm'"></span>
         </button>
       </div>
     </div>

@@ -76,8 +76,39 @@ function syncSchemaWithSpreadsheet(user) {
   const removedSheets = removeObsoleteSheets_(spreadsheet, expectedSheetNames);
   removedSheets.forEach(function (name) { report.push(name + ': xoá sheet (thuộc miền nghiệp vụ cũ, không còn dùng)'); });
 
+  const seededCatalogCount = seedPositionAndJobTitleCatalogsFromEmployees_();
+  if (seededCatalogCount > 0) report.push('Danh mục Chức danh/Chức vụ: tự thêm ' + seededCatalogCount + ' giá trị từ dữ liệu nhân sự hiện có');
+
   logAudit(user.UserID, 'SCHEMA_SYNCED', 'System', spreadsheet.getId(), report.join(' | ') || 'Không có thay đổi');
   return { changes: report };
+}
+
+// Đặc tả Tái cấu trúc Nhân sự V1 §14: Position/JobTitle chuyển từ nhập tự do sang chọn từ danh mục —
+// backfill danh mục từ chính các giá trị ĐANG DÙNG trong Employees, để không bắt Admin gõ lại từ đầu
+// và không làm "biến mất" giá trị cũ khỏi các dropdown chọn. Idempotent theo TÊN (không thêm trùng).
+function seedPositionAndJobTitleCatalogsFromEmployees_() {
+  const employees = getSheetRepository(SHEETS.EMPLOYEES).findAll();
+  const positionsRepo = getSheetRepository(SHEETS.POSITIONS);
+  const jobTitlesRepo = getSheetRepository(SHEETS.JOB_TITLES);
+  const existingPositionNames = positionsRepo.findAll().map(function (p) { return p.PositionName; });
+  const existingJobTitleNames = jobTitlesRepo.findAll().map(function (j) { return j.JobTitleName; });
+  let seededCount = 0;
+
+  const distinctPositions = [...new Set(employees.map(function (e) { return e.Position; }).filter(function (p) { return p; }))];
+  distinctPositions.forEach(function (name) {
+    if (existingPositionNames.indexOf(name) !== -1) return;
+    positionsRepo.append({ PositionID: generateId('POS'), PositionName: name, Description: '', Status: 'Active', CreatedAt: nowIso(), UpdatedAt: nowIso() });
+    seededCount++;
+  });
+
+  const distinctJobTitles = [...new Set(employees.map(function (e) { return e.JobTitle; }).filter(function (j) { return j; }))];
+  distinctJobTitles.forEach(function (name) {
+    if (existingJobTitleNames.indexOf(name) !== -1) return;
+    jobTitlesRepo.append({ JobTitleID: generateId('JT'), JobTitleName: name, Description: '', Status: 'Active', CreatedAt: nowIso(), UpdatedAt: nowIso() });
+    seededCount++;
+  });
+
+  return seededCount;
 }
 
 // Xoá mọi sheet KHÔNG còn xuất hiện trong SCHEMA hiện tại — dữ liệu cũ (Documents/Libraries/

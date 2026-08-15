@@ -51,6 +51,7 @@ function createEmployee(actingUser, input) {
     CreatedAt: nowIso(),
     UpdatedAt: nowIso()
   });
+  seedInitialEmploymentHistory_(employee);
   logAudit(actingUser.UserID, 'EMPLOYEE_CREATED', 'Employee', employee.EmployeeID, input.fullName + ' (' + input.employeeCode + ')');
   return employee;
 }
@@ -222,7 +223,10 @@ function getEmployeeProfileBundle(actingUser, employeeId) {
     employee: employee, departmentName: department ? department.DepartmentName : '',
     account: account, canEdit: canEdit,
     familyMembers: listFamilyMembers(employeeId),
-    dutyShiftsThisMonth: dutyShiftsThisMonth
+    dutyShiftsThisMonth: dutyShiftsThisMonth,
+    employmentHistory: listEmploymentHistory(employeeId),
+    qualifications: listQualifications(employeeId),
+    assignments: listEmployeeAssignments(employeeId)
   };
 }
 
@@ -284,4 +288,137 @@ function removeFamilyMember(actingUser, familyMemberId) {
   }
   logAudit(actingUser.UserID, 'FAMILY_MEMBER_REMOVED', 'Employee', member.EmployeeID, member.FullName);
   return { success: true };
+}
+
+// --- "Quá trình công tác" (đặc tả Tái cấu trúc Nhân sự V1 §8) ---
+
+function seedInitialEmploymentHistory_(employee) {
+  getSheetRepository(SHEETS.EMPLOYMENT_HISTORY).append({
+    HistoryID: generateId('EMH'), EmployeeID: employee.EmployeeID, DepartmentID: employee.DepartmentID,
+    Position: employee.Position || '', JobTitle: employee.JobTitle || '',
+    StartDate: employee.StartDate || nowIso().slice(0, 10), EndDate: '',
+    Note: '', CreatedByUserID: employee.UserID, CreatedAt: nowIso()
+  });
+}
+
+// Dữ liệu nhân sự có TRƯỚC khi module Quá trình công tác ra đời sẽ chưa có dòng lịch sử nào — backfill
+// LƯỜI (lazy) 1 dòng từ chính hồ sơ hiện tại ngay lần đầu được xem, cùng cách tiếp cận đã dùng cho
+// Recurring Task Instance (Task.Service.gs#ensureRecurringInstancesForEmployee_) — không cần trigger
+// hay migration script riêng.
+function listEmploymentHistory(employeeId) {
+  const repo = getSheetRepository(SHEETS.EMPLOYMENT_HISTORY);
+  let history = repo.findAll().filter(function (h) { return h.EmployeeID === employeeId; });
+  if (history.length === 0) {
+    const employee = getEmployeeById(employeeId);
+    if (employee) {
+      seedInitialEmploymentHistory_(employee);
+      history = repo.findAll().filter(function (h) { return h.EmployeeID === employeeId; });
+    }
+  }
+  return history.sort(function (a, b) { return a.StartDate < b.StartDate ? 1 : -1; });
+}
+
+// "Chuyển đơn vị/chức danh/chức vụ" — hành động TỔ CHỨC (không phải sửa hồ sơ cá nhân), khác
+// updateMyPersonalInfo/updateEmployee ở chỗ tự động khép dòng Quá trình công tác đang hiệu lực + mở 1
+// dòng mới, đúng §8 "biết nhân sự từng thuộc đơn vị nào, biết thay đổi chức danh/chức vụ".
+function changeEmployeeAssignment(actingUser, employeeId, input) {
+  requireEmployeeManager_(actingUser);
+  const employee = getEmployeeById(employeeId);
+  if (!employee) throw new Error('Không tìm thấy nhân viên.');
+  if (isBlank(input.effectiveDate)) throw new Error('Thiếu ngày hiệu lực.');
+  const department = getSheetRepository(SHEETS.DEPARTMENTS).findById('DepartmentID', input.departmentId || employee.DepartmentID);
+  if (!department) throw new Error('Khoa/Phòng không tồn tại.');
+
+  // Đảm bảo LUÔN có ít nhất 1 dòng lịch sử trước khi chuyển — nhân sự tạo trước khi có module này, hoặc
+  // chưa từng mở tab "Quá trình công tác" (nơi mới lazy-backfill), sẽ không có dòng nào để khép, làm
+  // mất mốc "trước khi chuyển" khỏi lịch sử nếu bỏ qua bước này.
+  listEmploymentHistory(employeeId);
+  const historyRepo = getSheetRepository(SHEETS.EMPLOYMENT_HISTORY);
+  const openEntry = historyRepo.findAll().find(function (h) { return h.EmployeeID === employeeId && isBlank(h.EndDate); });
+  if (openEntry) {
+    historyRepo.updateById('HistoryID', openEntry.HistoryID, { EndDate: addDaysToDateString_(input.effectiveDate, -1) });
+  }
+  historyRepo.append({
+    HistoryID: generateId('EMH'), EmployeeID: employeeId, DepartmentID: department.DepartmentID,
+    Position: input.position != null ? input.position : employee.Position,
+    JobTitle: input.jobTitle != null ? input.jobTitle : employee.JobTitle,
+    StartDate: input.effectiveDate, EndDate: '', Note: input.note || '',
+    CreatedByUserID: actingUser.UserID, CreatedAt: nowIso()
+  });
+
+  const updated = getSheetRepository(SHEETS.EMPLOYEES).updateById('EmployeeID', employeeId, {
+    DepartmentID: department.DepartmentID,
+    Position: input.position != null ? input.position : employee.Position,
+    JobTitle: input.jobTitle != null ? input.jobTitle : employee.JobTitle,
+    UpdatedAt: nowIso()
+  });
+  logAudit(actingUser.UserID, 'EMPLOYEE_ASSIGNMENT_CHANGED', 'Employee', employeeId, JSON.stringify(input));
+  return updated;
+}
+
+// --- "Bằng cấp & Chứng chỉ" (đặc tả Tái cấu trúc Nhân sự V1 §9) — V1 chỉ CRUD dữ liệu hồ sơ cơ bản,
+// KHÔNG xây cảnh báo hết hạn (đúng §18 "chưa làm ở V1"). ---
+
+function listQualifications(employeeId) {
+  return getSheetRepository(SHEETS.QUALIFICATIONS).findAll().filter(function (q) { return q.EmployeeID === employeeId; });
+}
+
+function addQualification(actingUser, employeeId, input) {
+  requireFamilyMemberManager_(actingUser, employeeId);
+  if (isBlank(input.name)) throw new Error('Thiếu tên bằng cấp/chứng chỉ.');
+  const qualification = getSheetRepository(SHEETS.QUALIFICATIONS).append({
+    QualificationID: generateId('QUAL'), EmployeeID: employeeId,
+    Type: input.type || '', Name: input.name, IssueDate: input.issueDate || '', ExpiryDate: input.expiryDate || '',
+    IssuingOrg: input.issuingOrg || '', EvidenceNote: input.evidenceNote || '',
+    CreatedAt: nowIso(), UpdatedAt: nowIso()
+  });
+  logAudit(actingUser.UserID, 'QUALIFICATION_ADDED', 'Employee', employeeId, input.name);
+  return qualification;
+}
+
+function removeQualification(actingUser, qualificationId) {
+  const qualification = getSheetRepository(SHEETS.QUALIFICATIONS).findById('QualificationID', qualificationId);
+  if (!qualification) throw new Error('Không tìm thấy bằng cấp/chứng chỉ.');
+  requireFamilyMemberManager_(actingUser, qualification.EmployeeID);
+
+  const sheet = getSystemSpreadsheet_().getSheetByName(SHEETS.QUALIFICATIONS);
+  const data = sheet.getDataRange().getValues();
+  const idIdx = data[0].indexOf('QualificationID');
+  for (let r = data.length - 1; r >= 1; r--) {
+    if (data[r][idIdx] === qualificationId) { sheet.deleteRow(r + 1); break; }
+  }
+  logAudit(actingUser.UserID, 'QUALIFICATION_REMOVED', 'Employee', qualification.EmployeeID, qualification.Name);
+  return { success: true };
+}
+
+// --- "Phân công nhân sự" (đặc tả Tái cấu trúc Nhân sự V1 §15) — CỐ Ý KHÔNG dùng chung logic với
+// Permissions (phân quyền hệ thống) hay RecordOwnerUserID (phụ trách hồ sơ). Chỉ requireEmployeeManager_
+// được tạo/kết thúc phân công — đây là quyết định tổ chức, không phải tự khai. ---
+
+function listEmployeeAssignments(employeeId) {
+  return getSheetRepository(SHEETS.EMPLOYEE_ASSIGNMENTS).findAll().filter(function (a) { return a.EmployeeID === employeeId; });
+}
+
+function addEmployeeAssignment(actingUser, employeeId, input) {
+  requireEmployeeManager_(actingUser);
+  if (isBlank(input.assignmentText)) throw new Error('Thiếu nội dung phân công.');
+  const employee = getEmployeeById(employeeId);
+  if (!employee) throw new Error('Không tìm thấy nhân viên.');
+  const assignment = getSheetRepository(SHEETS.EMPLOYEE_ASSIGNMENTS).append({
+    AssignmentID: generateId('ASGN'), EmployeeID: employeeId, AssignmentText: input.assignmentText,
+    StartDate: input.startDate || nowIso().slice(0, 10), EndDate: '',
+    CreatedByUserID: actingUser.UserID, CreatedAt: nowIso(), UpdatedAt: nowIso()
+  });
+  logAudit(actingUser.UserID, 'EMPLOYEE_ASSIGNMENT_ADDED', 'Employee', employeeId, input.assignmentText);
+  return assignment;
+}
+
+function endEmployeeAssignment(actingUser, assignmentId) {
+  requireEmployeeManager_(actingUser);
+  const updated = getSheetRepository(SHEETS.EMPLOYEE_ASSIGNMENTS).updateById('AssignmentID', assignmentId, {
+    EndDate: nowIso().slice(0, 10), UpdatedAt: nowIso()
+  });
+  if (!updated) throw new Error('Không tìm thấy phân công.');
+  logAudit(actingUser.UserID, 'EMPLOYEE_ASSIGNMENT_ENDED', 'Employee', updated.EmployeeID, updated.AssignmentText);
+  return updated;
 }

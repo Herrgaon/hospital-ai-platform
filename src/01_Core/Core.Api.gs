@@ -190,11 +190,78 @@ function api_removeFamilyMember(token, familyMemberId) {
   return removeFamilyMember(user, familyMemberId);
 }
 
+function api_changeEmployeeAssignment(token, employeeId, input) {
+  const user = getCurrentUserFromToken_(token);
+  return changeEmployeeAssignment(user, employeeId, input);
+}
+
+function api_addQualification(token, employeeId, input) {
+  const user = getCurrentUserFromToken_(token);
+  return addQualification(user, employeeId, input);
+}
+
+function api_removeQualification(token, qualificationId) {
+  const user = getCurrentUserFromToken_(token);
+  return removeQualification(user, qualificationId);
+}
+
+function api_addEmployeeAssignment(token, employeeId, input) {
+  const user = getCurrentUserFromToken_(token);
+  return addEmployeeAssignment(user, employeeId, input);
+}
+
+function api_endEmployeeAssignment(token, assignmentId) {
+  const user = getCurrentUserFromToken_(token);
+  return endEmployeeAssignment(user, assignmentId);
+}
+
+// --- Danh mục Chức danh / Chức vụ ---
+
+function api_listActivePositions(token) {
+  getCurrentUserFromToken_(token);
+  return listActivePositions();
+}
+
+function api_createPosition(token, input) {
+  const user = getCurrentUserFromToken_(token);
+  return createPosition(user, input);
+}
+
+function api_deactivatePosition(token, positionId) {
+  const user = getCurrentUserFromToken_(token);
+  return deactivatePosition(user, positionId);
+}
+
+function api_listActiveJobTitles(token) {
+  getCurrentUserFromToken_(token);
+  return listActiveJobTitles();
+}
+
+function api_createJobTitle(token, input) {
+  const user = getCurrentUserFromToken_(token);
+  return createJobTitle(user, input);
+}
+
+function api_deactivateJobTitle(token, jobTitleId) {
+  const user = getCurrentUserFromToken_(token);
+  return deactivateJobTitle(user, jobTitleId);
+}
+
 // --- Department ---
 
 function api_listActiveDepartments(token) {
   getCurrentUserFromToken_(token);
   return listActiveDepartments();
+}
+
+function api_getOrganizationTree(token) {
+  getCurrentUserFromToken_(token);
+  return getOrganizationTree();
+}
+
+function api_getDepartmentDetail(token, departmentId) {
+  getCurrentUserFromToken_(token);
+  return getDepartmentDetail(departmentId);
 }
 
 function api_createDepartment(token, input) {

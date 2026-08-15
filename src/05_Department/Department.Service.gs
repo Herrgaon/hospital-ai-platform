@@ -78,3 +78,51 @@ function listActiveDepartments() {
 function getDepartmentById(departmentId) {
   return getSheetRepository(SHEETS.DEPARTMENTS).findById('DepartmentID', departmentId);
 }
+
+// "Cơ cấu tổ chức" (đặc tả Tái cấu trúc Nhân sự V1 §12) — dựng cây từ ParentDepartmentID đã có sẵn
+// trên Departments (không cần thêm cột mới). Đơn vị không xác định được cha (ParentDepartmentID rỗng
+// hoặc trỏ tới ID không tồn tại/không Active) coi là gốc — tránh cây "biến mất" 1 nhánh nếu dữ liệu cũ
+// có ParentDepartmentID mồ côi.
+function getOrganizationTree() {
+  const departments = listActiveDepartments();
+  const byId = {};
+  departments.forEach(function (d) { byId[d.DepartmentID] = Object.assign({}, d, { children: [] }); });
+  const roots = [];
+  departments.forEach(function (d) {
+    const node = byId[d.DepartmentID];
+    if (d.ParentDepartmentID && byId[d.ParentDepartmentID]) {
+      byId[d.ParentDepartmentID].children.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+  return roots;
+}
+
+// Thông tin 1 khoa/phòng khi mở trong "Cơ cấu tổ chức" (§13) — Trưởng khoa/phòng lấy từ HeadUserID
+// (quan hệ đã có sẵn, đáng tin cậy hơn so khớp chuỗi JobTitle). "leadershipByJobTitle" nhóm các nhân sự
+// còn lại theo Chức vụ THỰC TẾ đang có trong đơn vị (không hard-code tên "Phó khoa"/"Điều dưỡng
+// trưởng" — đúng yêu cầu "chức vụ nào thực tế không có thì không hiển thị", chức vụ nào tồn tại thì tự
+// nhiên xuất hiện).
+function getDepartmentDetail(departmentId) {
+  const department = getDepartmentById(departmentId);
+  if (!department) throw new Error('Không tìm thấy khoa/phòng.');
+  const employees = listEmployeesByDepartment(departmentId).filter(function (e) { return e.Status !== 'Inactive'; });
+  const headEmployee = department.HeadUserID ? getEmployeeByUserId_(department.HeadUserID) : null;
+
+  const leadershipMap = {};
+  employees.forEach(function (e) {
+    if (!e.JobTitle || (headEmployee && e.EmployeeID === headEmployee.EmployeeID)) return;
+    if (!leadershipMap[e.JobTitle]) leadershipMap[e.JobTitle] = [];
+    leadershipMap[e.JobTitle].push(e);
+  });
+  const leadershipByJobTitle = Object.keys(leadershipMap).map(function (jobTitle) {
+    return { jobTitle: jobTitle, employees: leadershipMap[jobTitle] };
+  });
+
+  return {
+    department: department, headEmployee: headEmployee,
+    employeeCount: employees.length, employees: employees,
+    leadershipByJobTitle: leadershipByJobTitle
+  };
+}

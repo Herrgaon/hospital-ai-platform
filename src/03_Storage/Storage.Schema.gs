@@ -25,6 +25,11 @@ const SHEETS = {
   TASK_PARTICIPANTS: 'TaskParticipants',
   RECURRING_TASK_TEMPLATES: 'RecurringTaskTemplates',
   EMPLOYEE_FAMILY_MEMBERS: 'EmployeeFamilyMembers',
+  POSITIONS: 'Positions',
+  JOB_TITLES: 'JobTitles',
+  EMPLOYMENT_HISTORY: 'EmploymentHistory',
+  QUALIFICATIONS: 'Qualifications',
+  EMPLOYEE_ASSIGNMENTS: 'EmployeeAssignments',
   KPI_CRITERION_GROUPS: 'KpiCriterionGroups',
   KPI_RULES: 'KpiRules',
   KPI_RESULTS: 'KpiResults',
@@ -152,6 +157,41 @@ const SCHEMA = {
   [SHEETS.EMPLOYEE_FAMILY_MEMBERS]: [
     'FamilyMemberID', 'EmployeeID', 'Relationship', 'FullName', 'PhoneNumber', 'BirthYear',
     'CreatedAt', 'UpdatedAt'
+  ],
+
+  // Đặc tả tái cấu trúc Nhân sự V1 (2026-08-15) §14: "Chức danh" (chuyên môn, VD "Bác sĩ") và "Chức vụ"
+  // (quản lý, VD "Trưởng khoa") tách 2 danh mục CẤU HÌNH ĐƯỢC — cùng pattern DutyTypes/DutyPositions
+  // (08_DutySchedule/DutySchedule.Catalog.gs). Employees.Position/JobTitle VẪN LÀ CỘT TEXT (không đổi
+  // sang khoá ngoại) — không nơi nào trong hệ thống so khớp chính xác 2 cột này cho logic nghiệp vụ
+  // (KPI dùng EmployeeType, không dùng Position — xem Kpi.Service.gs#getApplicableKpiRulesForEmployee),
+  // nên chỉ cần UI chọn từ danh mục thay vì gõ tự do là đủ đáp ứng "không nhập tự do tuỳ ý", không cần
+  // đổi kiểu dữ liệu rủi ro cao.
+  [SHEETS.POSITIONS]: ['PositionID', 'PositionName', 'Description', 'Status', 'CreatedAt', 'UpdatedAt'],
+  [SHEETS.JOB_TITLES]: ['JobTitleID', 'JobTitleName', 'Description', 'Status', 'CreatedAt', 'UpdatedAt'],
+
+  // "Quá trình công tác" (§8) — lịch sử đơn vị/chức danh/chức vụ theo thời gian. EndDate rỗng = giai
+  // đoạn đang hiệu lực (dòng mới nhất của 1 nhân viên). Sinh tự động bởi
+  // Employee.Service.gs#changeEmployeeAssignment khi đổi khoa/phòng hoặc chức danh/chức vụ — KHÔNG sinh
+  // khi chỉ sửa thông tin cá nhân (SĐT/địa chỉ...) để tránh làm loãng lịch sử.
+  [SHEETS.EMPLOYMENT_HISTORY]: [
+    'HistoryID', 'EmployeeID', 'DepartmentID', 'Position', 'JobTitle',
+    'StartDate', 'EndDate', 'Note', 'CreatedByUserID', 'CreatedAt'
+  ],
+
+  // "Bằng cấp & Chứng chỉ" (§9) — V1 chỉ quản lý dữ liệu hồ sơ cơ bản, CHƯA xây cảnh báo hết hạn (đúng
+  // đặc tả §18 "chưa làm ở V1"). Type tự do nhập (VD "Bằng cấp"/"Chuyên khoa"/"Chứng chỉ").
+  [SHEETS.QUALIFICATIONS]: [
+    'QualificationID', 'EmployeeID', 'Type', 'Name', 'IssueDate', 'ExpiryDate',
+    'IssuingOrg', 'EvidenceNote', 'CreatedAt', 'UpdatedAt'
+  ],
+
+  // "Phân công nhân sự" (§15) — CỐ Ý tách khỏi Permissions (phân quyền hệ thống) và RecordOwnerUserID
+  // (phụ trách hồ sơ) — đây là "người đó được giao vị trí/nhiệm vụ gì trong tổ chức", một khái niệm
+  // nghiệp vụ/tổ chức thuần tuý, không cấp bất kỳ quyền thao tác hệ thống nào. EndDate rỗng = đang hiệu
+  // lực. Một nhân viên có thể có nhiều dòng theo thời gian (lịch sử phân công).
+  [SHEETS.EMPLOYEE_ASSIGNMENTS]: [
+    'AssignmentID', 'EmployeeID', 'AssignmentText', 'StartDate', 'EndDate',
+    'CreatedByUserID', 'CreatedAt', 'UpdatedAt'
   ],
 
   // Phân công khối lâm sàng (khám/điều trị/hội chẩn/phẫu thuật/thủ thuật) — cố tình tối giản, KHÁC
@@ -372,6 +412,9 @@ const PLAIN_TEXT_COLUMNS = {
   [SHEETS.EMPLOYEES]: ['StartDate', 'DateOfBirth', 'IdIssueDate'],
   [SHEETS.TASKS]: ['DueDate', 'Period'],
   [SHEETS.RECURRING_TASK_TEMPLATES]: ['EffectiveFrom', 'EffectiveTo'],
+  [SHEETS.EMPLOYMENT_HISTORY]: ['StartDate', 'EndDate'],
+  [SHEETS.QUALIFICATIONS]: ['IssueDate', 'ExpiryDate'],
+  [SHEETS.EMPLOYEE_ASSIGNMENTS]: ['StartDate', 'EndDate'],
   [SHEETS.CLINICAL_ASSIGNMENTS]: ['AssignmentDate', 'ShiftStart', 'ShiftEnd'],
   [SHEETS.DUTY_SCHEDULES]: ['WeekStartDate', 'WeekEndDate'],
   [SHEETS.DUTY_SHIFTS]: ['ShiftDate', 'ShiftStart', 'ShiftEnd'],

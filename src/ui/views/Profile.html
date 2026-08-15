@@ -4,7 +4,7 @@
     <span class="breadcrumb-sep"> › </span>
     <a href="#personnel" @click.prevent="go('personnel')" class="hover:underline">Danh sách nhân sự</a>
     <span class="breadcrumb-sep"> › </span>
-    <span>Thông tin cá nhân</span>
+    <span>Hồ sơ nhân viên</span>
   </p>
 
   <template x-if="!profileBundle">
@@ -12,7 +12,7 @@
   </template>
 
   <template x-if="profileBundle">
-    <div class="grid gap-4" style="grid-template-columns: 260px 1fr 260px;">
+    <div class="grid gap-4" style="grid-template-columns: 260px 1fr;">
       <!-- Cột trái: ảnh + tóm tắt -->
       <div class="card p-4 space-y-3" style="align-self: start;">
         <div class="relative w-24 h-24 mx-auto">
@@ -30,8 +30,8 @@
         </div>
         <div class="text-xs space-y-2 pt-2" style="border-top: 1px solid var(--holo-border);">
           <div><span class="holo-text-dim">Mã nhân viên</span><br><strong x-text="profileBundle.employee.EmployeeCode || '—'"></strong></div>
-          <div><span class="holo-text-dim">Chức vụ</span><br><strong x-text="profileBundle.employee.JobTitle || '—'"></strong></div>
           <div><span class="holo-text-dim">Chức danh chuyên môn</span><br><strong x-text="profileBundle.employee.Position || '—'"></strong></div>
+          <div><span class="holo-text-dim">Chức vụ</span><br><strong x-text="profileBundle.employee.JobTitle || '—'"></strong></div>
           <div><span class="holo-text-dim">Khoa/Phòng</span><br><strong x-text="profileBundle.departmentName || '—'"></strong></div>
           <div><span class="holo-text-dim">Quản lý trực tiếp</span><br><strong x-text="profileDepartmentHeadName"></strong></div>
         </div>
@@ -43,14 +43,15 @@
         </div>
       </div>
 
-      <!-- Cột giữa: tabs -->
+      <!-- Cột phải: tabs -->
       <div>
         <div class="tabs">
           <button @click="profileTab = 'personal'" class="tab" :class="profileTab === 'personal' ? 'active' : ''">Thông tin cá nhân</button>
           <button @click="profileTab = 'work'" class="tab" :class="profileTab === 'work' ? 'active' : ''">Thông tin công tác</button>
-          <button @click="profileTab = 'credentials'" class="tab" :class="profileTab === 'credentials' ? 'active' : ''">Bằng cấp - Chứng chỉ</button>
           <button @click="profileTab = 'history'" class="tab" :class="profileTab === 'history' ? 'active' : ''">Quá trình công tác</button>
-          <button @click="profileTab = 'salary'" class="tab" :class="profileTab === 'salary' ? 'active' : ''">🔒 Lịch sử lương</button>
+          <button @click="profileTab = 'credentials'" class="tab" :class="profileTab === 'credentials' ? 'active' : ''">Bằng cấp &amp; Chứng chỉ</button>
+          <button @click="profileTab = 'assignment'" class="tab" :class="profileTab === 'assignment' ? 'active' : ''">Phân công</button>
+          <button @click="profileTab = 'duty'" class="tab" :class="profileTab === 'duty' ? 'active' : ''">Lịch trực</button>
         </div>
 
         <!-- Tab: Thông tin cá nhân -->
@@ -187,50 +188,127 @@
         </div>
 
         <!-- Tab: Thông tin công tác -->
-        <div x-show="profileTab === 'work'" class="card p-4">
-          <p class="holo-label mb-3">Thông tin công tác</p>
-          <div class="form-grid-2 gap-y-2 text-sm">
-            <div><span class="holo-text-dim text-xs">Mã nhân viên</span><br><strong x-text="profileBundle.employee.EmployeeCode || '—'"></strong></div>
-            <div><span class="holo-text-dim text-xs">Khoa/Phòng</span><br><strong x-text="profileBundle.departmentName || '—'"></strong></div>
-            <div><span class="holo-text-dim text-xs">Chức vụ</span><br><strong x-text="profileBundle.employee.JobTitle || '—'"></strong></div>
-            <div><span class="holo-text-dim text-xs">Chức danh chuyên môn</span><br><strong x-text="profileBundle.employee.Position || '—'"></strong></div>
-            <div><span class="holo-text-dim text-xs">Loại nhân viên</span><br><strong x-text="profileBundle.employee.EmployeeType || '—'"></strong></div>
-            <div><span class="holo-text-dim text-xs">Ngày vào làm</span><br><strong x-text="profileBundle.employee.StartDate || '—'"></strong></div>
-            <div><span class="holo-text-dim text-xs">Trạng thái</span><br><span class="badge" :class="employeeStatusBadgeClass(profileBundle.employee.Status)" x-text="employeeStatusLabel(profileBundle.employee.Status)"></span></div>
-            <div><span class="holo-text-dim text-xs">Quản lý trực tiếp</span><br><strong x-text="profileDepartmentHeadName"></strong></div>
+        <div x-show="profileTab === 'work'" class="space-y-4">
+          <div class="card p-4">
+            <div class="flex items-center justify-between mb-3">
+              <p class="holo-label">Thông tin công tác</p>
+              <button x-show="isSuperAdmin || isTcHc" @click="openChangeAssignmentModal()" class="btn-link">Chuyển đơn vị/chức danh/chức vụ</button>
+            </div>
+            <div class="form-grid-2 gap-y-2 text-sm">
+              <div><span class="holo-text-dim text-xs">Mã nhân viên</span><br><strong x-text="profileBundle.employee.EmployeeCode || '—'"></strong></div>
+              <div><span class="holo-text-dim text-xs">Khoa/Phòng</span><br><strong x-text="profileBundle.departmentName || '—'"></strong></div>
+              <div><span class="holo-text-dim text-xs">Chức danh chuyên môn</span><br><strong x-text="profileBundle.employee.Position || '—'"></strong></div>
+              <div><span class="holo-text-dim text-xs">Chức vụ</span><br><strong x-text="profileBundle.employee.JobTitle || '—'"></strong></div>
+              <div><span class="holo-text-dim text-xs">Loại nhân viên</span><br><strong x-text="profileBundle.employee.EmployeeType || '—'"></strong></div>
+              <div><span class="holo-text-dim text-xs">Ngày vào làm</span><br><strong x-text="profileBundle.employee.StartDate || '—'"></strong></div>
+              <div><span class="holo-text-dim text-xs">Quản lý trực tiếp</span><br><strong x-text="profileDepartmentHeadName"></strong></div>
+              <div>
+                <span class="holo-text-dim text-xs">Trạng thái công tác</span><br>
+                <select x-show="isSuperAdmin || isTcHc" x-model="profileBundle.employee.Status" @change="saveEmployeeFieldAction(profileBundle.employee, { Status: profileBundle.employee.Status })" class="form-control form-control-sm">
+                  <option value="Active">Đang làm việc</option>
+                  <option value="OnLeave">Nghỉ phép/Thai sản</option>
+                  <option value="Inactive">Ngừng làm việc</option>
+                </select>
+                <span x-show="!(isSuperAdmin || isTcHc)" class="badge" :class="employeeStatusBadgeClass(profileBundle.employee.Status)" x-text="employeeStatusLabel(profileBundle.employee.Status)"></span>
+              </div>
+              <div x-show="isSuperAdmin || isTcHc">
+                <span class="holo-text-dim text-xs">Người phụ trách hồ sơ</span><br>
+                <select x-model="profileBundle.employee.RecordOwnerUserID" @change="saveEmployeeFieldAction(profileBundle.employee, { RecordOwnerUserID: profileBundle.employee.RecordOwnerUserID })" class="form-control form-control-sm">
+                  <option value="">-- Chưa gán --</option>
+                  <template x-for="u in userDirectory" :key="u.UserID">
+                    <option :value="u.UserID" x-text="u.FullName"></option>
+                  </template>
+                </select>
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- Tab: Bằng cấp - Chứng chỉ / Quá trình công tác -->
-        <div x-show="profileTab === 'credentials' || profileTab === 'history'" class="card p-6 text-center">
-          <p class="text-sm holo-text-dim">Chức năng này sẽ được triển khai ở giai đoạn tiếp theo.</p>
-        </div>
-
-        <!-- Tab: Lịch sử lương -->
-        <div x-show="profileTab === 'salary'" class="card p-6 text-center">
-          <p class="text-sm holo-text-dim">🔒 Module tiền lương chưa triển khai công thức chính thức cho đến khi bệnh viện hoàn thiện, rà soát và phê duyệt cơ chế tính lương.</p>
-        </div>
-      </div>
-
-      <!-- Cột phải: lịch trực -->
-      <div class="card p-4" style="align-self: start;">
-        <div class="flex items-center justify-between mb-2">
-          <p class="holo-label">Lịch trực tháng <span x-text="profileCurrentMonthLabel"></span></p>
-        </div>
-        <p class="text-xs holo-text-dim mb-2">Tổng số ca trực: <strong x-text="profileBundle.dutyShiftsThisMonth.length"></strong></p>
-        <div class="space-y-2">
-          <template x-for="s in profileBundle.dutyShiftsThisMonth" :key="s.DutyShiftID">
-            <div class="text-xs p-2 rounded" style="border: 1px solid var(--holo-border);">
-              <div class="flex justify-between items-center">
-                <strong x-text="s.ShiftDate"></strong>
-                <span class="badge badge-orange" x-text="s.DutyType"></span>
+        <!-- Tab: Quá trình công tác -->
+        <div x-show="profileTab === 'history'" class="card p-4">
+          <p class="holo-label mb-3">Quá trình công tác</p>
+          <div class="space-y-3">
+            <template x-for="h in profileBundle.employmentHistory" :key="h.HistoryID">
+              <div class="text-sm pl-3" style="border-left: 2px solid var(--holo-border);">
+                <div class="font-medium" x-text="h.StartDate + ' → ' + (h.EndDate || 'nay')"></div>
+                <div class="text-xs holo-text-dim" x-text="(h.Position || '—') + (h.JobTitle ? ' · ' + h.JobTitle : '') + ' · ' + departmentNameById(h.DepartmentID)"></div>
+                <div class="text-xs holo-text-dim" x-show="h.Note" x-text="h.Note"></div>
               </div>
-              <div class="holo-text-dim mt-1" x-text="s.ShiftStart + ' → ' + s.ShiftEnd"></div>
-            </div>
-          </template>
-          <p class="text-xs holo-text-dim" x-show="profileBundle.dutyShiftsThisMonth.length === 0">Không có ca trực nào tháng này.</p>
+            </template>
+            <p class="text-xs holo-text-dim" x-show="profileBundle.employmentHistory.length === 0">Chưa có dữ liệu quá trình công tác.</p>
+          </div>
         </div>
-        <button @click="go('duty')" class="btn btn-secondary btn-sm w-full mt-3">Xem lịch trực đầy đủ</button>
+
+        <!-- Tab: Bằng cấp & Chứng chỉ -->
+        <div x-show="profileTab === 'credentials'" class="card p-4">
+          <div class="flex items-center justify-between mb-3">
+            <p class="holo-label">Bằng cấp &amp; Chứng chỉ</p>
+            <button x-show="profileBundle.canEdit" @click="openAddQualificationModal()" class="btn-link">+ Thêm bằng cấp/chứng chỉ</button>
+          </div>
+          <table class="data-table">
+            <thead><tr><th>Loại</th><th>Tên</th><th>Ngày cấp</th><th>Ngày hết hạn</th><th>Đơn vị cấp</th><th x-show="profileBundle.canEdit"></th></tr></thead>
+            <tbody>
+              <template x-for="q in profileBundle.qualifications" :key="q.QualificationID">
+                <tr>
+                  <td x-text="q.Type || '—'"></td>
+                  <td x-text="q.Name"></td>
+                  <td x-text="q.IssueDate || '—'"></td>
+                  <td x-text="q.ExpiryDate || '—'"></td>
+                  <td x-text="q.IssuingOrg || '—'"></td>
+                  <td x-show="profileBundle.canEdit"><button @click="removeQualificationAction(q)" class="btn-link">Xoá</button></td>
+                </tr>
+              </template>
+              <template x-if="profileBundle.qualifications.length === 0">
+                <tr><td colspan="6" class="text-xs holo-text-dim py-2">Chưa có bằng cấp/chứng chỉ nào.</td></tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Tab: Phân công -->
+        <div x-show="profileTab === 'assignment'" class="card p-4">
+          <div class="flex items-center justify-between mb-3">
+            <p class="holo-label">Phân công nhân sự</p>
+            <button x-show="isSuperAdmin || isTcHc" @click="openAddProfileAssignmentModal()" class="btn-link">+ Thêm phân công</button>
+          </div>
+          <table class="data-table">
+            <thead><tr><th>Nội dung phân công</th><th>Từ ngày</th><th>Đến ngày</th><th x-show="isSuperAdmin || isTcHc"></th></tr></thead>
+            <tbody>
+              <template x-for="a in profileBundle.assignments" :key="a.AssignmentID">
+                <tr>
+                  <td x-text="a.AssignmentText"></td>
+                  <td x-text="a.StartDate"></td>
+                  <td x-text="a.EndDate || 'Đang hiệu lực'"></td>
+                  <td x-show="isSuperAdmin || isTcHc"><button x-show="!a.EndDate" @click="endProfileAssignmentAction(a)" class="btn-link">Kết thúc</button></td>
+                </tr>
+              </template>
+              <template x-if="profileBundle.assignments.length === 0">
+                <tr><td colspan="4" class="text-xs holo-text-dim py-2">Chưa có phân công nào.</td></tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Tab: Lịch trực -->
+        <div x-show="profileTab === 'duty'" class="card p-4">
+          <div class="flex items-center justify-between mb-2">
+            <p class="holo-label">Lịch trực tháng <span x-text="profileCurrentMonthLabel"></span></p>
+            <button @click="go('duty')" class="btn btn-secondary btn-sm">Xem lịch trực đầy đủ</button>
+          </div>
+          <p class="text-xs holo-text-dim mb-2">Tổng số ca trực: <strong x-text="profileBundle.dutyShiftsThisMonth.length"></strong></p>
+          <div class="space-y-2">
+            <template x-for="s in profileBundle.dutyShiftsThisMonth" :key="s.DutyShiftID">
+              <div class="text-xs p-2 rounded" style="border: 1px solid var(--holo-border);">
+                <div class="flex justify-between items-center">
+                  <strong x-text="s.ShiftDate"></strong>
+                  <span class="badge badge-orange" x-text="s.DutyType"></span>
+                </div>
+                <div class="holo-text-dim mt-1" x-text="s.ShiftStart + ' → ' + s.ShiftEnd"></div>
+              </div>
+            </template>
+            <p class="text-xs holo-text-dim" x-show="profileBundle.dutyShiftsThisMonth.length === 0">Không có ca trực nào tháng này.</p>
+          </div>
+        </div>
       </div>
     </div>
   </template>
@@ -260,6 +338,124 @@
         <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
         <button @click="addFamilyMemberAction()" :disabled="addingFamilyMember || !addFamilyMemberForm.fullName" class="btn btn-primary">
           <span x-text="addingFamilyMember ? 'Đang thêm...' : 'Thêm'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Chuyển đơn vị/chức danh/chức vụ -->
+  <div x-show="modalOpen === 'changeAssignment'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Chuyển đơn vị/chức danh/chức vụ</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="required">Khoa/Phòng</label>
+          <select x-model="changeAssignmentForm.departmentId" class="form-control">
+            <template x-for="d in departments" :key="d.DepartmentID">
+              <option :value="d.DepartmentID" x-text="d.DepartmentName"></option>
+            </template>
+          </select>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label>Chức danh</label>
+            <select x-model="changeAssignmentForm.position" class="form-control">
+              <option value="">-- Không đổi --</option>
+              <template x-for="p in positionsCatalog" :key="p.PositionID">
+                <option :value="p.PositionName" x-text="p.PositionName"></option>
+              </template>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Chức vụ</label>
+            <select x-model="changeAssignmentForm.jobTitle" class="form-control">
+              <option value="">-- Không đổi --</option>
+              <template x-for="j in jobTitlesCatalog" :key="j.JobTitleID">
+                <option :value="j.JobTitleName" x-text="j.JobTitleName"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="required">Ngày hiệu lực</label>
+          <input type="date" x-model="changeAssignmentForm.effectiveDate" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>Ghi chú</label>
+          <input type="text" x-model="changeAssignmentForm.note" class="form-control">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="changeEmployeeAssignmentAction()" :disabled="changingAssignment || !changeAssignmentForm.departmentId || !changeAssignmentForm.effectiveDate" class="btn btn-primary">
+          <span x-text="changingAssignment ? 'Đang lưu...' : 'Xác nhận chuyển'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Thêm bằng cấp/chứng chỉ -->
+  <div x-show="modalOpen === 'addQualification'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Thêm bằng cấp/chứng chỉ</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Loại</label>
+          <input type="text" x-model="newQualificationForm.type" class="form-control" placeholder="Bằng cấp / Chuyên khoa / Chứng chỉ...">
+        </div>
+        <div class="form-group">
+          <label class="required">Tên</label>
+          <input type="text" x-model="newQualificationForm.name" class="form-control">
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group"><label>Ngày cấp</label><input type="date" x-model="newQualificationForm.issueDate" class="form-control"></div>
+          <div class="form-group"><label>Ngày hết hạn</label><input type="date" x-model="newQualificationForm.expiryDate" class="form-control"></div>
+        </div>
+        <div class="form-group">
+          <label>Đơn vị cấp</label>
+          <input type="text" x-model="newQualificationForm.issuingOrg" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>Ghi chú minh chứng</label>
+          <input type="text" x-model="newQualificationForm.evidenceNote" class="form-control">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="addQualificationAction()" :disabled="addingQualification || !newQualificationForm.name" class="btn btn-primary">
+          <span x-text="addingQualification ? 'Đang thêm...' : 'Thêm'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Thêm phân công -->
+  <div x-show="modalOpen === 'addProfileAssignment'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Thêm phân công</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="required">Nội dung phân công</label>
+          <input type="text" x-model="newProfileAssignmentForm.assignmentText" class="form-control" placeholder="VD: Phụ trách công tác dược lâm sàng">
+        </div>
+        <div class="form-group">
+          <label>Từ ngày</label>
+          <input type="date" x-model="newProfileAssignmentForm.startDate" class="form-control">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="addProfileAssignmentAction()" :disabled="addingProfileAssignment || !newProfileAssignmentForm.assignmentText" class="btn btn-primary">
+          <span x-text="addingProfileAssignment ? 'Đang thêm...' : '+ Thêm'"></span>
         </button>
       </div>
     </div>
