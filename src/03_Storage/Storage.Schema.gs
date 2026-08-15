@@ -65,9 +65,18 @@ const SCHEMA = {
   // bộ chỉ tiêu KPI theo vai trò ở Giai đoạn 3 (Bác sĩ/Điều dưỡng/Kỹ thuật viên/Hành chính/Kế toán/Quản lý).
   // EmployeeCode: mã nhân viên do HR/Admin gán (VD "BS001") — định danh đăng nhập cho Gateway/Desktop,
   // KHÁC EmployeeID (khoá hệ thống tự sinh, không đổi được). Rỗng cho tới khi được gán.
+  // Position = "Chức danh" (chuyên môn, VD "Bác sĩ CKI"); JobTitle = "Chức vụ" (quản lý, VD "Trưởng
+  // khoa") — 2 khái niệm khác nhau, cả 2 đều tự do nhập, không phải enum.
+  // Status: Active | OnLeave (nghỉ phép/thai sản — vẫn là nhân viên, chỉ tạm không xếp việc/trực mới)
+  // | Inactive (nghỉ việc hẳn, khoá đăng nhập — xem deactivateEmployee).
+  // RecordOwnerUserID: "Người phụ trách hồ sơ" — người được giao theo dõi/cập nhật hồ sơ nhân sự này
+  // (thường 1 chuyên viên TC-HC cụ thể phụ trách 1 nhóm khoa/phòng), THUẦN TÚY để phân công nội bộ +
+  // lọc danh sách — KHÔNG thay thế Permissions (không tự cấp quyền sửa), khác với uỷ quyền phê duyệt
+  // theo khoa/phòng (Permissions.UserID, xem Auth.Permission.gs) vốn đã có sẵn cho việc "phụ trách
+  // duyệt" theo từng chức năng.
   [SHEETS.EMPLOYEES]: [
-    'EmployeeID', 'EmployeeCode', 'UserID', 'FullName', 'DepartmentID', 'Position', 'EmployeeType',
-    'PhoneNumber', 'Email', 'StartDate', 'Status', 'CreatedAt', 'UpdatedAt'
+    'EmployeeID', 'EmployeeCode', 'UserID', 'FullName', 'DepartmentID', 'Position', 'JobTitle', 'EmployeeType',
+    'PhoneNumber', 'Email', 'StartDate', 'Status', 'RecordOwnerUserID', 'CreatedAt', 'UpdatedAt'
   ],
 
   // Quản lý công việc (khối hành chính) — TaskAssignment/TaskResult gộp vào 1 dòng, không tách sheet

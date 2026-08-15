@@ -41,11 +41,13 @@ function createEmployee(actingUser, input) {
     FullName: input.fullName,
     DepartmentID: input.departmentId,
     Position: input.position || '',
+    JobTitle: input.jobTitle || '',
     EmployeeType: input.employeeType || '',
     PhoneNumber: input.phoneNumber || '',
     Email: user.Email,
     StartDate: input.startDate || '',
     Status: 'Active',
+    RecordOwnerUserID: input.recordOwnerUserId || '',
     CreatedAt: nowIso(),
     UpdatedAt: nowIso()
   });
@@ -109,6 +111,60 @@ function deactivateEmployee(actingUser, employeeId) {
 
 function listEmployees() {
   return getSheetRepository(SHEETS.EMPLOYEES).findAll();
+}
+
+// Nhập nhanh nhiều nhân viên qua CSV dán tay (cùng mẫu "dán CSV" đã dùng ở Số liệu chuyên môn — chưa
+// phải import file Excel nhị phân thật, xem HIEN_TRANG_HE_THONG.md mục "Chưa làm"). Khoa/Phòng xác
+// định qua TÊN (không phải ID) vì đó là thứ HR gõ tay quen thuộc, không phải mã nội bộ hệ thống.
+function importEmployees(actingUser, rows) {
+  requireEmployeeManager_(actingUser);
+  const departments = getSheetRepository(SHEETS.DEPARTMENTS).findAll();
+  const results = rows.map(function (row) {
+    const department = departments.find(function (d) { return d.DepartmentName === row.departmentName; });
+    if (!department) return { employeeCode: row.employeeCode, success: false, error: 'Không tìm thấy khoa/phòng "' + row.departmentName + '".' };
+    try {
+      const employee = createEmployee(actingUser, {
+        employeeCode: row.employeeCode, username: row.username, email: row.email, fullName: row.fullName,
+        departmentId: department.DepartmentID, position: row.position || '', jobTitle: row.jobTitle || '',
+        employeeType: row.employeeType || '', phoneNumber: row.phoneNumber || '', startDate: row.startDate || ''
+      });
+      return { employeeCode: row.employeeCode, success: true, employeeId: employee.EmployeeID };
+    } catch (e) {
+      return { employeeCode: row.employeeCode, success: false, error: e.message };
+    }
+  });
+  logAudit(actingUser.UserID, 'EMPLOYEE_IMPORTED', 'Employee', '*', results.length + ' dòng, ' +
+    results.filter(function (r) { return r.success; }).length + ' thành công');
+  return results;
+}
+
+function exportEmployeesToExcel(actingUser) {
+  requireEmployeeManager_(actingUser);
+  const employees = listEmployees();
+  const departments = getSheetRepository(SHEETS.DEPARTMENTS).findAll();
+  const departmentNameById_ = function (id) {
+    const d = departments.find(function (x) { return x.DepartmentID === id; });
+    return d ? d.DepartmentName : '';
+  };
+
+  const tempSpreadsheet = SpreadsheetApp.create('DanhSachNhanSu_' + Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyyMMdd_HHmmss'));
+  const sheet = tempSpreadsheet.getSheets()[0];
+  const headers = ['Mã NV', 'Họ tên', 'Khoa/Phòng', 'Chức danh', 'Chức vụ', 'Loại nhân viên', 'SĐT', 'Email', 'Trạng thái'];
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  if (employees.length > 0) {
+    const values = employees.map(function (e) {
+      return [e.EmployeeCode, e.FullName, departmentNameById_(e.DepartmentID), e.Position, e.JobTitle, e.EmployeeType, e.PhoneNumber, e.Email, e.Status];
+    });
+    sheet.getRange(2, 1, values.length, headers.length).setValues(values);
+  }
+
+  const tempFile = DriveApp.getFileById(tempSpreadsheet.getId());
+  const excelBlob = tempFile.getAs(MimeType.MICROSOFT_EXCEL);
+  const excelFile = getExportsFolder().createFile(excelBlob);
+  tempFile.setTrashed(true);
+
+  logAudit(actingUser.UserID, 'EMPLOYEE_LIST_EXPORTED', 'Employee', '*', employees.length + ' dòng');
+  return { fileId: excelFile.getId(), url: excelFile.getUrl() };
 }
 
 function listEmployeesByDepartment(departmentId) {

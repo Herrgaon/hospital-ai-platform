@@ -160,6 +160,16 @@ function api_resetEmployeePassword(token, employeeId, newPassword) {
   return resetEmployeePassword(user, employeeId, newPassword);
 }
 
+function api_importEmployees(token, rows) {
+  const user = getCurrentUserFromToken_(token);
+  return importEmployees(user, rows);
+}
+
+function api_exportEmployeesToExcel(token) {
+  const user = getCurrentUserFromToken_(token);
+  return exportEmployeesToExcel(user);
+}
+
 // --- Department ---
 
 function api_listActiveDepartments(token) {

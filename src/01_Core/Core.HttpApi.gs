@@ -57,6 +57,8 @@ const GATEWAY_ACTIONS_ = {
   'employee.update': function (user, params) { return updateEmployee(user, params.employeeId, params.patch); },
   'employee.deactivate': function (user, params) { return deactivateEmployee(user, params.employeeId); },
   'employee.resetPassword': function (user, params) { return resetEmployeePassword(user, params.employeeId, params.newPassword); },
+  'employee.import': function (user, params) { return importEmployees(user, params.rows); },
+  'employee.exportToExcel': function (user) { return exportEmployeesToExcel(user); },
 
   'department.list': function () { return listActiveDepartments(); },
   'department.get': function (user, params) { return getDepartmentById(params.departmentId); },

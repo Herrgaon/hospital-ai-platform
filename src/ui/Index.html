@@ -21,14 +21,8 @@
         </div>
       </div>
       <nav class="app-sidebar-menu">
-        <button type="button" @click="toggleNavGroup('org')" class="app-nav-group-label" :class="isNavGroupCollapsed('org') ? 'collapsed' : ''">
-          <span>🏢 Tổ chức</span><span class="app-nav-group-chevron">▾</span>
-        </button>
-        <div x-show="!isNavGroupCollapsed('org')">
-          <a href="#dashboard" @click.prevent="go('dashboard')" class="app-nav-item" :class="active('dashboard')"><span class="app-nav-icon">▣</span> Tổng quan</a>
-          <a href="#employees" @click.prevent="go('employees')" class="app-nav-item" :class="active('employees')"><span class="app-nav-icon">👤</span> Nhân sự</a>
-          <a href="#departments" @click.prevent="go('departments')" class="app-nav-item" :class="active('departments')"><span class="app-nav-icon">▥</span> Khoa/Phòng</a>
-        </div>
+        <a href="#dashboard" @click.prevent="go('dashboard')" class="app-nav-item" :class="active('dashboard')"><span class="app-nav-icon">🏠</span> Trang chủ</a>
+        <a href="#personnel" @click.prevent="go('personnel')" class="app-nav-item" :class="active('personnel')"><span class="app-nav-icon">👤</span> Nhân sự</a>
 
         <button type="button" @click="toggleNavGroup('work')" class="app-nav-group-label" :class="isNavGroupCollapsed('work') ? 'collapsed' : ''">
           <span>📋 Công việc &amp; Lịch trực</span><span class="app-nav-group-chevron">▾</span>
@@ -124,8 +118,7 @@
           <p class="holo-text-dim">Bạn không có quyền truy cập màn hình này.</p>
         </template>
         <?!= include('ui/views/Dashboard') ?>
-        <?!= include('ui/views/Employees') ?>
-        <?!= include('ui/views/Departments') ?>
+        <?!= include('ui/views/Personnel') ?>
         <?!= include('ui/views/Tasks') ?>
         <?!= include('ui/views/ClinicalAssignments') ?>
         <?!= include('ui/views/DutySchedule') ?>

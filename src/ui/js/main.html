@@ -299,12 +299,44 @@
           .api_getDashboardSummary(this.authToken);
       },
 
-      // --- Nhân sự ---
-      employeeFilters: { departmentId: '' },
+      // --- Nhân sự (gộp Nhân sự + Khoa/Phòng + Người dùng/Vai trò + Phân quyền phụ trách vào 1 trang,
+      // theo yêu cầu Product Owner — bỏ nhóm điều hướng "Tổ chức" riêng) ---
+      personnelTab: 'list',
+      employeeFilters: { departmentId: '', position: '', status: '', recordOwnerUserId: '' },
       get employeesFiltered() {
-        return this.employeeFilters.departmentId
-          ? this.employees.filter((e) => e.DepartmentID === this.employeeFilters.departmentId)
-          : this.employees;
+        return this.employees.filter((e) => {
+          if (this.employeeFilters.departmentId && e.DepartmentID !== this.employeeFilters.departmentId) return false;
+          if (this.employeeFilters.position && e.Position !== this.employeeFilters.position) return false;
+          if (this.employeeFilters.status && (e.Status || 'Active') !== this.employeeFilters.status) return false;
+          if (this.employeeFilters.recordOwnerUserId && e.RecordOwnerUserID !== this.employeeFilters.recordOwnerUserId) return false;
+          return true;
+        });
+      },
+      get distinctEmployeePositions() {
+        return [...new Set(this.employees.map((e) => e.Position).filter((p) => p))].sort();
+      },
+      get employeeStats() {
+        return {
+          total: this.employees.length,
+          active: this.employees.filter((e) => (e.Status || 'Active') === 'Active').length,
+          onLeave: this.employees.filter((e) => e.Status === 'OnLeave').length,
+          inactive: this.employees.filter((e) => e.Status === 'Inactive').length
+        };
+      },
+      employeeFiltersActive() {
+        const f = this.employeeFilters;
+        return !!(f.departmentId || f.position || f.status || f.recordOwnerUserId);
+      },
+      clearEmployeeFilters() {
+        this.employeeFilters = { departmentId: '', position: '', status: '', recordOwnerUserId: '' };
+      },
+      employeeStatusLabel(status) {
+        const map = { Active: 'Đang làm việc', OnLeave: 'Nghỉ phép/Thai sản', Inactive: 'Ngừng làm việc' };
+        return map[status || 'Active'] || status;
+      },
+      employeeStatusBadgeClass(status) {
+        const map = { Active: 'badge-green', OnLeave: 'badge-orange', Inactive: 'badge-gray' };
+        return map[status || 'Active'] || 'badge-gray';
       },
       loadEmployeesPage() {
         google.script.run
@@ -312,10 +344,10 @@
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_listEmployees(this.authToken);
       },
-      newEmployeeForm: { employeeCode: '', username: '', email: '', fullName: '', departmentId: '', position: '', employeeType: '', phoneNumber: '', startDate: '' },
+      newEmployeeForm: { employeeCode: '', username: '', email: '', fullName: '', departmentId: '', position: '', jobTitle: '', employeeType: '', phoneNumber: '', startDate: '', recordOwnerUserId: '' },
       creatingEmployee: false,
       openAddEmployeeModal() {
-        this.newEmployeeForm = { employeeCode: '', username: '', email: '', fullName: '', departmentId: '', position: '', employeeType: '', phoneNumber: '', startDate: '' };
+        this.newEmployeeForm = { employeeCode: '', username: '', email: '', fullName: '', departmentId: '', position: '', jobTitle: '', employeeType: '', phoneNumber: '', startDate: '', recordOwnerUserId: '' };
         this.openModal('addEmployee');
       },
       createEmployeeAction() {
@@ -324,7 +356,7 @@
           .withSuccessHandler(() => {
             this.creatingEmployee = false;
             this.closeModal();
-            this.toast('success', 'Đã thêm nhân viên mới.');
+            this.toast('success', 'Đã thêm nhân sự mới.');
             this.loadEmployeesPage();
           })
           .withFailureHandler((e) => {
@@ -333,12 +365,65 @@
           })
           .api_createEmployee(this.authToken, this.newEmployeeForm);
       },
+      // Sửa nhanh 1 trường ngay trên bảng (Trạng thái/Người phụ trách hồ sơ) — dùng chung updateEmployee
+      // (đã có sẵn, nhận patch tuỳ ý) thay vì tạo hàm setter riêng cho từng trường.
+      saveEmployeeFieldAction(e, patch) {
+        google.script.run
+          .withFailureHandler((err) => { this.errorMessage = err.message; this.loadEmployeesPage(); })
+          .api_updateEmployee(this.authToken, e.EmployeeID, patch);
+      },
       deactivateEmployeeAction(e) {
         if (!confirm('Ngừng hoạt động nhân viên "' + e.FullName + '"? Tài khoản đăng nhập của họ cũng sẽ bị khoá.')) return;
         google.script.run
           .withSuccessHandler(() => { this.loadEmployeesPage(); })
           .withFailureHandler((err) => { this.errorMessage = err.message; })
           .api_deactivateEmployee(this.authToken, e.EmployeeID);
+      },
+      importEmployeesCsv: '',
+      importEmployeesResults: [],
+      importingEmployees: false,
+      openImportEmployeesModal() {
+        this.importEmployeesCsv = '';
+        this.importEmployeesResults = [];
+        this.openModal('importEmployees');
+      },
+      importEmployeesAction() {
+        const rows = this.importEmployeesCsv.split('\n').map((line) => line.trim()).filter((line) => line.length > 0).map((line) => {
+          const parts = line.split(',').map((p) => p.trim());
+          return {
+            employeeCode: parts[0], username: parts[1], email: parts[2], fullName: parts[3],
+            departmentName: parts[4], position: parts[5] || '', jobTitle: parts[6] || '',
+            employeeType: parts[7] || '', phoneNumber: parts[8] || '', startDate: parts[9] || ''
+          };
+        });
+        if (rows.length === 0) return;
+        this.importingEmployees = true;
+        google.script.run
+          .withSuccessHandler((results) => {
+            this.importingEmployees = false;
+            this.importEmployeesResults = results;
+            this.toast('success', 'Đã xử lý ' + results.length + ' dòng.');
+            this.loadEmployeesPage();
+          })
+          .withFailureHandler((e) => {
+            this.importingEmployees = false;
+            this.errorMessage = e.message;
+          })
+          .api_importEmployees(this.authToken, rows);
+      },
+      exportingEmployees: false,
+      exportEmployeesAction() {
+        this.exportingEmployees = true;
+        google.script.run
+          .withSuccessHandler((result) => {
+            this.exportingEmployees = false;
+            window.open(result.url, '_blank');
+          })
+          .withFailureHandler((e) => {
+            this.exportingEmployees = false;
+            this.errorMessage = e.message;
+          })
+          .api_exportEmployeesToExcel(this.authToken);
       },
 
       resetPasswordTarget: null,
@@ -1675,7 +1760,7 @@
       },
 
       // --- Quản trị ---
-      adminTab: 'users',
+      adminTab: 'ai',
       newUserForm: { email: '', username: '', fullName: '', role: 'NHAN_VIEN' },
       creatingUser: false,
       syncingSchema: false,
@@ -1693,12 +1778,16 @@
       departmentPermissions: [],
       newPermissionUserId: '',
 
+      // Chỉ còn cấu hình AI — quản lý Người dùng/Vai trò đã chuyển sang loadUsersAndRoles() (trang
+      // Nhân sự) sau khi gộp trang theo yêu cầu Product Owner.
       loadAdminData() {
-        google.script.run.withSuccessHandler((users) => { this.allUsers = users; }).withFailureHandler((e) => { this.errorMessage = e.message; }).api_listAllUsers(this.authToken);
-        google.script.run.withSuccessHandler((roles) => { this.allRoles = roles; }).withFailureHandler((e) => { this.errorMessage = e.message; }).api_getAllRoles();
         google.script.run.withSuccessHandler((providers) => { this.aiProviders = providers; }).withFailureHandler((e) => { this.errorMessage = e.message; }).api_listAIProviders(this.authToken);
         google.script.run.withSuccessHandler((enabled) => { this.aiEnabled = enabled; }).withFailureHandler((e) => { this.errorMessage = e.message; }).api_isAiEnabled();
         google.script.run.withSuccessHandler((config) => { this.activeAiConfig = config; }).withFailureHandler((e) => { this.errorMessage = e.message; }).api_getActiveAIProviderConfig(this.authToken);
+      },
+      loadUsersAndRoles() {
+        google.script.run.withSuccessHandler((users) => { this.allUsers = users; }).withFailureHandler((e) => { this.errorMessage = e.message; }).api_listAllUsers(this.authToken);
+        google.script.run.withSuccessHandler((roles) => { this.allRoles = roles; }).withFailureHandler((e) => { this.errorMessage = e.message; }).api_getAllRoles();
       },
 
       saveUserRole(u) {
@@ -1718,7 +1807,7 @@
             this.newUserForm = { email: '', username: '', fullName: '', role: 'NHAN_VIEN' };
             this.closeModal();
             this.toast('success', 'Đã thêm người dùng mới.');
-            this.loadAdminData();
+            this.loadUsersAndRoles();
           })
           .withFailureHandler((e) => {
             this.creatingUser = false;
