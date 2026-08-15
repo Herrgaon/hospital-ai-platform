@@ -518,6 +518,105 @@
           .api_deactivateDepartment(this.authToken, d.DepartmentID);
       },
 
+      // --- Hồ sơ nhân viên (trang "Thông tin cá nhân") ---
+      profileEmployeeId: '',
+      profileBundle: null,
+      profileTab: 'personal',
+      profileEditMode: false,
+      personalInfoForm: {},
+      savingPersonalInfo: false,
+      addFamilyMemberForm: { relationship: '', fullName: '', phoneNumber: '', birthYear: null },
+      addingFamilyMember: false,
+      get isOwnProfile() { return this.profileEmployeeId === this.myEmployeeId; },
+      get profileDepartmentHeadName() {
+        if (!this.profileBundle) return '—';
+        const dept = this.departments.find((d) => d.DepartmentID === this.profileBundle.employee.DepartmentID);
+        if (!dept || !dept.HeadUserID) return '—';
+        const head = this.userDirectory.find((u) => u.UserID === dept.HeadUserID);
+        return head ? head.FullName : '—';
+      },
+      get profileCurrentMonthLabel() {
+        const d = new Date();
+        return String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+      },
+      openMyProfile() {
+        this.profileEmployeeId = this.myEmployeeId;
+        this.profileTab = 'personal';
+        this.profileEditMode = false;
+        this.go('profile');
+      },
+      openEmployeeProfile(employeeId) {
+        this.profileEmployeeId = employeeId;
+        this.profileTab = 'personal';
+        this.profileEditMode = false;
+        this.go('profile');
+      },
+      loadProfileBundleAction() {
+        if (!this.profileEmployeeId) this.profileEmployeeId = this.myEmployeeId;
+        if (!this.profileEmployeeId) return;
+        this.profileBundle = null;
+        google.script.run
+          .withSuccessHandler((bundle) => { this.profileBundle = bundle; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_getEmployeeProfileBundle(this.authToken, this.profileEmployeeId);
+      },
+      toggleProfileEditMode() {
+        if (!this.profileEditMode) {
+          const e = this.profileBundle.employee;
+          this.personalInfoForm = {
+            PreferredName: e.PreferredName || '', PhoneNumber: e.PhoneNumber || '', DateOfBirth: e.DateOfBirth || '',
+            Gender: e.Gender || '', MaritalStatus: e.MaritalStatus || '', Nationality: e.Nationality || '',
+            Ethnicity: e.Ethnicity || '', IdNumber: e.IdNumber || '', IdIssueDate: e.IdIssueDate || '',
+            IdIssuePlace: e.IdIssuePlace || '', Hometown: e.Hometown || '', PermanentAddress: e.PermanentAddress || '',
+            ContactAddress: e.ContactAddress || '', BloodType: e.BloodType || '', HeightCm: e.HeightCm || null, WeightKg: e.WeightKg || null
+          };
+        }
+        this.profileEditMode = !this.profileEditMode;
+      },
+      cancelProfileEdit() { this.profileEditMode = false; },
+      savePersonalInfoAction() {
+        this.savingPersonalInfo = true;
+        const onDone = (updated) => {
+          this.savingPersonalInfo = false;
+          this.profileBundle.employee = updated;
+          this.profileEditMode = false;
+          this.toast('success', 'Đã lưu thông tin cá nhân.');
+        };
+        const onFail = (e) => { this.savingPersonalInfo = false; this.errorMessage = e.message; };
+        if (this.isOwnProfile) {
+          google.script.run.withSuccessHandler(onDone).withFailureHandler(onFail).api_updateMyPersonalInfo(this.authToken, this.personalInfoForm);
+        } else {
+          google.script.run.withSuccessHandler(onDone).withFailureHandler(onFail).api_updateEmployee(this.authToken, this.profileBundle.employee.EmployeeID, this.personalInfoForm);
+        }
+      },
+      openAddFamilyMemberModal() {
+        this.addFamilyMemberForm = { relationship: '', fullName: '', phoneNumber: '', birthYear: null };
+        this.openModal('addFamilyMember');
+      },
+      addFamilyMemberAction() {
+        this.addingFamilyMember = true;
+        google.script.run
+          .withSuccessHandler((member) => {
+            this.addingFamilyMember = false;
+            this.profileBundle.familyMembers.push(member);
+            this.closeModal();
+          })
+          .withFailureHandler((e) => {
+            this.addingFamilyMember = false;
+            this.errorMessage = e.message;
+          })
+          .api_addFamilyMember(this.authToken, this.profileBundle.employee.EmployeeID, this.addFamilyMemberForm);
+      },
+      removeFamilyMemberAction(m) {
+        if (!confirm('Xoá ' + m.FullName + ' khỏi danh sách người thân?')) return;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.profileBundle.familyMembers = this.profileBundle.familyMembers.filter((x) => x.FamilyMemberID !== m.FamilyMemberID);
+          })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_removeFamilyMember(this.authToken, m.FamilyMemberID);
+      },
+
       // --- Quản lý công việc ---
       taskTab: 'mine',
       taskStatusTab: 'all',

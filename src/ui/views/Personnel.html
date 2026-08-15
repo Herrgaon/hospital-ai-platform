@@ -92,7 +92,7 @@
                   <div class="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-tech text-white" :style="avatarColorStyle(e)" x-text="initials(e)"></div>
                 </td>
                 <td class="font-tech" x-text="e.EmployeeCode"></td>
-                <td x-text="e.FullName"></td>
+                <td><button @click="openEmployeeProfile(e.EmployeeID)" class="btn-link !p-0" x-text="e.FullName"></button></td>
                 <td x-text="departmentNameById(e.DepartmentID)"></td>
                 <td x-text="e.Position"></td>
                 <td x-text="e.JobTitle || '—'"></td>

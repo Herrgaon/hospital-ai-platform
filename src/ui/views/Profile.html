@@ -1,0 +1,267 @@
+<div x-show="currentView === 'profile'" x-init="$watch('currentView', v => { if (v === 'profile') loadProfileBundleAction(); }); if (currentView === 'profile') loadProfileBundleAction();" class="max-w-6xl mx-auto">
+  <p class="text-xs holo-text-dim mb-3">
+    <a href="#personnel" @click.prevent="go('personnel')" class="hover:underline">Nhân sự</a>
+    <span class="breadcrumb-sep"> › </span>
+    <a href="#personnel" @click.prevent="go('personnel')" class="hover:underline">Danh sách nhân sự</a>
+    <span class="breadcrumb-sep"> › </span>
+    <span>Thông tin cá nhân</span>
+  </p>
+
+  <template x-if="!profileBundle">
+    <p class="text-sm holo-text-dim">Đang tải hồ sơ...</p>
+  </template>
+
+  <template x-if="profileBundle">
+    <div class="grid gap-4" style="grid-template-columns: 260px 1fr 260px;">
+      <!-- Cột trái: ảnh + tóm tắt -->
+      <div class="card p-4 space-y-3" style="align-self: start;">
+        <div class="relative w-24 h-24 mx-auto">
+          <img x-show="profileBundle.account && profileBundle.account.AvatarUrl" :src="profileBundle.account && profileBundle.account.AvatarUrl" class="w-24 h-24 rounded-full object-cover">
+          <div x-show="!profileBundle.account || !profileBundle.account.AvatarUrl" class="w-24 h-24 rounded-full flex items-center justify-center text-2xl font-tech" :style="avatarColorStyle(profileBundle.employee)" x-text="initials(profileBundle.employee)"></div>
+          <label x-show="isOwnProfile" class="absolute bottom-0 right-0 w-8 h-8 rounded-full flex items-center justify-center cursor-pointer btn btn-secondary btn-sm !p-0" title="Đổi ảnh đại diện">
+            <span x-text="uploadingAvatar ? '…' : '📷'"></span>
+            <input type="file" accept="image/*" @change="onAvatarFileSelected($event)" class="hidden">
+          </label>
+        </div>
+        <div class="text-center">
+          <div class="font-semibold text-base" x-text="profileBundle.employee.FullName"></div>
+          <div class="text-xs holo-text-dim" x-show="profileBundle.employee.PreferredName" x-text="profileBundle.employee.PreferredName"></div>
+          <span class="badge mt-1" :class="employeeStatusBadgeClass(profileBundle.employee.Status)" x-text="employeeStatusLabel(profileBundle.employee.Status)"></span>
+        </div>
+        <div class="text-xs space-y-2 pt-2" style="border-top: 1px solid var(--holo-border);">
+          <div><span class="holo-text-dim">Mã nhân viên</span><br><strong x-text="profileBundle.employee.EmployeeCode || '—'"></strong></div>
+          <div><span class="holo-text-dim">Chức vụ</span><br><strong x-text="profileBundle.employee.JobTitle || '—'"></strong></div>
+          <div><span class="holo-text-dim">Chức danh chuyên môn</span><br><strong x-text="profileBundle.employee.Position || '—'"></strong></div>
+          <div><span class="holo-text-dim">Khoa/Phòng</span><br><strong x-text="profileBundle.departmentName || '—'"></strong></div>
+          <div><span class="holo-text-dim">Quản lý trực tiếp</span><br><strong x-text="profileDepartmentHeadName"></strong></div>
+        </div>
+        <div class="space-y-2 pt-2" style="border-top: 1px solid var(--holo-border);">
+          <button x-show="profileBundle.canEdit" @click="toggleProfileEditMode()" class="btn btn-primary btn-sm w-full">
+            <span x-text="profileEditMode ? 'Đang chỉnh sửa...' : '✎ Chỉnh sửa thông tin'"></span>
+          </button>
+          <button x-show="isOwnProfile" @click="openChangePasswordModal()" class="btn btn-secondary btn-sm w-full">Đổi mật khẩu</button>
+        </div>
+      </div>
+
+      <!-- Cột giữa: tabs -->
+      <div>
+        <div class="tabs">
+          <button @click="profileTab = 'personal'" class="tab" :class="profileTab === 'personal' ? 'active' : ''">Thông tin cá nhân</button>
+          <button @click="profileTab = 'work'" class="tab" :class="profileTab === 'work' ? 'active' : ''">Thông tin công tác</button>
+          <button @click="profileTab = 'credentials'" class="tab" :class="profileTab === 'credentials' ? 'active' : ''">Bằng cấp - Chứng chỉ</button>
+          <button @click="profileTab = 'history'" class="tab" :class="profileTab === 'history' ? 'active' : ''">Quá trình công tác</button>
+          <button @click="profileTab = 'salary'" class="tab" :class="profileTab === 'salary' ? 'active' : ''">🔒 Lịch sử lương</button>
+        </div>
+
+        <!-- Tab: Thông tin cá nhân -->
+        <div x-show="profileTab === 'personal'" class="space-y-4">
+          <div class="card p-4">
+            <div class="flex items-center justify-between mb-3">
+              <p class="holo-label">Thông tin cá nhân</p>
+              <div class="flex gap-2" x-show="profileEditMode">
+                <button @click="cancelProfileEdit()" class="btn btn-secondary btn-sm">Huỷ</button>
+                <button @click="savePersonalInfoAction()" :disabled="savingPersonalInfo" class="btn btn-primary btn-sm">
+                  <span x-text="savingPersonalInfo ? 'Đang lưu...' : 'Lưu'"></span>
+                </button>
+              </div>
+            </div>
+            <div class="form-grid-2 gap-y-2">
+              <div class="form-group !mb-2"><label>Họ và tên</label><p class="text-sm" x-text="profileBundle.employee.FullName"></p></div>
+              <div class="form-group !mb-2">
+                <label>Tên thường gọi</label>
+                <p x-show="!profileEditMode" class="text-sm" x-text="profileBundle.employee.PreferredName || '—'"></p>
+                <input x-show="profileEditMode" type="text" x-model="personalInfoForm.PreferredName" class="form-control form-control-sm">
+              </div>
+              <div class="form-group !mb-2">
+                <label>Số điện thoại</label>
+                <p x-show="!profileEditMode" class="text-sm" x-text="profileBundle.employee.PhoneNumber || '—'"></p>
+                <input x-show="profileEditMode" type="text" x-model="personalInfoForm.PhoneNumber" class="form-control form-control-sm">
+              </div>
+              <div class="form-group !mb-2">
+                <label>Tình trạng hôn nhân</label>
+                <p x-show="!profileEditMode" class="text-sm" x-text="profileBundle.employee.MaritalStatus || '—'"></p>
+                <input x-show="profileEditMode" type="text" x-model="personalInfoForm.MaritalStatus" class="form-control form-control-sm">
+              </div>
+              <div class="form-group !mb-2">
+                <label>Ngày sinh</label>
+                <p x-show="!profileEditMode" class="text-sm" x-text="profileBundle.employee.DateOfBirth || '—'"></p>
+                <input x-show="profileEditMode" type="date" x-model="personalInfoForm.DateOfBirth" class="form-control form-control-sm">
+              </div>
+              <div class="form-group !mb-2">
+                <label>Quốc tịch</label>
+                <p x-show="!profileEditMode" class="text-sm" x-text="profileBundle.employee.Nationality || '—'"></p>
+                <input x-show="profileEditMode" type="text" x-model="personalInfoForm.Nationality" class="form-control form-control-sm">
+              </div>
+              <div class="form-group !mb-2">
+                <label>Giới tính</label>
+                <p x-show="!profileEditMode" class="text-sm" x-text="profileBundle.employee.Gender || '—'"></p>
+                <input x-show="profileEditMode" type="text" x-model="personalInfoForm.Gender" class="form-control form-control-sm">
+              </div>
+              <div class="form-group !mb-2">
+                <label>Dân tộc</label>
+                <p x-show="!profileEditMode" class="text-sm" x-text="profileBundle.employee.Ethnicity || '—'"></p>
+                <input x-show="profileEditMode" type="text" x-model="personalInfoForm.Ethnicity" class="form-control form-control-sm">
+              </div>
+              <div class="form-group !mb-2">
+                <label>Số CMND/CCCD</label>
+                <p x-show="!profileEditMode" class="text-sm" x-text="profileBundle.employee.IdNumber || '—'"></p>
+                <input x-show="profileEditMode" type="text" x-model="personalInfoForm.IdNumber" class="form-control form-control-sm">
+              </div>
+              <div class="form-group !mb-2">
+                <label>Quê quán</label>
+                <p x-show="!profileEditMode" class="text-sm" x-text="profileBundle.employee.Hometown || '—'"></p>
+                <input x-show="profileEditMode" type="text" x-model="personalInfoForm.Hometown" class="form-control form-control-sm">
+              </div>
+              <div class="form-group !mb-2">
+                <label>Ngày cấp</label>
+                <p x-show="!profileEditMode" class="text-sm" x-text="profileBundle.employee.IdIssueDate || '—'"></p>
+                <input x-show="profileEditMode" type="date" x-model="personalInfoForm.IdIssueDate" class="form-control form-control-sm">
+              </div>
+              <div class="form-group !mb-2">
+                <label>Địa chỉ thường trú</label>
+                <p x-show="!profileEditMode" class="text-sm" x-text="profileBundle.employee.PermanentAddress || '—'"></p>
+                <input x-show="profileEditMode" type="text" x-model="personalInfoForm.PermanentAddress" class="form-control form-control-sm">
+              </div>
+              <div class="form-group !mb-2">
+                <label>Nơi cấp</label>
+                <p x-show="!profileEditMode" class="text-sm" x-text="profileBundle.employee.IdIssuePlace || '—'"></p>
+                <input x-show="profileEditMode" type="text" x-model="personalInfoForm.IdIssuePlace" class="form-control form-control-sm">
+              </div>
+              <div class="form-group !mb-2">
+                <label>Địa chỉ liên hệ</label>
+                <p x-show="!profileEditMode" class="text-sm" x-text="profileBundle.employee.ContactAddress || '—'"></p>
+                <input x-show="profileEditMode" type="text" x-model="personalInfoForm.ContactAddress" class="form-control form-control-sm">
+              </div>
+              <div class="form-group !mb-2"><label>Email</label><p class="text-sm" x-text="profileBundle.employee.Email"></p></div>
+            </div>
+          </div>
+
+          <div class="card p-4">
+            <div class="flex items-center justify-between mb-3">
+              <p class="holo-label">Thông tin người thân</p>
+              <button x-show="profileBundle.canEdit" @click="openAddFamilyMemberModal()" class="btn-link">+ Thêm người thân</button>
+            </div>
+            <table class="data-table">
+              <thead><tr><th>Mối quan hệ</th><th>Họ và tên</th><th>SĐT</th><th>Năm sinh</th><th x-show="profileBundle.canEdit"></th></tr></thead>
+              <tbody>
+                <template x-for="m in profileBundle.familyMembers" :key="m.FamilyMemberID">
+                  <tr>
+                    <td x-text="m.Relationship || '—'"></td>
+                    <td x-text="m.FullName"></td>
+                    <td x-text="m.PhoneNumber || '—'"></td>
+                    <td x-text="m.BirthYear || '—'"></td>
+                    <td x-show="profileBundle.canEdit"><button @click="removeFamilyMemberAction(m)" class="btn-link">Xoá</button></td>
+                  </tr>
+                </template>
+                <template x-if="profileBundle.familyMembers.length === 0">
+                  <tr><td colspan="5" class="text-xs holo-text-dim py-2">Chưa có thông tin người thân.</td></tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="grid gap-4" style="grid-template-columns: 1fr 1fr;">
+            <div class="card p-4">
+              <p class="holo-label mb-2">Thông tin tài khoản hệ thống</p>
+              <div class="text-xs space-y-1">
+                <div class="flex justify-between"><span class="holo-text-dim">Tên đăng nhập</span><strong x-text="profileBundle.account && profileBundle.account.Username"></strong></div>
+                <div class="flex justify-between"><span class="holo-text-dim">Email đăng nhập</span><strong x-text="profileBundle.account && profileBundle.account.Email"></strong></div>
+                <div class="flex justify-between"><span class="holo-text-dim">Vai trò</span><strong x-text="profileBundle.account && profileBundle.account.Role"></strong></div>
+                <div class="flex justify-between"><span class="holo-text-dim">Trạng thái tài khoản</span><span class="badge" :class="profileBundle.account && profileBundle.account.Status === 'Active' ? 'badge-green' : 'badge-gray'" x-text="profileBundle.account && profileBundle.account.Status"></span></div>
+              </div>
+            </div>
+            <div class="card p-4">
+              <p class="holo-label mb-2">Số đo cá nhân</p>
+              <div class="grid grid-cols-3 gap-2 text-xs" x-show="!profileEditMode">
+                <div><span class="holo-text-dim">Nhóm máu</span><br><strong x-text="profileBundle.employee.BloodType || '—'"></strong></div>
+                <div><span class="holo-text-dim">Chiều cao</span><br><strong x-text="(profileBundle.employee.HeightCm || '—') + (profileBundle.employee.HeightCm ? ' cm' : '')"></strong></div>
+                <div><span class="holo-text-dim">Cân nặng</span><br><strong x-text="(profileBundle.employee.WeightKg || '—') + (profileBundle.employee.WeightKg ? ' kg' : '')"></strong></div>
+              </div>
+              <div class="grid grid-cols-3 gap-2" x-show="profileEditMode">
+                <div class="form-group !mb-0"><label>Nhóm máu</label><input type="text" x-model="personalInfoForm.BloodType" class="form-control form-control-sm"></div>
+                <div class="form-group !mb-0"><label>Chiều cao (cm)</label><input type="number" x-model.number="personalInfoForm.HeightCm" class="form-control form-control-sm"></div>
+                <div class="form-group !mb-0"><label>Cân nặng (kg)</label><input type="number" x-model.number="personalInfoForm.WeightKg" class="form-control form-control-sm"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Thông tin công tác -->
+        <div x-show="profileTab === 'work'" class="card p-4">
+          <p class="holo-label mb-3">Thông tin công tác</p>
+          <div class="form-grid-2 gap-y-2 text-sm">
+            <div><span class="holo-text-dim text-xs">Mã nhân viên</span><br><strong x-text="profileBundle.employee.EmployeeCode || '—'"></strong></div>
+            <div><span class="holo-text-dim text-xs">Khoa/Phòng</span><br><strong x-text="profileBundle.departmentName || '—'"></strong></div>
+            <div><span class="holo-text-dim text-xs">Chức vụ</span><br><strong x-text="profileBundle.employee.JobTitle || '—'"></strong></div>
+            <div><span class="holo-text-dim text-xs">Chức danh chuyên môn</span><br><strong x-text="profileBundle.employee.Position || '—'"></strong></div>
+            <div><span class="holo-text-dim text-xs">Loại nhân viên</span><br><strong x-text="profileBundle.employee.EmployeeType || '—'"></strong></div>
+            <div><span class="holo-text-dim text-xs">Ngày vào làm</span><br><strong x-text="profileBundle.employee.StartDate || '—'"></strong></div>
+            <div><span class="holo-text-dim text-xs">Trạng thái</span><br><span class="badge" :class="employeeStatusBadgeClass(profileBundle.employee.Status)" x-text="employeeStatusLabel(profileBundle.employee.Status)"></span></div>
+            <div><span class="holo-text-dim text-xs">Quản lý trực tiếp</span><br><strong x-text="profileDepartmentHeadName"></strong></div>
+          </div>
+        </div>
+
+        <!-- Tab: Bằng cấp - Chứng chỉ / Quá trình công tác -->
+        <div x-show="profileTab === 'credentials' || profileTab === 'history'" class="card p-6 text-center">
+          <p class="text-sm holo-text-dim">Chức năng này sẽ được triển khai ở giai đoạn tiếp theo.</p>
+        </div>
+
+        <!-- Tab: Lịch sử lương -->
+        <div x-show="profileTab === 'salary'" class="card p-6 text-center">
+          <p class="text-sm holo-text-dim">🔒 Module tiền lương chưa triển khai công thức chính thức cho đến khi bệnh viện hoàn thiện, rà soát và phê duyệt cơ chế tính lương.</p>
+        </div>
+      </div>
+
+      <!-- Cột phải: lịch trực -->
+      <div class="card p-4" style="align-self: start;">
+        <div class="flex items-center justify-between mb-2">
+          <p class="holo-label">Lịch trực tháng <span x-text="profileCurrentMonthLabel"></span></p>
+        </div>
+        <p class="text-xs holo-text-dim mb-2">Tổng số ca trực: <strong x-text="profileBundle.dutyShiftsThisMonth.length"></strong></p>
+        <div class="space-y-2">
+          <template x-for="s in profileBundle.dutyShiftsThisMonth" :key="s.DutyShiftID">
+            <div class="text-xs p-2 rounded" style="border: 1px solid var(--holo-border);">
+              <div class="flex justify-between items-center">
+                <strong x-text="s.ShiftDate"></strong>
+                <span class="badge badge-orange" x-text="s.DutyType"></span>
+              </div>
+              <div class="holo-text-dim mt-1" x-text="s.ShiftStart + ' → ' + s.ShiftEnd"></div>
+            </div>
+          </template>
+          <p class="text-xs holo-text-dim" x-show="profileBundle.dutyShiftsThisMonth.length === 0">Không có ca trực nào tháng này.</p>
+        </div>
+        <button @click="go('duty')" class="btn btn-secondary btn-sm w-full mt-3">Xem lịch trực đầy đủ</button>
+      </div>
+    </div>
+  </template>
+
+  <!-- Modal: Thêm người thân -->
+  <div x-show="modalOpen === 'addFamilyMember'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Thêm người thân</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Mối quan hệ</label>
+          <input type="text" x-model="addFamilyMemberForm.relationship" class="form-control" placeholder="VD: Vợ, Con, Bố...">
+        </div>
+        <div class="form-group">
+          <label class="required">Họ và tên</label>
+          <input type="text" x-model="addFamilyMemberForm.fullName" class="form-control">
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group"><label>Số điện thoại</label><input type="text" x-model="addFamilyMemberForm.phoneNumber" class="form-control"></div>
+          <div class="form-group"><label>Năm sinh</label><input type="number" x-model.number="addFamilyMemberForm.birthYear" class="form-control"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="addFamilyMemberAction()" :disabled="addingFamilyMember || !addFamilyMemberForm.fullName" class="btn btn-primary">
+          <span x-text="addingFamilyMember ? 'Đang thêm...' : 'Thêm'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

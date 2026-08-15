@@ -88,28 +88,18 @@
             </div>
           </button>
 
-          <div x-show="showProfileMenu" @click.outside="showProfileMenu = false" x-cloak class="modal absolute right-0 top-12 w-72 p-4 space-y-3 z-10">
-            <p class="holo-label">Hồ sơ của tôi</p>
-            <div class="flex items-center gap-3">
-              <img x-show="currentUser.AvatarUrl" :src="currentUser.AvatarUrl" class="w-12 h-12 rounded-full object-cover holo-border-strong">
-              <div x-show="!currentUser.AvatarUrl" class="w-12 h-12 rounded-full flex items-center justify-center text-sm font-tech holo-border-strong" :style="avatarColorStyle(currentUser)" x-text="initials(currentUser)"></div>
-              <div>
-                <label class="btn btn-secondary btn-xs cursor-pointer inline-block">
-                  <span x-text="uploadingAvatar ? 'Đang tải...' : 'Đổi ảnh đại diện'"></span>
-                  <input type="file" accept="image/*" @change="onAvatarFileSelected($event)" class="hidden">
-                </label>
+          <div x-show="showProfileMenu" @click.outside="showProfileMenu = false" x-cloak class="modal absolute right-0 top-12 w-56 p-2 space-y-1 z-10">
+            <div class="flex items-center gap-2 px-2 py-2" style="border-bottom: 1px solid var(--holo-border);">
+              <img x-show="currentUser.AvatarUrl" :src="currentUser.AvatarUrl" class="w-9 h-9 rounded-full object-cover">
+              <div x-show="!currentUser.AvatarUrl" class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-tech" :style="avatarColorStyle(currentUser)" x-text="initials(currentUser)"></div>
+              <div class="min-w-0">
+                <div class="text-sm font-medium truncate" x-text="currentUser.FullName || userEmail"></div>
+                <div class="text-xs holo-text-dim truncate" x-text="userEmail"></div>
               </div>
             </div>
-            <div class="form-group !mb-2">
-              <label>Tên hiển thị</label>
-              <input type="text" x-model="profileForm.fullName" class="form-control">
-            </div>
-            <p class="text-xs holo-text-dim" x-text="userEmail"></p>
-            <button @click="saveProfileAction()" :disabled="savingProfile" class="btn btn-primary btn-sm w-full">
-              <span x-text="savingProfile ? 'Đang lưu...' : 'Lưu thay đổi'"></span>
-            </button>
-            <button @click="showProfileMenu = false; openChangePasswordModal()" class="btn btn-secondary btn-sm w-full">Đổi mật khẩu</button>
-            <button @click="logoutAction()" class="btn btn-secondary btn-sm w-full">Đăng xuất</button>
+            <button @click="showProfileMenu = false; openMyProfile()" class="app-nav-item w-full text-left">👤 Thông tin cá nhân</button>
+            <button @click="showProfileMenu = false; openChangePasswordModal()" class="app-nav-item w-full text-left">🔒 Đổi mật khẩu</button>
+            <button @click="showProfileMenu = false; logoutAction()" class="app-nav-item w-full text-left">↪ Đăng xuất</button>
           </div>
         </div>
       </header>
@@ -119,6 +109,7 @@
         </template>
         <?!= include('ui/views/Dashboard') ?>
         <?!= include('ui/views/Personnel') ?>
+        <?!= include('ui/views/Profile') ?>
         <?!= include('ui/views/Tasks') ?>
         <?!= include('ui/views/ClinicalAssignments') ?>
         <?!= include('ui/views/DutySchedule') ?>

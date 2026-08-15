@@ -170,6 +170,26 @@ function api_exportEmployeesToExcel(token) {
   return exportEmployeesToExcel(user);
 }
 
+function api_getEmployeeProfileBundle(token, employeeId) {
+  const user = getCurrentUserFromToken_(token);
+  return getEmployeeProfileBundle(user, employeeId);
+}
+
+function api_updateMyPersonalInfo(token, patch) {
+  const user = getCurrentUserFromToken_(token);
+  return updateMyPersonalInfo(user, patch);
+}
+
+function api_addFamilyMember(token, employeeId, input) {
+  const user = getCurrentUserFromToken_(token);
+  return addFamilyMember(user, employeeId, input);
+}
+
+function api_removeFamilyMember(token, familyMemberId) {
+  const user = getCurrentUserFromToken_(token);
+  return removeFamilyMember(user, familyMemberId);
+}
+
 // --- Department ---
 
 function api_listActiveDepartments(token) {

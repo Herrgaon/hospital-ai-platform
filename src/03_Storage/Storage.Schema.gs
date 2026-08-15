@@ -24,6 +24,7 @@ const SHEETS = {
   INSURANCE_AUDITS: 'InsuranceAudits',
   TASK_PARTICIPANTS: 'TaskParticipants',
   RECURRING_TASK_TEMPLATES: 'RecurringTaskTemplates',
+  EMPLOYEE_FAMILY_MEMBERS: 'EmployeeFamilyMembers',
   KPI_CRITERION_GROUPS: 'KpiCriterionGroups',
   KPI_RULES: 'KpiRules',
   KPI_RESULTS: 'KpiResults',
@@ -75,9 +76,16 @@ const SCHEMA = {
   // lọc danh sách — KHÔNG thay thế Permissions (không tự cấp quyền sửa), khác với uỷ quyền phê duyệt
   // theo khoa/phòng (Permissions.UserID, xem Auth.Permission.gs) vốn đã có sẵn cho việc "phụ trách
   // duyệt" theo từng chức năng.
+  // Bổ sung "Thông tin cá nhân" (trang Hồ sơ nhân viên, 2026-08-15) — tất cả các trường dưới đây đều TỰ
+  // DO NHẬP (không phải enum cứng, đúng nguyên tắc "không hard-code danh mục nghiệp vụ khi chưa được
+  // duyệt"), cho phép rỗng. PreferredName = "Tên thường gọi" (khác FullName trên giấy tờ).
   [SHEETS.EMPLOYEES]: [
     'EmployeeID', 'EmployeeCode', 'UserID', 'FullName', 'DepartmentID', 'Position', 'JobTitle', 'EmployeeType',
-    'PhoneNumber', 'Email', 'StartDate', 'Status', 'RecordOwnerUserID', 'CreatedAt', 'UpdatedAt'
+    'PhoneNumber', 'Email', 'StartDate', 'Status', 'RecordOwnerUserID',
+    'PreferredName', 'DateOfBirth', 'Gender', 'MaritalStatus', 'Nationality', 'Ethnicity',
+    'IdNumber', 'IdIssueDate', 'IdIssuePlace', 'Hometown', 'PermanentAddress', 'ContactAddress',
+    'BloodType', 'HeightCm', 'WeightKg',
+    'CreatedAt', 'UpdatedAt'
   ],
 
   // Quản lý công việc (khối hành chính) — TaskAssignment/TaskResult gộp vào 1 dòng, không tách sheet
@@ -138,6 +146,12 @@ const SCHEMA = {
   // TaskID phải = 100 (kiểm tra ở Task.Service.gs#addTaskParticipant).
   [SHEETS.TASK_PARTICIPANTS]: [
     'TaskParticipantID', 'TaskID', 'EmployeeID', 'RoleInTask', 'ValuePercent', 'CreatedAt'
+  ],
+
+  // "Thông tin người thân" trên trang Hồ sơ nhân viên — Relationship tự do nhập (VD "Vợ"/"Con"/"Bố"...).
+  [SHEETS.EMPLOYEE_FAMILY_MEMBERS]: [
+    'FamilyMemberID', 'EmployeeID', 'Relationship', 'FullName', 'PhoneNumber', 'BirthYear',
+    'CreatedAt', 'UpdatedAt'
   ],
 
   // Phân công khối lâm sàng (khám/điều trị/hội chẩn/phẫu thuật/thủ thuật) — cố tình tối giản, KHÁC
@@ -355,7 +369,7 @@ const ROLE_NAMES = {
 // ShiftEnd (lỗi serialization giống hệt lỗi ngày tháng, dù ShiftDate đã sửa đúng). Liệt kê đủ mọi cột
 // giờ dạng "HH:MM" trong toàn schema, không chỉ cột ngày tháng.
 const PLAIN_TEXT_COLUMNS = {
-  [SHEETS.EMPLOYEES]: ['StartDate'],
+  [SHEETS.EMPLOYEES]: ['StartDate', 'DateOfBirth', 'IdIssueDate'],
   [SHEETS.TASKS]: ['DueDate', 'Period'],
   [SHEETS.RECURRING_TASK_TEMPLATES]: ['EffectiveFrom', 'EffectiveTo'],
   [SHEETS.CLINICAL_ASSIGNMENTS]: ['AssignmentDate', 'ShiftStart', 'ShiftEnd'],

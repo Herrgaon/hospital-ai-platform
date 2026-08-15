@@ -59,6 +59,10 @@ const GATEWAY_ACTIONS_ = {
   'employee.resetPassword': function (user, params) { return resetEmployeePassword(user, params.employeeId, params.newPassword); },
   'employee.import': function (user, params) { return importEmployees(user, params.rows); },
   'employee.exportToExcel': function (user) { return exportEmployeesToExcel(user); },
+  'employee.getProfileBundle': function (user, params) { return getEmployeeProfileBundle(user, params.employeeId); },
+  'employee.updateMyPersonalInfo': function (user, params) { return updateMyPersonalInfo(user, params.patch); },
+  'employee.addFamilyMember': function (user, params) { return addFamilyMember(user, params.employeeId, params.input); },
+  'employee.removeFamilyMember': function (user, params) { return removeFamilyMember(user, params.familyMemberId); },
 
   'department.list': function () { return listActiveDepartments(); },
   'department.get': function (user, params) { return getDepartmentById(params.departmentId); },
