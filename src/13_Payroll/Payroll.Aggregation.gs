@@ -10,6 +10,15 @@ function yearMonthRange_(yearMonth) {
   return { from: yearMonth + '-01', to: yearMonth + '-31' };
 }
 
+// "HH:MM" -> số giờ, có xử lý ca qua đêm (endTime <= startTime nghĩa là kết thúc sang ngày hôm sau,
+// cùng quy ước với DutySchedule.RoleGrant.gs#isNowWithinShiftWindow_).
+function hoursBetween_(startTime, endTime) {
+  const toMinutes = function (t) { const p = t.split(':').map(Number); return p[0] * 60 + p[1]; };
+  let minutes = toMinutes(endTime) - toMinutes(startTime);
+  if (minutes <= 0) minutes += 24 * 60;
+  return Math.round((minutes / 60) * 100) / 100;
+}
+
 function getDutySummaryForMonth(user, departmentId, yearMonth) {
   requirePermission(user, departmentId, 'CanView');
   const range = yearMonthRange_(yearMonth);
@@ -31,6 +40,10 @@ function getDutySummaryForMonth(user, departmentId, yearMonth) {
 // Từ Giai đoạn 3: gộp thêm số liệu chuyên môn (thủ thuật/phẫu thuật/khám...) và điểm KPI trung bình đã
 // duyệt trong tháng — đúng tinh thần "1 dữ liệu tạo ra 1 lần, dùng cho nhiều nghiệp vụ" của đặc tả,
 // không nhập lại số liệu đã có ở Task/DutySchedule/ClinicalStats/Kpi.
+// Giai đoạn 5 (§40 "Lịch trực -> ... -> Làm ngoài giờ -> Dữ liệu đã chốt -> MODULE TIỀN LƯƠNG"):
+// giờ làm ngoài giờ theo ca trực chỉ tính từ OvertimeListItems thuộc danh sách đã FINALIZED (đã chốt) —
+// cộng thêm (không thay thế) giờ LAM_NGOAI_GIO tự đề nghị qua Overtime (đường cũ trước khi có module
+// riêng, xem OvertimeList.Service.gs) để không mất dữ liệu đã có, không nhập lại.
 function getPayrollAggregationForMonth(actingUser, departmentId, yearMonth) {
   const scope = departmentId || '*';
   requirePermission(actingUser, scope, 'CanView');
@@ -43,6 +56,13 @@ function getPayrollAggregationForMonth(actingUser, departmentId, yearMonth) {
   const clinicalStatRows = getSheetRepository(SHEETS.MONTHLY_CLINICAL_STATS).findAll().filter(function (s) { return s.YearMonth === yearMonth; });
   const kpiResultRows = getSheetRepository(SHEETS.KPI_RESULTS).findAll().filter(function (r) { return r.Period === yearMonth && r.Status === 'APPROVED'; });
 
+  const finalizedOvertimeListIds = getSheetRepository(SHEETS.OVERTIME_LISTS).findAll()
+    .filter(function (l) { return l.Status === 'FINALIZED'; })
+    .map(function (l) { return l.OvertimeListID; });
+  const overtimeListItemRows = getSheetRepository(SHEETS.OVERTIME_LIST_ITEMS).findAll().filter(function (item) {
+    return finalizedOvertimeListIds.indexOf(item.OvertimeListID) !== -1 && item.WorkDate >= range.from && item.WorkDate <= range.to;
+  });
+
   return employees.map(function (employee) {
     const myAttendance = attendanceRows.filter(function (a) { return a.EmployeeID === employee.EmployeeID; });
     const workDays = myAttendance.filter(function (a) { return isBlank(a.LeaveType); }).reduce(function (sum, a) { return sum + (Number(a.WorkUnits) || 0); }, 0);
@@ -54,7 +74,10 @@ function getPayrollAggregationForMonth(actingUser, departmentId, yearMonth) {
 
     const myOvertime = overtimeRows.filter(function (o) { return o.EmployeeID === employee.EmployeeID; });
     const overtimeHours = myOvertime.filter(function (o) { return o.OvertimeType === 'LAM_THEM_GIO'; }).reduce(function (sum, o) { return sum + (Number(o.Hours) || 0); }, 0);
-    const outOfHoursHours = myOvertime.filter(function (o) { return o.OvertimeType === 'LAM_NGOAI_GIO'; }).reduce(function (sum, o) { return sum + (Number(o.Hours) || 0); }, 0);
+    const legacyOutOfHoursHours = myOvertime.filter(function (o) { return o.OvertimeType === 'LAM_NGOAI_GIO'; }).reduce(function (sum, o) { return sum + (Number(o.Hours) || 0); }, 0);
+    const myFinalizedOvertimeItems = overtimeListItemRows.filter(function (item) { return item.EmployeeID === employee.EmployeeID; });
+    const finalizedOutOfHoursHours = myFinalizedOvertimeItems.reduce(function (sum, item) { return sum + hoursBetween_(item.StartTime, item.EndTime); }, 0);
+    const outOfHoursHours = Math.round((legacyOutOfHoursHours + finalizedOutOfHoursHours) * 100) / 100;
 
     const myClinicalStats = clinicalStatRows.filter(function (s) { return s.EmployeeID === employee.EmployeeID; });
     const clinicalStatByType = {};
