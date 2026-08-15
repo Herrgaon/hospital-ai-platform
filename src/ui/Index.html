@@ -23,15 +23,7 @@
       <nav class="app-sidebar-menu">
         <a href="#dashboard" @click.prevent="go('dashboard')" class="app-nav-item" :class="active('dashboard')"><span class="app-nav-icon">🏠</span> Trang chủ</a>
 
-        <button type="button" @click="toggleNavGroup('personnel')" class="app-nav-group-label" :class="isNavGroupCollapsed('personnel') ? 'collapsed' : ''">
-          <span>👥 Nhân sự</span><span class="app-nav-group-chevron">▾</span>
-        </button>
-        <div x-show="!isNavGroupCollapsed('personnel')">
-          <a href="#personnel" @click.prevent="goToPersonnelTab('list')" class="app-nav-item" :class="active('personnel') && personnelTab === 'list' ? 'active' : ''"><span class="app-nav-icon">👤</span> Danh sách nhân sự</a>
-          <a href="#personnel" @click.prevent="goToPersonnelTab('orgStructure')" class="app-nav-item" :class="active('personnel') && personnelTab === 'orgStructure' ? 'active' : ''"><span class="app-nav-icon">🏢</span> Cơ cấu tổ chức</a>
-          <a href="#personnel" @click.prevent="goToPersonnelTab('catalog')" class="app-nav-item" :class="active('personnel') && personnelTab === 'catalog' ? 'active' : ''"><span class="app-nav-icon">🏷</span> Chức danh &amp; chức vụ</a>
-          <a href="#personnel" @click.prevent="goToPersonnelTab('assignment')" class="app-nav-item" :class="active('personnel') && personnelTab === 'assignment' ? 'active' : ''"><span class="app-nav-icon">📌</span> Phân công nhân sự</a>
-        </div>
+        <a href="#personnel" @click.prevent="goToPersonnelTab('list')" class="app-nav-item" :class="active('personnel')"><span class="app-nav-icon">👥</span> Nhân sự</a>
 
         <template x-if="isSuperAdmin">
           <a href="#admin" @click.prevent="go('admin')" class="app-nav-item" :class="active('admin')"><span class="app-nav-icon">⚙</span> Quản trị hệ thống</a>
