@@ -520,14 +520,162 @@
 
       // --- Quản lý công việc ---
       taskTab: 'mine',
+      taskStatusTab: 'all',
+      taskViewMode: 'list',
+      showCreateTaskMenu: false,
+      taskSearchQuery: '',
+      taskFilters: { priority: '', sourceType: '' },
       myTasks: [],
       departmentTasks: [],
+      myRecurringTemplates: [],
       taskDepartmentFilter: '',
+      calendarViewDate: new Date(),
       loadMyTasksAction() {
         google.script.run
           .withSuccessHandler((tasks) => { this.myTasks = tasks; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_listMyTasks(this.authToken);
+      },
+      get myTasksBaseFiltered() {
+        const q = this.taskSearchQuery.trim().toLowerCase();
+        return this.myTasks.filter((t) => {
+          if (q && !(t.Title || '').toLowerCase().includes(q) && !(t.Description || '').toLowerCase().includes(q)) return false;
+          if (this.taskFilters.priority && t.Priority !== this.taskFilters.priority) return false;
+          if (this.taskFilters.sourceType && t.SourceType !== this.taskFilters.sourceType) return false;
+          return true;
+        });
+      },
+      get myTasksFiltered() {
+        const todayStr = this.todayDateStr_();
+        const weekEndStr = this.addDaysToDateStr_(todayStr, 7);
+        return this.myTasksBaseFiltered.filter((t) => {
+          switch (this.taskStatusTab) {
+            case 'today': return t.DueDate === todayStr;
+            case 'week': return t.DueDate && t.DueDate >= todayStr && t.DueDate <= weekEndStr;
+            case 'inProgress': return t.Status === 'ASSIGNED' || t.Status === 'IN_PROGRESS';
+            case 'pendingConfirm': return t.Status === 'SUBMITTED';
+            case 'done': return t.Status === 'EVALUATED';
+            case 'overdue': return !!t.IsOverdue;
+            default: return true;
+          }
+        });
+      },
+      get taskStats() {
+        const todayStr = this.todayDateStr_();
+        const base = this.myTasksBaseFiltered;
+        return {
+          total: base.length,
+          today: base.filter((t) => t.DueDate === todayStr).length,
+          inProgress: base.filter((t) => t.Status === 'ASSIGNED' || t.Status === 'IN_PROGRESS').length,
+          pendingConfirm: base.filter((t) => t.Status === 'SUBMITTED').length,
+          overdue: base.filter((t) => t.IsOverdue).length
+        };
+      },
+      get upcomingTasks() {
+        const todayStr = this.todayDateStr_();
+        return this.myTasksBaseFiltered
+          .filter((t) => t.DueDate && t.DueDate >= todayStr && !['EVALUATED', 'CANCELLED'].includes(t.Status))
+          .sort((a, b) => a.DueDate < b.DueDate ? -1 : 1)
+          .slice(0, 5);
+      },
+      get overdueTasksList() {
+        return this.myTasksBaseFiltered.filter((t) => t.IsOverdue).slice(0, 5);
+      },
+      todayDateStr_() {
+        const d = new Date();
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      },
+      addDaysToDateStr_(dateStr, days) {
+        const d = new Date(dateStr + 'T00:00:00');
+        d.setDate(d.getDate() + days);
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      },
+      shiftCalendarMonth(delta) {
+        const d = new Date(this.calendarViewDate);
+        d.setMonth(d.getMonth() + delta);
+        this.calendarViewDate = d;
+      },
+      get calendarMonthLabel() {
+        return 'Tháng ' + (this.calendarViewDate.getMonth() + 1) + '/' + this.calendarViewDate.getFullYear();
+      },
+      get calendarLeadingBlanks() {
+        const first = new Date(this.calendarViewDate.getFullYear(), this.calendarViewDate.getMonth(), 1);
+        const isoWeekday = (first.getDay() + 6) % 7; // Monday = 0
+        return Array.from({ length: isoWeekday }, (_, i) => i);
+      },
+      get calendarDaysInMonth() {
+        const y = this.calendarViewDate.getFullYear();
+        const m = this.calendarViewDate.getMonth();
+        const daysInMonth = new Date(y, m + 1, 0).getDate();
+        const todayStr = this.todayDateStr_();
+        const dueDates = new Set(this.myTasksBaseFiltered.filter((t) => t.DueDate).map((t) => t.DueDate));
+        return Array.from({ length: daysInMonth }, (_, i) => {
+          const dayNum = i + 1;
+          const dateStr = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(dayNum).padStart(2, '0');
+          return { dayNum, dateStr, isToday: dateStr === todayStr, hasDueTask: dueDates.has(dateStr) };
+        });
+      },
+      taskSourceLabel(sourceType) {
+        const map = { ASSIGNED: 'Được giao', PERSONAL: 'Cá nhân', RECURRING: 'Định kỳ', SYSTEM: 'Hệ thống' };
+        return map[sourceType] || sourceType || 'Được giao';
+      },
+      taskSourceBadgeClass(sourceType) {
+        const map = { ASSIGNED: 'badge-orange', PERSONAL: 'badge-green', RECURRING: 'badge-purple', SYSTEM: 'badge-gray' };
+        return map[sourceType] || 'badge-orange';
+      },
+      taskSourceBarClass(sourceType) {
+        const map = { ASSIGNED: 'bg-orange-500', PERSONAL: 'bg-green-600', RECURRING: 'bg-purple-600', SYSTEM: 'bg-gray-400' };
+        return (this.myTasks && sourceType) ? (map[sourceType] || 'bg-orange-500') : 'bg-orange-500';
+      },
+      taskGanttBarStyle(t) {
+        const days = this.calendarDaysInMonth;
+        if (!t.DueDate || days.length === 0) return 'visibility:hidden;';
+        const idx = days.findIndex((d) => d.dateStr === t.DueDate);
+        if (idx === -1) return 'visibility:hidden;';
+        const startCol = idx + 2; // cột 1 = tên việc
+        const bg = t.IsOverdue ? '#dc2626' : '';
+        return 'grid-column:' + startCol + ' / span 1;' + (bg ? 'background:' + bg + ';' : '');
+      },
+      taskStatusLabel(t) {
+        if (t.IsOverdue) return 'QUÁ HẠN';
+        const map = { ASSIGNED: 'Chưa bắt đầu', IN_PROGRESS: 'Đang thực hiện', SUBMITTED: 'Chờ xác nhận', EVALUATED: 'Hoàn thành', CANCELLED: 'Đã huỷ' };
+        return map[t.Status] || t.Status;
+      },
+      taskStatusBadgeClass(t) {
+        if (t.IsOverdue) return 'badge-red';
+        const map = { ASSIGNED: 'badge-gray', IN_PROGRESS: 'badge-orange', SUBMITTED: 'badge-purple', EVALUATED: 'badge-green', CANCELLED: 'badge-gray' };
+        return map[t.Status] || 'badge-gray';
+      },
+      taskPriorityLabel(p) {
+        const map = { LOW: 'Thấp', NORMAL: 'Bình thường', HIGH: 'Cao', URGENT: 'Khẩn' };
+        return map[p] || p;
+      },
+      taskPriorityFlag(p) {
+        const map = { LOW: '⬇', NORMAL: '➖', HIGH: '⬆', URGENT: '🔴' };
+        return map[p] || '';
+      },
+      taskDueRelativeLabel(t) {
+        if (!t.DueDate) return '';
+        if (t.IsOverdue) {
+          const days = Math.max(1, Math.round((new Date(this.todayDateStr_()) - new Date(t.DueDate)) / 86400000));
+          return 'Trễ ' + days + ' ngày';
+        }
+        const days = Math.round((new Date(t.DueDate) - new Date(this.todayDateStr_())) / 86400000);
+        if (days === 0) return 'Hôm nay';
+        if (days === 1) return 'Ngày mai';
+        if (days > 1) return 'Còn ' + days + ' ngày';
+        return '';
+      },
+      taskFrequencyLabel(f) {
+        const map = { DAILY: 'Hàng ngày', WEEKLY: 'Hàng tuần', MONTHLY: 'Hàng tháng', QUARTERLY: 'Hàng quý', YEARLY: 'Hàng năm' };
+        return map[f] || f;
+      },
+      taskDeadlineTypeLabel(t) {
+        return t === 'FIXED' ? 'Cố định theo tháng' : 'Tương đối từ đầu kỳ';
+      },
+      taskTemplateStatusLabel(s) {
+        const map = { ACTIVE: 'Đang hoạt động', PAUSED: 'Tạm dừng', ENDED: 'Đã kết thúc' };
+        return map[s] || s;
       },
       loadDepartmentTasksAction() {
         if (!this.taskDepartmentFilter) { this.departmentTasks = []; return; }
@@ -663,6 +811,108 @@
           .withSuccessHandler((updated) => { this.refreshCurrentTask_(updated); this.toast('success', 'Đã lưu đánh giá.'); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_evaluateTask(this.authToken, this.currentTask.TaskID, payload);
+      },
+      completeMyTaskAction() {
+        google.script.run
+          .withSuccessHandler((updated) => { this.refreshCurrentTask_(updated); this.toast('success', 'Đã đánh dấu hoàn thành.'); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_completeMyTask(this.authToken, this.currentTask.TaskID);
+      },
+      cancelTaskAction() {
+        const reason = prompt('Lý do huỷ công việc?');
+        if (reason == null) return;
+        google.script.run
+          .withSuccessHandler((updated) => { this.refreshCurrentTask_(updated); this.toast('success', 'Đã huỷ công việc.'); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_cancelTask(this.authToken, this.currentTask.TaskID, reason);
+      },
+      transferTaskToNextPeriodAction() {
+        const newDueDate = prompt('Hạn hoàn thành mới (YYYY-MM-DD, có thể để trống):', this.currentTask.DueDate || '');
+        if (newDueDate == null) return;
+        const reason = prompt('Lý do chuyển kỳ?');
+        if (reason == null || !reason.trim()) { this.errorMessage = 'Phải nêu lý do chuyển kỳ.'; return; }
+        google.script.run
+          .withSuccessHandler(() => { this.closeModal(); this.toast('success', 'Đã chuyển công việc sang kỳ mới.'); this.loadMyTasksAction(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_transferTaskToNextPeriod(this.authToken, this.currentTask.TaskID, newDueDate, reason);
+      },
+
+      // --- Công việc cá nhân ---
+      personalTaskForm: { title: '', description: '', dueDate: '', priority: 'NORMAL' },
+      creatingPersonalTask: false,
+      openAddPersonalTaskModal() {
+        this.personalTaskForm = { title: '', description: '', dueDate: '', priority: 'NORMAL' };
+        this.openModal('addPersonalTask');
+      },
+      createPersonalTaskAction() {
+        this.creatingPersonalTask = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.creatingPersonalTask = false;
+            this.closeModal();
+            this.toast('success', 'Đã tạo việc cá nhân.');
+            this.loadMyTasksAction();
+          })
+          .withFailureHandler((e) => {
+            this.creatingPersonalTask = false;
+            this.errorMessage = e.message;
+          })
+          .api_createPersonalTask(this.authToken, this.personalTaskForm);
+      },
+
+      // --- Mẫu công việc định kỳ ---
+      recurringTemplateForm: { assigneeEmployeeId: '', title: '', description: '', frequency: 'MONTHLY', priority: 'NORMAL', effectiveFrom: '', effectiveTo: '', hasDeadline: false, deadlineType: 'RELATIVE', deadlineValue: null },
+      creatingRecurringTemplate: false,
+      openAddRecurringTemplateModal() {
+        this.recurringTemplateForm = { assigneeEmployeeId: this.myEmployeeId, title: '', description: '', frequency: 'MONTHLY', priority: 'NORMAL', effectiveFrom: '', effectiveTo: '', hasDeadline: false, deadlineType: 'RELATIVE', deadlineValue: null };
+        this.openModal('addRecurringTemplate');
+      },
+      createRecurringTemplateAction() {
+        this.creatingRecurringTemplate = true;
+        const f = this.recurringTemplateForm;
+        const input = {
+          assigneeEmployeeId: f.assigneeEmployeeId, title: f.title, description: f.description,
+          frequency: f.frequency, priority: f.priority, effectiveFrom: f.effectiveFrom, effectiveTo: f.effectiveTo,
+          hasDeadline: f.hasDeadline, deadlineType: f.deadlineType,
+          deadlineRuleJson: f.hasDeadline ? JSON.stringify(f.deadlineType === 'FIXED' ? { dayOfPeriod: f.deadlineValue } : { daysAfterStart: f.deadlineValue }) : ''
+        };
+        google.script.run
+          .withSuccessHandler(() => {
+            this.creatingRecurringTemplate = false;
+            this.closeModal();
+            this.toast('success', 'Đã lập mẫu công việc định kỳ.');
+            this.loadMyRecurringTemplatesAction();
+          })
+          .withFailureHandler((e) => {
+            this.creatingRecurringTemplate = false;
+            this.errorMessage = e.message;
+          })
+          .api_createRecurringTaskTemplate(this.authToken, input);
+      },
+      loadMyRecurringTemplatesAction() {
+        google.script.run
+          .withSuccessHandler((rows) => { this.myRecurringTemplates = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listMyRecurringTaskTemplates(this.authToken);
+      },
+      pauseRecurringTemplateAction(tpl) {
+        google.script.run
+          .withSuccessHandler(() => { this.toast('success', 'Đã tạm dừng mẫu.'); this.loadMyRecurringTemplatesAction(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_pauseRecurringTaskTemplate(this.authToken, tpl.TemplateID);
+      },
+      resumeRecurringTemplateAction(tpl) {
+        google.script.run
+          .withSuccessHandler(() => { this.toast('success', 'Đã kích hoạt lại mẫu.'); this.loadMyRecurringTemplatesAction(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_resumeRecurringTaskTemplate(this.authToken, tpl.TemplateID);
+      },
+      endRecurringTemplateAction(tpl) {
+        if (!confirm('Kết thúc mẫu công việc định kỳ "' + tpl.Title + '"? Các công việc đã tạo trước đó vẫn được giữ nguyên.')) return;
+        google.script.run
+          .withSuccessHandler(() => { this.toast('success', 'Đã kết thúc mẫu.'); this.loadMyRecurringTemplatesAction(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_endRecurringTaskTemplate(this.authToken, tpl.TemplateID);
       },
 
       // --- Phân công khối lâm sàng ---

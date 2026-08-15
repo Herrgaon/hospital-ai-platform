@@ -23,6 +23,7 @@ const SHEETS = {
   MONTHLY_CLINICAL_STATS: 'MonthlyClinicalStats',
   INSURANCE_AUDITS: 'InsuranceAudits',
   TASK_PARTICIPANTS: 'TaskParticipants',
+  RECURRING_TASK_TEMPLATES: 'RecurringTaskTemplates',
   KPI_CRITERION_GROUPS: 'KpiCriterionGroups',
   KPI_RULES: 'KpiRules',
   KPI_RESULTS: 'KpiResults',
@@ -92,6 +93,19 @@ const SCHEMA = {
   //   chấm 6 tiêu chí 1-5 điểm khi đánh giá (evaluateTask), hệ thống tự tính P + phân loại, KHÔNG cho
   //   người thực hiện tự chấm (đúng nguyên tắc "không để nhân viên tự ý điều chỉnh điểm").
   // - QualityCoefficient: "Hệ số chất lượng" (§8) — người đánh giá gán, mặc định 1 nếu bỏ trống.
+  //
+  // Bổ sung theo đặc tả bổ sung "Công việc định kỳ theo chu kỳ V1" (2026-08-15):
+  // - SourceType: ASSIGNED (được giao — AssignerEmployeeID khác AssigneeEmployeeID) | PERSONAL (tự lập
+  //   — không cần quyền CanCreate, chỉ cần có hồ sơ nhân viên) | SYSTEM (hệ thống tự sinh — dự phòng,
+  //   chưa dùng ở V1) | RECURRING (sinh từ RecurringTaskTemplates). KHÔNG mặc nhiên là KPI dù thuộc
+  //   nguồn nào — chỉ IsKpiTask=true mới tính (đúng §14 "công việc định kỳ không mặc nhiên là KPI").
+  // - TemplateID: rỗng nếu không phải instance định kỳ; có giá trị = tham chiếu
+  //   RecurringTaskTemplates.TemplateID sinh ra dòng này.
+  // - Period: "kỳ công việc" (§8, VD "2026-08" cho việc hàng tháng) — PHÂN BIỆT với AssignedDate (ngày
+  //   sinh instance) và DueDate (hạn) đúng yêu cầu đặc tả, dùng để chống sinh trùng instance cùng kỳ.
+  // - TransferredFromTaskID: đúng §13 "chuyển kỳ phải lưu liên kết Task gốc/Task mới" — CHỈ điền trên
+  //   task MỚI khi được tạo qua transferTaskToNextPeriod (Task.Service.gs), trỏ về TaskID gốc đã bị
+  //   CANCELLED. Lý do + thời điểm chuyển đã có sẵn trong Audit Log (không nhân đôi dữ liệu).
   [SHEETS.TASKS]: [
     'TaskID', 'Title', 'Description', 'DepartmentID',
     'AssignerEmployeeID', 'AssigneeEmployeeID', 'AssignedDate', 'DueDate',
@@ -99,7 +113,23 @@ const SCHEMA = {
     'EvaluatorEmployeeID', 'EvaluationScore', 'EvaluationComment', 'EvaluatedAt',
     'ParentTaskID', 'IsKpiTask', 'BaseValue',
     'ComplexityScoresJson', 'ComplexityP', 'ComplexityLevel', 'QualityCoefficient',
+    'SourceType', 'TemplateID', 'Period', 'TransferredFromTaskID',
     'CreatedAt', 'UpdatedAt'
+  ],
+
+  // Mẫu công việc định kỳ (§9 đặc tả bổ sung) — TÁCH RIÊNG Template khỏi từng lần phát sinh (Task
+  // Instance, dùng lại chính sheet TASKS với TemplateID tham chiếu tới đây), đúng "không tạo 1 công
+  // việc duy nhất rồi đổi ngày tháng liên tục". Frequency: DAILY|WEEKLY|MONTHLY|QUARTERLY|YEARLY.
+  // DeadlineType: NONE|FIXED|RELATIVE — DeadlineRuleJson diễn giải theo từng loại (VD FIXED:
+  // {"dayOfPeriod":5} = ngày 05 của kỳ kế tiếp; RELATIVE: {"daysAfterStart":7} = +7 ngày kể từ ngày bắt
+  // đầu kỳ). Status: ACTIVE|PAUSED|ENDED — tạm dừng KHÔNG sinh instance mới nhưng KHÔNG xoá instance đã
+  // sinh trước đó (đúng §12 "Task Instance đã sinh không được tự động xoá khi Template bị tạm dừng").
+  [SHEETS.RECURRING_TASK_TEMPLATES]: [
+    'TemplateID', 'Title', 'Description', 'AssigneeEmployeeID', 'DepartmentID',
+    'Frequency', 'EffectiveFrom', 'EffectiveTo',
+    'HasDeadline', 'DeadlineType', 'DeadlineRuleJson',
+    'Priority', 'IsKpiTask', 'Status',
+    'CreatedByUserID', 'CreatedAt', 'UpdatedAt'
   ],
 
   // §11 "Nhiều người cùng làm" — CHỈ dùng khi 1 task có từ 2 người trở lên; task 1-người-1-việc như
@@ -326,7 +356,8 @@ const ROLE_NAMES = {
 // giờ dạng "HH:MM" trong toàn schema, không chỉ cột ngày tháng.
 const PLAIN_TEXT_COLUMNS = {
   [SHEETS.EMPLOYEES]: ['StartDate'],
-  [SHEETS.TASKS]: ['DueDate'],
+  [SHEETS.TASKS]: ['DueDate', 'Period'],
+  [SHEETS.RECURRING_TASK_TEMPLATES]: ['EffectiveFrom', 'EffectiveTo'],
   [SHEETS.CLINICAL_ASSIGNMENTS]: ['AssignmentDate', 'ShiftStart', 'ShiftEnd'],
   [SHEETS.DUTY_SCHEDULES]: ['WeekStartDate', 'WeekEndDate'],
   [SHEETS.DUTY_SHIFTS]: ['ShiftDate', 'ShiftStart', 'ShiftEnd'],

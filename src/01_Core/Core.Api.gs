@@ -209,6 +209,56 @@ function api_assignTask(token, input) {
   return assignTask(user, input);
 }
 
+function api_createPersonalTask(token, input) {
+  const user = getCurrentUserFromToken_(token);
+  return createPersonalTask(user, input);
+}
+
+function api_completeMyTask(token, taskId) {
+  const user = getCurrentUserFromToken_(token);
+  return completeMyTask(user, taskId);
+}
+
+function api_cancelTask(token, taskId, reason) {
+  const user = getCurrentUserFromToken_(token);
+  return cancelTask(user, taskId, reason);
+}
+
+function api_transferTaskToNextPeriod(token, taskId, newDueDate, reason) {
+  const user = getCurrentUserFromToken_(token);
+  return transferTaskToNextPeriod(user, taskId, newDueDate, reason);
+}
+
+function api_createRecurringTaskTemplate(token, input) {
+  const user = getCurrentUserFromToken_(token);
+  return createRecurringTaskTemplate(user, input);
+}
+
+function api_pauseRecurringTaskTemplate(token, templateId) {
+  const user = getCurrentUserFromToken_(token);
+  return pauseRecurringTaskTemplate(user, templateId);
+}
+
+function api_resumeRecurringTaskTemplate(token, templateId) {
+  const user = getCurrentUserFromToken_(token);
+  return resumeRecurringTaskTemplate(user, templateId);
+}
+
+function api_endRecurringTaskTemplate(token, templateId) {
+  const user = getCurrentUserFromToken_(token);
+  return endRecurringTaskTemplate(user, templateId);
+}
+
+function api_listMyRecurringTaskTemplates(token) {
+  const user = getCurrentUserFromToken_(token);
+  return listMyRecurringTaskTemplates(user);
+}
+
+function api_listRecurringTaskTemplatesByDepartment(token, departmentId) {
+  const user = getCurrentUserFromToken_(token);
+  return listRecurringTaskTemplatesByDepartment(user, departmentId);
+}
+
 function api_updateTaskProgress(token, taskId, progress) {
   const user = getCurrentUserFromToken_(token);
   return updateTaskProgress(user, taskId, progress);

@@ -1,46 +1,180 @@
-<div x-show="currentView === 'tasks'" x-init="$watch('currentView', v => { if (v === 'tasks') loadMyTasksAction(); }); if (currentView === 'tasks') loadMyTasksAction();" class="max-w-5xl mx-auto">
+<div x-show="currentView === 'tasks'" x-init="$watch('currentView', v => { if (v === 'tasks') loadMyTasksAction(); }); if (currentView === 'tasks') loadMyTasksAction();" class="max-w-6xl mx-auto">
   <div class="page-header">
     <div class="page-header-left">
       <div class="page-header-icon">▤</div>
       <div>
-        <h1 class="page-title-text">QUẢN LÝ CÔNG VIỆC</h1>
-        <p class="page-subtitle">Giao việc – theo dõi tiến độ – đánh giá (khối hành chính)</p>
+        <h1 class="page-title-text">CÔNG VIỆC CỦA TÔI</h1>
+        <p class="page-subtitle">Theo dõi và xử lý các công việc bạn cần thực hiện</p>
       </div>
     </div>
-    <div class="page-header-actions" x-show="canAnywhere('CanCreate')">
-      <button @click="openAssignTaskModal()" class="btn btn-primary">+ Giao việc mới</button>
+    <div class="page-header-actions relative">
+      <button @click="showCreateTaskMenu = !showCreateTaskMenu" class="btn btn-primary">+ Tạo công việc mới ▾</button>
+      <div x-show="showCreateTaskMenu" @click.outside="showCreateTaskMenu = false" x-cloak class="modal absolute right-0 top-11 w-64 p-2 space-y-1 z-10">
+        <button @click="showCreateTaskMenu = false; openAddPersonalTaskModal()" class="app-nav-item w-full text-left">🔵 Việc cá nhân</button>
+        <button x-show="canAnywhere('CanCreate')" @click="showCreateTaskMenu = false; openAssignTaskModal()" class="app-nav-item w-full text-left">🟠 Giao việc cho người khác</button>
+        <button @click="showCreateTaskMenu = false; openAddRecurringTemplateModal()" class="app-nav-item w-full text-left">🟣 Mẫu công việc định kỳ</button>
+      </div>
     </div>
   </div>
 
   <div class="tabs">
     <button @click="taskTab = 'mine'" class="tab" :class="taskTab === 'mine' ? 'active' : ''">Việc của tôi</button>
     <button @click="taskTab = 'department'" class="tab" :class="taskTab === 'department' ? 'active' : ''">Theo khoa/phòng</button>
+    <button @click="taskTab = 'templates'; loadMyRecurringTemplatesAction();" class="tab" :class="taskTab === 'templates' ? 'active' : ''">Mẫu định kỳ</button>
   </div>
 
   <!-- Tab: Việc của tôi -->
   <div x-show="taskTab === 'mine'">
-    <div class="card">
-      <div class="table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr><th>Tiêu đề</th><th>Vai trò</th><th>Hạn</th><th>Tiến độ</th><th>Trạng thái</th><th></th></tr>
-          </thead>
-          <tbody>
-            <template x-for="t in myTasks" :key="t.TaskID">
-              <tr>
-                <td x-text="t.Title"></td>
-                <td><span class="badge badge-gray" x-text="t.AssigneeEmployeeID === myEmployeeId ? 'Được giao' : 'Đã giao'"></span></td>
-                <td x-text="t.DueDate"></td>
-                <td x-text="t.Progress + '%'"></td>
-                <td><span class="badge badge-cyan" x-text="t.Status"></span></td>
-                <td><button @click="openTaskDetail(t)" class="btn-link">Chi tiết</button></td>
-              </tr>
+    <div class="tabs">
+      <button @click="taskStatusTab = 'all'" class="tab" :class="taskStatusTab === 'all' ? 'active' : ''">Tất cả</button>
+      <button @click="taskStatusTab = 'today'" class="tab" :class="taskStatusTab === 'today' ? 'active' : ''">Hôm nay</button>
+      <button @click="taskStatusTab = 'week'" class="tab" :class="taskStatusTab === 'week' ? 'active' : ''">Tuần này</button>
+      <button @click="taskStatusTab = 'inProgress'" class="tab" :class="taskStatusTab === 'inProgress' ? 'active' : ''">Đang làm</button>
+      <button @click="taskStatusTab = 'pendingConfirm'" class="tab" :class="taskStatusTab === 'pendingConfirm' ? 'active' : ''">Chờ xác nhận</button>
+      <button @click="taskStatusTab = 'done'" class="tab" :class="taskStatusTab === 'done' ? 'active' : ''">Hoàn thành</button>
+      <button @click="taskStatusTab = 'overdue'" class="tab" :class="taskStatusTab === 'overdue' ? 'active' : ''">Quá hạn</button>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card"><div><div class="stat-card-label">Tổng công việc</div><div class="stat-card-value" x-text="taskStats.total"></div><div class="stat-card-detail">Tất cả thời gian</div></div></div>
+      <div class="stat-card"><div><div class="stat-card-label">Hôm nay</div><div class="stat-card-value" x-text="taskStats.today"></div><div class="stat-card-detail">Cần hoàn thành</div></div></div>
+      <div class="stat-card"><div><div class="stat-card-label">Đang làm</div><div class="stat-card-value" x-text="taskStats.inProgress"></div><div class="stat-card-detail">Chưa hoàn thành</div></div></div>
+      <div class="stat-card"><div><div class="stat-card-label">Chờ xác nhận</div><div class="stat-card-value" x-text="taskStats.pendingConfirm"></div><div class="stat-card-detail">Từ cấp trên</div></div></div>
+      <div class="stat-card"><div><div class="stat-card-label" style="color:#dc2626">Quá hạn</div><div class="stat-card-value" style="color:#dc2626" x-text="taskStats.overdue"></div><div class="stat-card-detail">Cần xử lý ngay</div></div></div>
+    </div>
+
+    <div class="toolbar flex-wrap">
+      <div class="filter-group flex-wrap">
+        <input type="text" x-model="taskSearchQuery" placeholder="Tìm kiếm công việc..." class="filter-input">
+        <select x-model="taskFilters.priority" class="filter-select">
+          <option value="">Ưu tiên: Tất cả</option>
+          <option value="URGENT">Khẩn</option>
+          <option value="HIGH">Cao</option>
+          <option value="NORMAL">Bình thường</option>
+          <option value="LOW">Thấp</option>
+        </select>
+        <select x-model="taskFilters.sourceType" class="filter-select">
+          <option value="">Nguồn: Tất cả</option>
+          <option value="ASSIGNED">Được giao</option>
+          <option value="PERSONAL">Cá nhân</option>
+          <option value="RECURRING">Định kỳ</option>
+          <option value="SYSTEM">Hệ thống</option>
+        </select>
+      </div>
+      <div class="toolbar-spacer"></div>
+      <div class="flex gap-1">
+        <button @click="taskViewMode = 'list'" class="btn btn-sm" :class="taskViewMode === 'list' ? 'btn-primary' : 'btn-secondary'">☰ Danh sách</button>
+        <button @click="taskViewMode = 'timeline'" class="btn btn-sm" :class="taskViewMode === 'timeline' ? 'btn-primary' : 'btn-secondary'">📅 Dòng thời gian</button>
+      </div>
+    </div>
+
+    <div class="flex gap-4 items-start">
+      <!-- Chế độ Danh sách -->
+      <div class="flex-1 min-w-0" x-show="taskViewMode === 'list'">
+        <div class="card">
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Công việc</th><th>Nguồn</th><th>Hạn hoàn thành</th><th>Trạng thái</th><th>Ưu tiên</th><th></th></tr></thead>
+              <tbody>
+                <template x-for="t in myTasksFiltered" :key="t.TaskID">
+                  <tr @click="openTaskDetail(t)" class="cursor-pointer">
+                    <td>
+                      <div x-text="t.Title"></div>
+                      <div class="text-xs holo-text-dim" x-text="t.Description"></div>
+                    </td>
+                    <td><span class="badge" :class="taskSourceBadgeClass(t.SourceType)" x-text="taskSourceLabel(t.SourceType)"></span></td>
+                    <td>
+                      <div x-show="t.DueDate" x-text="t.DueDate"></div>
+                      <div class="text-xs" :class="t.IsOverdue ? 'text-red-500' : 'holo-text-dim'" x-text="taskDueRelativeLabel(t)"></div>
+                    </td>
+                    <td><span class="badge" :class="taskStatusBadgeClass(t)" x-text="taskStatusLabel(t)"></span></td>
+                    <td><span x-text="taskPriorityFlag(t.Priority) + ' ' + taskPriorityLabel(t.Priority)"></span></td>
+                    <td><button @click.stop="openTaskDetail(t)" class="btn-link">Chi tiết</button></td>
+                  </tr>
+                </template>
+                <template x-if="myTasksFiltered.length === 0">
+                  <tr><td colspan="6" class="text-xs holo-text-dim py-4">Không có công việc nào khớp bộ lọc.</td></tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chế độ Dòng thời gian (rút gọn — theo tuần trong tháng hiện tại) -->
+      <div class="flex-1 min-w-0" x-show="taskViewMode === 'timeline'">
+        <div class="card p-4 overflow-x-auto">
+          <div class="flex items-center justify-between mb-3">
+            <strong x-text="calendarMonthLabel"></strong>
+            <div class="flex gap-2">
+              <button @click="shiftCalendarMonth(-1)" class="btn btn-secondary btn-sm">‹</button>
+              <button @click="shiftCalendarMonth(1)" class="btn btn-secondary btn-sm">›</button>
+            </div>
+          </div>
+          <div style="min-width: 640px;">
+            <div class="grid text-xs holo-text-dim mb-1" :style="'grid-template-columns: 160px repeat(' + calendarDaysInMonth.length + ', minmax(20px, 1fr));'">
+              <div></div>
+              <template x-for="d in calendarDaysInMonth" :key="d.dateStr">
+                <div class="text-center" :class="d.isToday ? 'font-bold' : ''" x-text="d.dayNum"></div>
+              </template>
+            </div>
+            <template x-for="t in myTasksFiltered" :key="t.TaskID">
+              <div class="grid items-center mb-1" :style="'grid-template-columns: 160px repeat(' + calendarDaysInMonth.length + ', minmax(20px, 1fr)); height: 26px;'">
+                <div class="text-xs truncate pr-2" x-text="t.Title" :title="t.Title"></div>
+                <div :style="taskGanttBarStyle(t)" class="rounded text-white text-xs flex items-center px-1 truncate" :class="taskSourceBarClass(t.SourceType)" x-text="t.IsOverdue ? 'Quá hạn' : ''"></div>
+              </div>
             </template>
-            <template x-if="myTasks.length === 0">
-              <tr><td colspan="6" class="text-xs holo-text-dim py-4">Chưa có công việc nào.</td></tr>
+            <template x-if="myTasksFiltered.length === 0">
+              <p class="text-xs holo-text-dim py-4">Không có công việc nào khớp bộ lọc.</p>
             </template>
-          </tbody>
-        </table>
+          </div>
+          <div class="flex gap-3 flex-wrap text-xs mt-3 pt-3" style="border-top: 1px solid var(--holo-border);">
+            <span>🟠 Được giao</span><span>🔵 Cá nhân</span><span>🟣 Định kỳ</span><span>⚪ Hệ thống</span><span style="color:#dc2626">🔴 Quá hạn</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar phải -->
+      <div class="w-72 flex-shrink-0 space-y-4" x-show="taskViewMode === 'list'">
+        <div class="card p-3">
+          <div class="flex items-center justify-between mb-2">
+            <strong class="text-sm">Lịch công việc</strong>
+            <div class="flex gap-1">
+              <button @click="shiftCalendarMonth(-1)" class="btn-link">‹</button>
+              <button @click="shiftCalendarMonth(1)" class="btn-link">›</button>
+            </div>
+          </div>
+          <div class="text-xs text-center mb-2" x-text="calendarMonthLabel"></div>
+          <div class="grid grid-cols-7 gap-1 text-xs text-center">
+            <template x-for="wd in ['T2','T3','T4','T5','T6','T7','CN']" :key="wd"><div class="holo-text-dim" x-text="wd"></div></template>
+            <template x-for="d in calendarLeadingBlanks" :key="'blank'+d"><div></div></template>
+            <template x-for="d in calendarDaysInMonth" :key="d.dateStr">
+              <div class="rounded py-1" :class="d.isToday ? 'font-bold' : (d.hasDueTask ? 'badge-orange' : '')" :style="d.isToday ? 'border:1px solid var(--holo-accent);' : ''" x-text="d.dayNum"></div>
+            </template>
+          </div>
+        </div>
+        <div class="card p-3">
+          <strong class="text-sm">Công việc sắp tới</strong>
+          <div class="mt-2 space-y-1">
+            <template x-for="t in upcomingTasks" :key="t.TaskID">
+              <div class="text-xs cursor-pointer hover:underline" @click="openTaskDetail(t)">
+                <span x-text="t.Title"></span> — <span class="holo-text-dim" x-text="t.DueDate"></span>
+              </div>
+            </template>
+            <p class="text-xs holo-text-dim" x-show="upcomingTasks.length === 0">Không có việc sắp tới.</p>
+          </div>
+        </div>
+        <div class="card p-3">
+          <strong class="text-sm" style="color:#dc2626">Công việc quá hạn</strong>
+          <div class="mt-2 space-y-1">
+            <template x-for="t in overdueTasksList" :key="t.TaskID">
+              <div class="text-xs cursor-pointer hover:underline" @click="openTaskDetail(t)">
+                <span x-text="t.Title"></span> — <span style="color:#dc2626" x-text="taskDueRelativeLabel(t)"></span>
+              </div>
+            </template>
+            <p class="text-xs holo-text-dim" x-show="overdueTasksList.length === 0">Không có việc quá hạn.</p>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -61,24 +195,58 @@
       <div class="table-wrap">
         <table class="data-table">
           <thead>
-            <tr><th>Tiêu đề</th><th>Người thực hiện</th><th>Hạn</th><th>Tiến độ</th><th>Trạng thái</th><th></th></tr>
+            <tr><th>Tiêu đề</th><th>Người thực hiện</th><th>Nguồn</th><th>Hạn</th><th>Tiến độ</th><th>Trạng thái</th><th></th></tr>
           </thead>
           <tbody>
             <template x-for="t in departmentTasks" :key="t.TaskID">
               <tr>
                 <td x-text="t.Title"></td>
                 <td x-text="employeeNameById(t.AssigneeEmployeeID)"></td>
+                <td><span class="badge" :class="taskSourceBadgeClass(t.SourceType)" x-text="taskSourceLabel(t.SourceType)"></span></td>
                 <td x-text="t.DueDate"></td>
                 <td x-text="t.Progress + '%'"></td>
-                <td><span class="badge badge-cyan" x-text="t.Status"></span></td>
+                <td><span class="badge" :class="taskStatusBadgeClass(t)" x-text="taskStatusLabel(t)"></span></td>
                 <td><button @click="openTaskDetail(t)" class="btn-link">Chi tiết</button></td>
               </tr>
             </template>
             <template x-if="taskDepartmentFilter && departmentTasks.length === 0">
-              <tr><td colspan="6" class="text-xs holo-text-dim py-4">Khoa/phòng này chưa có công việc nào.</td></tr>
+              <tr><td colspan="7" class="text-xs holo-text-dim py-4">Khoa/phòng này chưa có công việc nào.</td></tr>
             </template>
             <template x-if="!taskDepartmentFilter">
-              <tr><td colspan="6" class="text-xs holo-text-dim py-4">Chọn khoa/phòng để xem danh sách công việc.</td></tr>
+              <tr><td colspan="7" class="text-xs holo-text-dim py-4">Chọn khoa/phòng để xem danh sách công việc.</td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Mẫu định kỳ -->
+  <div x-show="taskTab === 'templates'">
+    <div class="page-header-actions mb-3">
+      <button @click="openAddRecurringTemplateModal()" class="btn btn-primary btn-sm">+ Lập mẫu định kỳ</button>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Tiêu đề</th><th>Người thực hiện</th><th>Chu kỳ</th><th>Hạn</th><th>Trạng thái</th><th></th></tr></thead>
+          <tbody>
+            <template x-for="tpl in myRecurringTemplates" :key="tpl.TemplateID">
+              <tr>
+                <td x-text="tpl.Title"></td>
+                <td x-text="employeeNameById(tpl.AssigneeEmployeeID)"></td>
+                <td x-text="taskFrequencyLabel(tpl.Frequency)"></td>
+                <td x-text="tpl.HasDeadline ? taskDeadlineTypeLabel(tpl.DeadlineType) : 'Không có hạn'"></td>
+                <td><span class="badge" :class="tpl.Status === 'ACTIVE' ? 'badge-green' : (tpl.Status === 'PAUSED' ? 'badge-orange' : 'badge-gray')" x-text="taskTemplateStatusLabel(tpl.Status)"></span></td>
+                <td class="flex gap-2">
+                  <button x-show="tpl.Status === 'ACTIVE'" @click="pauseRecurringTemplateAction(tpl)" class="btn-link">Tạm dừng</button>
+                  <button x-show="tpl.Status === 'PAUSED'" @click="resumeRecurringTemplateAction(tpl)" class="btn-link">Kích hoạt lại</button>
+                  <button x-show="tpl.Status !== 'ENDED'" @click="endRecurringTemplateAction(tpl)" class="btn-link">Kết thúc</button>
+                </td>
+              </tr>
+            </template>
+            <template x-if="myRecurringTemplates.length === 0">
+              <tr><td colspan="6" class="text-xs holo-text-dim py-4">Bạn chưa lập mẫu công việc định kỳ nào.</td></tr>
             </template>
           </tbody>
         </table>
@@ -154,6 +322,132 @@
     </div>
   </div>
 
+  <!-- Modal: Tạo việc cá nhân -->
+  <div x-show="modalOpen === 'addPersonalTask'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Tạo việc cá nhân</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="text-xs holo-text-dim mb-2">Việc cá nhân do bạn tự quản lý, không mặc nhiên tính vào KPI.</p>
+        <div class="form-group">
+          <label class="required">Tiêu đề</label>
+          <input type="text" x-model="personalTaskForm.title" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>Mô tả</label>
+          <textarea x-model="personalTaskForm.description" class="form-control" rows="3"></textarea>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label>Hạn (tuỳ chọn)</label>
+            <input type="date" x-model="personalTaskForm.dueDate" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Mức ưu tiên</label>
+            <select x-model="personalTaskForm.priority" class="form-control">
+              <option value="LOW">Thấp</option>
+              <option value="NORMAL">Bình thường</option>
+              <option value="HIGH">Cao</option>
+              <option value="URGENT">Khẩn</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="createPersonalTaskAction()" :disabled="creatingPersonalTask || !personalTaskForm.title" class="btn btn-primary">
+          <span x-text="creatingPersonalTask ? 'Đang tạo...' : 'Tạo việc cá nhân'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Lập mẫu công việc định kỳ -->
+  <div x-show="modalOpen === 'addRecurringTemplate'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Lập mẫu công việc định kỳ</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="required">Người thực hiện</label>
+          <select x-model="recurringTemplateForm.assigneeEmployeeId" class="form-control">
+            <option :value="myEmployeeId">Chính tôi</option>
+            <template x-for="e in employees" :key="e.EmployeeID">
+              <option :value="e.EmployeeID" x-text="e.FullName"></option>
+            </template>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="required">Tiêu đề</label>
+          <input type="text" x-model="recurringTemplateForm.title" class="form-control" placeholder="VD: Báo cáo công tác trực">
+        </div>
+        <div class="form-group">
+          <label>Mô tả</label>
+          <textarea x-model="recurringTemplateForm.description" class="form-control" rows="2"></textarea>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="required">Chu kỳ</label>
+            <select x-model="recurringTemplateForm.frequency" class="form-control">
+              <option value="DAILY">Hàng ngày</option>
+              <option value="WEEKLY">Hàng tuần</option>
+              <option value="MONTHLY">Hàng tháng</option>
+              <option value="QUARTERLY">Hàng quý</option>
+              <option value="YEARLY">Hàng năm</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Mức ưu tiên</label>
+            <select x-model="recurringTemplateForm.priority" class="form-control">
+              <option value="LOW">Thấp</option>
+              <option value="NORMAL">Bình thường</option>
+              <option value="HIGH">Cao</option>
+              <option value="URGENT">Khẩn</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label>Hiệu lực từ</label>
+            <input type="date" x-model="recurringTemplateForm.effectiveFrom" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Hiệu lực đến (tuỳ chọn)</label>
+            <input type="date" x-model="recurringTemplateForm.effectiveTo" class="form-control">
+          </div>
+        </div>
+        <label class="form-check-label">
+          <input type="checkbox" x-model="recurringTemplateForm.hasDeadline">
+          Có hạn hoàn thành mỗi kỳ
+        </label>
+        <div class="form-grid-2 mt-2" x-show="recurringTemplateForm.hasDeadline">
+          <div class="form-group">
+            <label>Loại hạn</label>
+            <select x-model="recurringTemplateForm.deadlineType" class="form-control">
+              <option value="RELATIVE">Tương đối (+N ngày từ đầu kỳ)</option>
+              <option value="FIXED">Cố định (ngày X của tháng kế tiếp)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label x-text="recurringTemplateForm.deadlineType === 'FIXED' ? 'Ngày trong tháng' : 'Số ngày sau khi bắt đầu kỳ'"></label>
+            <input type="number" min="1" x-model.number="recurringTemplateForm.deadlineValue" class="form-control">
+          </div>
+        </div>
+        <p class="text-xs holo-text-dim mt-2">Công việc định kỳ không mặc nhiên tính vào KPI.</p>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="createRecurringTemplateAction()" :disabled="creatingRecurringTemplate || !recurringTemplateForm.title || !recurringTemplateForm.assigneeEmployeeId" class="btn btn-primary">
+          <span x-text="creatingRecurringTemplate ? 'Đang lưu...' : 'Lưu mẫu'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: Chi tiết công việc -->
   <div x-show="modalOpen === 'taskDetail'" x-cloak class="modal-overlay" @click.self="closeModal()">
     <div class="modal modal-lg" x-show="currentTask">
@@ -163,11 +457,15 @@
       </div>
       <div class="modal-body space-y-4" x-show="currentTask">
         <p class="text-sm holo-text-dim" x-text="currentTask && currentTask.Description"></p>
+        <div class="flex gap-2 flex-wrap">
+          <span class="badge" :class="currentTask && taskSourceBadgeClass(currentTask.SourceType)" x-text="currentTask && taskSourceLabel(currentTask.SourceType)"></span>
+          <span class="badge" :class="currentTask && taskStatusBadgeClass(currentTask)" x-text="currentTask && taskStatusLabel(currentTask)"></span>
+        </div>
         <div class="form-grid-2 text-xs">
           <div>Người giao: <strong x-text="currentTask && employeeNameById(currentTask.AssignerEmployeeID)"></strong></div>
           <div>Người thực hiện: <strong x-text="currentTask && employeeNameById(currentTask.AssigneeEmployeeID)"></strong></div>
-          <div>Hạn: <strong x-text="currentTask && currentTask.DueDate"></strong></div>
-          <div>Trạng thái: <span class="badge badge-cyan" x-text="currentTask && currentTask.Status"></span></div>
+          <div>Hạn: <strong x-text="(currentTask && currentTask.DueDate) || 'Không có'"></strong></div>
+          <div x-show="currentTask && currentTask.TransferredFromTaskID">Chuyển từ việc: <strong x-text="currentTask && currentTask.TransferredFromTaskID"></strong></div>
         </div>
 
         <div class="flex gap-2 items-center" x-show="currentTask && currentTask.IsKpiTask">
@@ -176,6 +474,17 @@
           <span class="text-xs" x-show="currentTask && currentTask.ComplexityLevel">Độ phức tạp: <strong x-text="currentTask.ComplexityLevel + ' (P=' + currentTask.ComplexityP + ')'"></strong></span>
           <span class="text-xs" x-show="currentTask && currentTask.QualityCoefficient">Hệ số chất lượng: <strong x-text="currentTask.QualityCoefficient"></strong></span>
         </div>
+
+        <!-- Việc tự giao cho chính mình (cá nhân/định kỳ tự lập) — hoàn thành thẳng -->
+        <template x-if="currentTask && currentTask.AssigneeEmployeeID === myEmployeeId && currentTask.AssignerEmployeeID === myEmployeeId && !['EVALUATED','CANCELLED'].includes(currentTask.Status)">
+          <div class="border-t pt-3" style="border-color: var(--holo-border);">
+            <div class="flex gap-2">
+              <input type="number" min="0" max="100" x-model.number="taskProgressInput" class="form-control form-control-sm w-24">
+              <button @click="updateTaskProgressAction()" class="btn btn-secondary btn-sm">Cập nhật tiến độ</button>
+              <button @click="completeMyTaskAction()" class="btn btn-primary btn-sm">✓ Đánh dấu hoàn thành</button>
+            </div>
+          </div>
+        </template>
 
         <!-- §11 Nhiều người cùng làm -->
         <div class="border-t pt-3" style="border-color: var(--holo-border);" x-show="currentTask">
@@ -214,7 +523,7 @@
                 <tr>
                   <td x-text="s.Title"></td>
                   <td x-text="employeeNameById(s.AssigneeEmployeeID)"></td>
-                  <td><span class="badge badge-cyan" x-text="s.Status"></span></td>
+                  <td><span class="badge" :class="taskStatusBadgeClass(s)" x-text="taskStatusLabel(s)"></span></td>
                 </tr>
               </template>
               <template x-if="currentTaskSubtasks.length === 0">
@@ -224,7 +533,7 @@
           </table>
         </div>
 
-        <template x-if="currentTask && currentTask.AssigneeEmployeeID === myEmployeeId && currentTask.Status !== 'EVALUATED'">
+        <template x-if="currentTask && currentTask.AssigneeEmployeeID === myEmployeeId && currentTask.AssignerEmployeeID !== myEmployeeId && currentTask.Status !== 'EVALUATED' && currentTask.Status !== 'CANCELLED'">
           <div class="space-y-2 border-t pt-3" style="border-color: var(--holo-border);">
             <label>Cập nhật tiến độ (%)</label>
             <div class="flex gap-2">
@@ -278,6 +587,14 @@
           <div class="border-t pt-3" style="border-color: var(--holo-border);">
             <p class="holo-label">Đánh giá</p>
             <p class="text-sm">Điểm: <strong x-text="currentTask.EvaluationScore"></strong> — <span x-text="currentTask.EvaluationComment"></span></p>
+          </div>
+        </template>
+
+        <!-- Chuyển kỳ / Huỷ việc -->
+        <template x-if="currentTask && (currentTask.AssignerEmployeeID === myEmployeeId || currentTask.AssigneeEmployeeID === myEmployeeId) && !['EVALUATED','CANCELLED'].includes(currentTask.Status)">
+          <div class="flex gap-2 border-t pt-3" style="border-color: var(--holo-border);">
+            <button @click="transferTaskToNextPeriodAction()" class="btn btn-secondary btn-sm">Chuyển sang kỳ khác</button>
+            <button @click="cancelTaskAction()" class="btn btn-secondary btn-sm">Huỷ việc</button>
           </div>
         </template>
       </div>
