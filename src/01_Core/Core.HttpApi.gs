@@ -161,6 +161,7 @@ const GATEWAY_ACTIONS_ = {
   'kpi.createRule': function (user, params) { return createKpiRule(user, params); },
   'kpi.deactivateRule': function (user, params) { return deactivateKpiRule(user, params.ruleId); },
   'kpi.listActiveRules': function (user, params) { return listActiveKpiRules(params.objectGroup); },
+  'kpi.listApplicableRulesForEmployee': function (user, params) { return listApplicableKpiRulesForEmployee(params.employeeId); },
   'kpi.submitResult': function (user, params) { return submitKpiResult(user, params); },
   'kpi.approveResult': function (user, params) { return approveKpiResult(user, params.resultId, params.managerComment); },
   'kpi.listMyResults': function (user, params) { return listMyKpiResults(user, params.period); },

@@ -1341,10 +1341,10 @@
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_listActiveKpiRules(this.authToken, null);
       },
-      newKpiRuleForm: { objectGroup: 'Bác sĩ', criterion: '', weight: 1, scoringMethodJson: '' },
+      newKpiRuleForm: { objectGroup: 'Bác sĩ', isCommonCriterion: false, criterion: '', weight: 1, scoringMethodJson: '' },
       savingKpiRule: false,
       openAddKpiRuleModal() {
-        this.newKpiRuleForm = { objectGroup: 'Bác sĩ', criterion: '', weight: 1, scoringMethodJson: '' };
+        this.newKpiRuleForm = { objectGroup: 'Bác sĩ', isCommonCriterion: false, criterion: '', weight: 1, scoringMethodJson: '' };
         this.openModal('addKpiRule');
       },
       createKpiRuleAction() {
@@ -1363,10 +1363,22 @@
           .api_createKpiRule(this.authToken, this.newKpiRuleForm);
       },
       submitKpiResultForm: { employeeId: '', ruleId: '', actualValue: null },
+      applicableKpiRulesForSelectedEmployee: [],
       savingKpiResult: false,
       openSubmitKpiResultModal() {
         this.submitKpiResultForm = { employeeId: '', ruleId: '', actualValue: null };
+        this.applicableKpiRulesForSelectedEmployee = [];
         this.openModal('submitKpiResult');
+      },
+      // Chỉ hiện đúng chỉ tiêu áp dụng cho chức danh của nhân viên đã chọn (tiêu chí chung + đặc thù
+      // đúng chức danh) — đúng §3 đặc tả, thay vì bắt người lập chọn lẫn lộn trong toàn bộ danh mục.
+      onSubmitKpiResultEmployeeChange() {
+        this.submitKpiResultForm.ruleId = '';
+        if (!this.submitKpiResultForm.employeeId) { this.applicableKpiRulesForSelectedEmployee = []; return; }
+        google.script.run
+          .withSuccessHandler((rows) => { this.applicableKpiRulesForSelectedEmployee = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listApplicableKpiRulesForEmployee(this.authToken, this.submitKpiResultForm.employeeId);
       },
       submitKpiResultAction() {
         this.savingKpiResult = true;

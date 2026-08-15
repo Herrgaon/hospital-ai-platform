@@ -616,6 +616,11 @@ function api_listActiveKpiRules(token, objectGroup) {
   return listActiveKpiRules(objectGroup);
 }
 
+function api_listApplicableKpiRulesForEmployee(token, employeeId) {
+  getCurrentUserFromToken_(token);
+  return listApplicableKpiRulesForEmployee(employeeId);
+}
+
 function api_submitKpiResult(token, input) {
   const user = getCurrentUserFromToken_(token);
   return submitKpiResult(user, input);

@@ -11,16 +11,25 @@ function requireKpiRuleManager_(actingUser) {
 
 function createKpiRule(actingUser, input) {
   requireKpiRuleManager_(actingUser);
-  if (isBlank(input.objectGroup) || isBlank(input.criterion) || isBlank(input.scoringMethodJson)) {
-    throw new Error('Thiếu nhóm đối tượng, chỉ tiêu hoặc cách quy đổi điểm.');
+  const isCommon = !!input.isCommonCriterion;
+  if (!isCommon && isBlank(input.objectGroup)) {
+    throw new Error('Thiếu nhóm đối tượng — hoặc đánh dấu đây là tiêu chí chung toàn bệnh viện.');
+  }
+  if (isBlank(input.criterion) || isBlank(input.scoringMethodJson)) {
+    throw new Error('Thiếu chỉ tiêu hoặc cách quy đổi điểm.');
   }
   if (!isValidScoringMethodJson_(input.scoringMethodJson)) {
     throw new Error('Cách quy đổi điểm không hợp lệ — kiểm tra lại định dạng JSON.');
   }
 
+  // Tiêu chí chung áp dụng mọi chức danh — ObjectGroup không còn ý nghĩa lọc, ép về '*' để
+  // listActiveKpiRules/danh sách chọn không hiển thị nhầm giá trị chức danh cụ thể không liên quan.
+  const objectGroup = isCommon ? '*' : input.objectGroup;
+
   const rule = getSheetRepository(SHEETS.KPI_RULES).append({
     RuleID: generateId('KPIR'),
-    ObjectGroup: input.objectGroup,
+    ObjectGroup: objectGroup,
+    IsCommonCriterion: isCommon,
     Criterion: input.criterion,
     Weight: input.weight || 1,
     ScoringMethodJson: input.scoringMethodJson,
@@ -30,7 +39,7 @@ function createKpiRule(actingUser, input) {
     Status: 'Active',
     CreatedAt: nowIso(), UpdatedAt: nowIso()
   });
-  logAudit(actingUser.UserID, 'KPI_RULE_CREATED', 'KpiRule', rule.RuleID, input.objectGroup + ' / ' + input.criterion);
+  logAudit(actingUser.UserID, 'KPI_RULE_CREATED', 'KpiRule', rule.RuleID, objectGroup + ' / ' + input.criterion);
   return rule;
 }
 
@@ -43,10 +52,23 @@ function deactivateKpiRule(actingUser, ruleId) {
 }
 
 // Đọc mở — cần cho mọi màn hình chọn chỉ tiêu khi lập KPI, không nhạy cảm hơn danh mục Khoa/Phòng.
+// Lọc theo objectGroup LUÔN kèm theo tiêu chí chung (IsCommonCriterion — áp dụng mọi chức danh, đúng
+// §4) — không lọc objectGroup = không lọc gì (trả về toàn bộ, dùng cho màn quản trị Danh mục KPI).
 function listActiveKpiRules(objectGroup) {
   return getSheetRepository(SHEETS.KPI_RULES).findAll().filter(function (r) {
-    return r.Status === 'Active' && (!objectGroup || r.ObjectGroup === objectGroup);
+    if (r.Status !== 'Active') return false;
+    if (!objectGroup) return true;
+    return r.IsCommonCriterion || r.ObjectGroup === objectGroup;
   });
+}
+
+// Chỉ tiêu áp dụng cho 1 nhân viên cụ thể = tiêu chí chung + tiêu chí đặc thù đúng EmployeeType (chức
+// danh) của họ — đúng nhánh phải trong sơ đồ §3. Dùng khi lập kết quả KPI để chỉ hiện đúng danh sách
+// liên quan, không bắt người dùng tự lọc thủ công giữa hàng chục chỉ tiêu của mọi chức danh.
+function listApplicableKpiRulesForEmployee(employeeId) {
+  const employee = getEmployeeById(employeeId);
+  if (!employee) return [];
+  return listActiveKpiRules(employee.EmployeeType);
 }
 
 // Lập kết quả KPI ở trạng thái DRAFT — điểm tự tính từ ActualValue qua đúng chỉ tiêu đã cấu hình, quản

@@ -197,8 +197,12 @@ const SCHEMA = {
   // điểm đều cấu hình được qua đây, KHÔNG hard-code công thức trong code. ScoringMethod lưu JSON mô tả
   // cách quy đổi (VD {"type":"LINEAR","target":100,"maxScore":10} hoặc {"type":"THRESHOLD",
   // "thresholds":[...]})  — xem Kpi.Engine.gs.
+  // IsCommonCriterion: đúng §3-4 đặc tả KPI + Quản lý Trực V1 — "KPI cá nhân" tách 2 nhánh, TIÊU CHÍ
+  // CHUNG TOÀN BỆNH VIỆN (AIDET/5S/Thái độ/Trách nhiệm/Kỷ luật/Phối hợp/Phản ánh sau xác minh — áp dụng
+  // MỌI nhân viên, không phân biệt chức danh) và TIÊU CHÍ ĐẶC THÙ THEO CHỨC DANH (ObjectGroup thật,
+  // VD "Bác sĩ"). true = tiêu chí chung, ObjectGroup lúc đó bị ép về '*' (xem createKpiRule).
   [SHEETS.KPI_RULES]: [
-    'RuleID', 'ObjectGroup', 'Criterion', 'Weight', 'ScoringMethodJson',
+    'RuleID', 'ObjectGroup', 'IsCommonCriterion', 'Criterion', 'Weight', 'ScoringMethodJson',
     'EffectiveFrom', 'EffectiveTo', 'Version', 'Status', 'CreatedAt', 'UpdatedAt'
   ],
 

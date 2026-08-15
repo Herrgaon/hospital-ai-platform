@@ -93,7 +93,10 @@
           <tbody>
             <template x-for="r in activeKpiRules" :key="r.RuleID">
               <tr>
-                <td x-text="r.ObjectGroup"></td>
+                <td>
+                  <span x-show="r.IsCommonCriterion" class="badge badge-purple">Chung toàn viện</span>
+                  <span x-show="!r.IsCommonCriterion" x-text="r.ObjectGroup"></span>
+                </td>
                 <td x-text="r.Criterion"></td>
                 <td x-text="r.Weight"></td>
                 <td><code class="text-xs" x-text="r.ScoringMethodJson"></code></td>
@@ -116,8 +119,12 @@
         <button @click="closeModal()" class="modal-close">×</button>
       </div>
       <div class="modal-body">
-        <div class="form-group">
-          <label class="required">Nhóm đối tượng</label>
+        <label class="form-check-label mb-3">
+          <input type="checkbox" x-model="newKpiRuleForm.isCommonCriterion">
+          Tiêu chí chung toàn bệnh viện (VD AIDET, 5S, thái độ, kỷ luật, phối hợp) — áp dụng mọi chức danh
+        </label>
+        <div class="form-group" x-show="!newKpiRuleForm.isCommonCriterion">
+          <label class="required">Nhóm đối tượng (chức danh)</label>
           <select x-model="newKpiRuleForm.objectGroup" class="form-control">
             <option value="Bác sĩ">Bác sĩ</option>
             <option value="Điều dưỡng">Điều dưỡng</option>
@@ -160,7 +167,7 @@
       <div class="modal-body">
         <div class="form-group">
           <label class="required">Nhân viên</label>
-          <select x-model="submitKpiResultForm.employeeId" class="form-control">
+          <select x-model="submitKpiResultForm.employeeId" @change="onSubmitKpiResultEmployeeChange()" class="form-control">
             <option value="">-- Chọn nhân viên --</option>
             <template x-for="e in employeesByDepartment(kpiDepartmentFilter)" :key="e.EmployeeID">
               <option :value="e.EmployeeID" x-text="e.FullName"></option>
@@ -169,12 +176,13 @@
         </div>
         <div class="form-group">
           <label class="required">Chỉ tiêu</label>
-          <select x-model="submitKpiResultForm.ruleId" class="form-control">
+          <select x-model="submitKpiResultForm.ruleId" :disabled="!submitKpiResultForm.employeeId" class="form-control">
             <option value="">-- Chọn chỉ tiêu --</option>
-            <template x-for="r in activeKpiRules" :key="r.RuleID">
-              <option :value="r.RuleID" x-text="r.ObjectGroup + ' — ' + r.Criterion"></option>
+            <template x-for="r in applicableKpiRulesForSelectedEmployee" :key="r.RuleID">
+              <option :value="r.RuleID" x-text="(r.IsCommonCriterion ? 'Chung toàn viện' : r.ObjectGroup) + ' — ' + r.Criterion"></option>
             </template>
           </select>
+          <p class="form-hint" x-show="submitKpiResultForm.employeeId && applicableKpiRulesForSelectedEmployee.length === 0">Chưa có chỉ tiêu KPI nào áp dụng cho chức danh của nhân viên này.</p>
         </div>
         <div class="form-group">
           <label class="required">Giá trị thực tế</label>
