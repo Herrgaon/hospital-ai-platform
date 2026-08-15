@@ -109,11 +109,30 @@ function listDutySchedulesByDepartment(user, departmentId) {
   return getSheetRepository(SHEETS.DUTY_SCHEDULES).findAll().filter(function (s) { return s.DepartmentID === departmentId; });
 }
 
+// Cảnh báo xung đột KHÔNG chặn thao tác (đúng §22 đặc tả: "cảnh báo không đồng nghĩa tự động từ
+// chối") — chỉ hiển thị để Trưởng khoa/KH-NV tự cân nhắc trước khi gửi duyệt. Hiện phủ 1 loại cảnh
+// báo khả thi (nhân viên ngoài khoa được phân công); các loại khác (vị trí bắt buộc thiếu người, ca
+// chưa đủ nhân sự) cần khái niệm "định biên theo vị trí" chưa có trong V1, để lại cho giai đoạn sau.
+function getDutyScheduleWarnings_(schedule, shifts) {
+  const warnings = [];
+  shifts.forEach(function (shift) {
+    const employee = getEmployeeById(shift.EmployeeID);
+    if (employee && employee.DepartmentID !== schedule.DepartmentID) {
+      warnings.push({
+        type: 'OUTSIDE_DEPARTMENT', dutyShiftId: shift.DutyShiftID,
+        message: (employee.FullName || shift.EmployeeID) + ' không thuộc khoa/phòng này (ngày ' + shift.ShiftDate + ').'
+      });
+    }
+  });
+  return warnings;
+}
+
 function getDutyScheduleDetail(user, dutyScheduleId) {
   const schedule = getSheetRepository(SHEETS.DUTY_SCHEDULES).findById('DutyScheduleID', dutyScheduleId);
   if (!schedule) throw new Error('Không tìm thấy lịch trực.');
   requirePermission(user, schedule.DepartmentID, 'CanView');
-  return { schedule: schedule, shifts: listDutyShiftsBySchedule(dutyScheduleId) };
+  const shifts = listDutyShiftsBySchedule(dutyScheduleId);
+  return { schedule: schedule, shifts: shifts, warnings: getDutyScheduleWarnings_(schedule, shifts) };
 }
 
 function listMyDutyShifts(user, dateFrom, dateTo) {

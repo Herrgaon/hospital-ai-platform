@@ -90,8 +90,16 @@ const GATEWAY_ACTIONS_ = {
   'duty.submit': function (user, params) { return submitDutySchedule(user, params.dutyScheduleId); },
   'duty.markUnderReview': function (user, params) { return markDutyScheduleUnderReview(user, params.dutyScheduleId); },
   'duty.requestRevision': function (user, params) { return requestDutyScheduleRevision(user, params.dutyScheduleId, params.comment); },
-  'duty.approve': function (user, params) { return approveDutySchedule(user, params.dutyScheduleId, params.comment); },
+  'duty.forwardForDirectorApproval': function (user, params) { return forwardDutyScheduleForDirectorApproval(user, params.dutyScheduleId, params.comment); },
+  'duty.approveByDirector': function (user, params) { return approveDutyScheduleByDirector(user, params.dutyScheduleId, params.comment); },
   'duty.publish': function (user, params) { return publishDutySchedule(user, params.dutyScheduleId); },
+
+  'dutyCatalog.createType': function (user, params) { return createDutyType(user, params); },
+  'dutyCatalog.deactivateType': function (user, params) { return deactivateDutyType(user, params.dutyTypeId); },
+  'dutyCatalog.listTypes': function () { return listActiveDutyTypes(); },
+  'dutyCatalog.createPosition': function (user, params) { return createDutyPosition(user, params); },
+  'dutyCatalog.deactivatePosition': function (user, params) { return deactivateDutyPosition(user, params.dutyPositionId); },
+  'dutyCatalog.listPositions': function (user, params) { return listActiveDutyPositions(params.employeeType); },
 
   'swap.request': function (user, params) { return requestSwap(user, params); },
   'swap.confirmReplacement': function (user, params) { return confirmSwapByReplacement(user, params.swapRequestId); },

@@ -1,6 +1,11 @@
 // Quy trình duyệt/công bố Lịch trực tuần — trạng thái riêng (không dùng lại engine 08_Workflow cũ,
-// đã xoá vì gắn chặt vào Document và không khớp state machine 6 trạng thái ở đây):
-// DRAFT -> SUBMITTED -> UNDER_REVIEW -> (NEED_REVISION -> DRAFT lại) -> APPROVED -> PUBLISHED.
+// đã xoá vì gắn chặt vào Document và không khớp state machine ở đây):
+// DRAFT -> SUBMITTED -> UNDER_REVIEW -> PENDING_DIRECTOR_APPROVAL -> (NEED_REVISION -> DRAFT lại) ->
+// APPROVED -> PUBLISHED.
+//
+// 2026-08-15: tách "KH-NV kiểm tra" và "Lãnh đạo phê duyệt" thành 2 bước riêng theo đúng §23 đặc tả
+// KPI + Quản lý Trực V1 (trước đó gộp chung 1 bước approveDutySchedule) — Phòng KH-NV kiểm tra xong
+// CHUYỂN TIẾP cho Ban Giám Đốc, không tự quyết định thay lãnh đạo.
 
 function submitDutySchedule(actingUser, dutyScheduleId) {
   const schedule = getSheetRepository(SHEETS.DUTY_SCHEDULES).findById('DutyScheduleID', dutyScheduleId);
@@ -35,11 +40,31 @@ function markDutyScheduleUnderReview(actingUser, dutyScheduleId) {
   return updated;
 }
 
+// Phòng KH-NV kiểm tra xong, KHÔNG tự quyết — chuyển tiếp cho Ban Giám Đốc phê duyệt chính thức.
+function forwardDutyScheduleForDirectorApproval(actingUser, dutyScheduleId, comment) {
+  const schedule = getSheetRepository(SHEETS.DUTY_SCHEDULES).findById('DutyScheduleID', dutyScheduleId);
+  if (!schedule) throw new Error('Không tìm thấy lịch trực.');
+  requirePermission(actingUser, schedule.DepartmentID, 'CanApprove');
+  if (['SUBMITTED', 'UNDER_REVIEW'].indexOf(schedule.Status) === -1) {
+    throw new Error('Chỉ có thể chuyển lãnh đạo phê duyệt khi lịch trực đang chờ Phòng KH-NV kiểm tra.');
+  }
+
+  const updated = getSheetRepository(SHEETS.DUTY_SCHEDULES).updateById('DutyScheduleID', dutyScheduleId, {
+    Status: 'PENDING_DIRECTOR_APPROVAL', ReviewComment: comment || schedule.ReviewComment,
+    ReviewedByUserID: actingUser.UserID, ReviewedAt: nowIso(), UpdatedAt: nowIso()
+  });
+  logAudit(actingUser.UserID, 'DUTY_SCHEDULE_FORWARDED_TO_DIRECTOR', 'DutySchedule', dutyScheduleId, comment || '');
+  return updated;
+}
+
+// Callable từ cả 3 trạng thái chờ (SUBMITTED/UNDER_REVIEW/PENDING_DIRECTOR_APPROVAL) — Phòng KH-NV
+// (CanReject theo khoa/phòng hoặc toàn viện) hoặc Ban Giám Đốc (CanReject toàn viện, xem
+// Bootstrap.Defaults.gs) đều có thể trả lịch về Khoa để chỉnh sửa.
 function requestDutyScheduleRevision(actingUser, dutyScheduleId, comment) {
   const schedule = getSheetRepository(SHEETS.DUTY_SCHEDULES).findById('DutyScheduleID', dutyScheduleId);
   if (!schedule) throw new Error('Không tìm thấy lịch trực.');
   requirePermission(actingUser, schedule.DepartmentID, 'CanReject');
-  if (['SUBMITTED', 'UNDER_REVIEW'].indexOf(schedule.Status) === -1) {
+  if (['SUBMITTED', 'UNDER_REVIEW', 'PENDING_DIRECTOR_APPROVAL'].indexOf(schedule.Status) === -1) {
     throw new Error('Chỉ có thể yêu cầu chỉnh sửa lịch trực đang chờ duyệt.');
   }
 
@@ -51,19 +76,24 @@ function requestDutyScheduleRevision(actingUser, dutyScheduleId, comment) {
   return updated;
 }
 
-function approveDutySchedule(actingUser, dutyScheduleId, comment) {
+// Phê duyệt CHÍNH THỨC — CỐ Ý kiểm tra thẳng Role thay vì requirePermission theo Department, vì đây
+// là thẩm quyền của LÃNH ĐẠO (Ban Giám Đốc), không phải quyền quản lý nghiệp vụ theo khoa/phòng — đúng
+// §23 "LÃNH ĐẠO PHÊ DUYỆT" là bước tách biệt khỏi "PHÒNG KH-NV KIỂM TRA".
+function approveDutyScheduleByDirector(actingUser, dutyScheduleId, comment) {
+  if (actingUser.Role !== ROLE_NAMES.BAN_GIAM_DOC && actingUser.Role !== ROLE_NAMES.SUPER_ADMIN) {
+    throw new Error('Chỉ Ban Giám Đốc được phê duyệt chính thức lịch trực.');
+  }
   const schedule = getSheetRepository(SHEETS.DUTY_SCHEDULES).findById('DutyScheduleID', dutyScheduleId);
   if (!schedule) throw new Error('Không tìm thấy lịch trực.');
-  requirePermission(actingUser, schedule.DepartmentID, 'CanApprove');
-  if (['SUBMITTED', 'UNDER_REVIEW'].indexOf(schedule.Status) === -1) {
-    throw new Error('Chỉ có thể duyệt lịch trực đang chờ duyệt.');
+  if (schedule.Status !== 'PENDING_DIRECTOR_APPROVAL') {
+    throw new Error('Chỉ có thể phê duyệt lịch trực đã được Phòng KH-NV chuyển lên.');
   }
 
   const updated = getSheetRepository(SHEETS.DUTY_SCHEDULES).updateById('DutyScheduleID', dutyScheduleId, {
-    Status: 'APPROVED', ReviewComment: comment || schedule.ReviewComment, ApprovedByUserID: actingUser.UserID, ApprovedAt: nowIso(), UpdatedAt: nowIso()
+    Status: 'APPROVED', ApprovedByUserID: actingUser.UserID, ApprovedAt: nowIso(), UpdatedAt: nowIso()
   });
   logAudit(actingUser.UserID, 'DUTY_SCHEDULE_APPROVED', 'DutySchedule', dutyScheduleId, comment || '');
-  notifyUser(schedule.CreatedByUserID, 'Lịch trực tuần đã được duyệt: ' + schedule.WeekStartDate, 'Đang chờ công bố.');
+  notifyUser(schedule.CreatedByUserID, 'Lịch trực tuần đã được lãnh đạo phê duyệt: ' + schedule.WeekStartDate, 'Đang chờ Phòng KH-NV công bố.');
   return updated;
 }
 

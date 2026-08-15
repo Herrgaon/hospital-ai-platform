@@ -283,14 +283,51 @@ function api_requestDutyScheduleRevision(token, dutyScheduleId, comment) {
   return requestDutyScheduleRevision(user, dutyScheduleId, comment);
 }
 
-function api_approveDutySchedule(token, dutyScheduleId, comment) {
+function api_forwardDutyScheduleForDirectorApproval(token, dutyScheduleId, comment) {
   const user = getCurrentUserFromToken_(token);
-  return approveDutySchedule(user, dutyScheduleId, comment);
+  return forwardDutyScheduleForDirectorApproval(user, dutyScheduleId, comment);
+}
+
+function api_approveDutyScheduleByDirector(token, dutyScheduleId, comment) {
+  const user = getCurrentUserFromToken_(token);
+  return approveDutyScheduleByDirector(user, dutyScheduleId, comment);
 }
 
 function api_publishDutySchedule(token, dutyScheduleId) {
   const user = getCurrentUserFromToken_(token);
   return publishDutySchedule(user, dutyScheduleId);
+}
+
+// --- Duty Catalog (Danh mục Loại trực / Vị trí trực) ---
+
+function api_createDutyType(token, input) {
+  const user = getCurrentUserFromToken_(token);
+  return createDutyType(user, input);
+}
+
+function api_deactivateDutyType(token, dutyTypeId) {
+  const user = getCurrentUserFromToken_(token);
+  return deactivateDutyType(user, dutyTypeId);
+}
+
+function api_listActiveDutyTypes(token) {
+  getCurrentUserFromToken_(token);
+  return listActiveDutyTypes();
+}
+
+function api_createDutyPosition(token, input) {
+  const user = getCurrentUserFromToken_(token);
+  return createDutyPosition(user, input);
+}
+
+function api_deactivateDutyPosition(token, dutyPositionId) {
+  const user = getCurrentUserFromToken_(token);
+  return deactivateDutyPosition(user, dutyPositionId);
+}
+
+function api_listActiveDutyPositions(token, employeeType) {
+  getCurrentUserFromToken_(token);
+  return listActiveDutyPositions(employeeType);
 }
 
 // --- Duty Swap (Đổi trực) ---

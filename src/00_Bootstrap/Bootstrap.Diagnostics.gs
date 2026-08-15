@@ -37,6 +37,14 @@ function diagListAuditLog() {
   return getSheetRepository(SHEETS.AUDIT_LOG).findAll();
 }
 
+function diagListDutyTypes() {
+  return getSheetRepository(SHEETS.DUTY_TYPES).findAll();
+}
+
+function diagListDutyPositions() {
+  return getSheetRepository(SHEETS.DUTY_POSITIONS).findAll();
+}
+
 // --- Auth Gateway (Auth.Password.gs / Auth.Token.gs / Auth.Gateway.gs) ---
 
 function diagHashPassword(plainPassword) {
@@ -100,11 +108,13 @@ function diagMailQuota() {
   return MailApp.getRemainingDailyQuota();
 }
 
-// Smoke test toàn bộ vòng đời Lịch trực tuần trên dữ liệu CÔ LẬP (tự tạo nhân viên/lịch/ca trực
-// riêng, không đụng dữ liệu thật) — chạy 1 lần qua `clasp run diagRunDutyScheduleLifecycle` để xác
-// nhận DRAFT -> SUBMITTED -> UNDER_REVIEW -> APPROVED -> PUBLISHED + 1 luồng đổi trực hoạt động đúng
-// đầu-cuối mà không cần bấm tay qua UI. actingUser truyền vào phải có quyền phù hợp ở departmentId
-// (thường dùng tài khoản SUPER_ADMIN khi test vì SUPER_ADMIN bỏ qua mọi kiểm tra quyền).
+// Smoke test toàn bộ vòng đời Lịch trực tuần — chạy qua `clasp run diagRunDutyScheduleLifecycle` để
+// xác nhận DRAFT -> SUBMITTED -> UNDER_REVIEW -> PENDING_DIRECTOR_APPROVAL -> APPROVED -> PUBLISHED +
+// 1 luồng đổi trực hoạt động đúng đầu-cuối mà không cần bấm tay qua UI. CẢNH BÁO: hàm này TẠO LỊCH
+// TRỰC + CA TRỰC THẬT trong khoa/phòng truyền vào (không tự tạo nhân viên/khoa cô lập) — chỉ chạy với
+// departmentId đã biết rõ là an toàn (khoa/phòng test, hoặc đã có kế hoạch dọn dữ liệu ngay sau khi
+// chạy). getCurrentUser() (chạy qua clasp run) cần resolve về tài khoản SUPER_ADMIN để bỏ qua mọi
+// kiểm tra quyền theo khoa/phòng.
 function diagRunDutyScheduleLifecycle(departmentId) {
   const user = getCurrentUser();
   const employees = listEmployeesByDepartment(departmentId).filter(function (e) { return e.Status === 'Active'; });
@@ -122,7 +132,8 @@ function diagRunDutyScheduleLifecycle(departmentId) {
 
   submitDutySchedule(user, schedule.DutyScheduleID);
   markDutyScheduleUnderReview(user, schedule.DutyScheduleID);
-  approveDutySchedule(user, schedule.DutyScheduleID, 'OK');
+  forwardDutyScheduleForDirectorApproval(user, schedule.DutyScheduleID, 'OK KH-NV');
+  approveDutyScheduleByDirector(user, schedule.DutyScheduleID, 'OK BGĐ');
   publishDutySchedule(user, schedule.DutyScheduleID);
 
   // requestSwap/confirmSwapByReplacement kiểm tra QUYỀN SỞ HỮU (chính người trực/người được đề nghị

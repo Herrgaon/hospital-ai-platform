@@ -25,7 +25,9 @@ function getDefaultRoles_() {
 function getDefaultPermissions_() {
   return [
     { RoleID: ROLE_NAMES.SUPER_ADMIN, DepartmentID: '*', CanView: true, CanCreate: true, CanEdit: true, CanDelete: true, CanSubmit: true, CanApprove: true, CanReject: true, CanPublish: true, CanLock: true, CanExport: true },
-    { RoleID: ROLE_NAMES.BAN_GIAM_DOC, DepartmentID: '*', CanView: true, CanCreate: false, CanEdit: false, CanDelete: false, CanSubmit: false, CanApprove: false, CanReject: false, CanPublish: false, CanLock: false, CanExport: true },
+    // CanReject: true — Ban Giám Đốc có thể trả lịch trực về Khoa khi từ chối phê duyệt chính thức
+    // (approveDutyScheduleByDirector/requestDutyScheduleRevision, DutySchedule.Workflow.gs, 2026-08-15).
+    { RoleID: ROLE_NAMES.BAN_GIAM_DOC, DepartmentID: '*', CanView: true, CanCreate: false, CanEdit: false, CanDelete: false, CanSubmit: false, CanApprove: false, CanReject: true, CanPublish: false, CanLock: false, CanExport: true },
     { RoleID: ROLE_NAMES.PHONG_KH_NV, DepartmentID: '*', CanView: true, CanCreate: false, CanEdit: false, CanDelete: false, CanSubmit: false, CanApprove: true, CanReject: true, CanPublish: true, CanLock: false, CanExport: true },
     // CanApprove/CanReject (phạm vi '*'): bước duyệt cuối cùng cho Điều chỉnh công. CanLock: chốt
     // chấm công hàng tháng — tập trung ở Phòng TC-HC, không giao cho từng Trưởng khoa/phòng (đúng vai
@@ -84,5 +86,35 @@ function getDefaultDepartments_() {
     d.CreatedAt = nowIso();
     d.UpdatedAt = nowIso();
     return d;
+  });
+}
+
+// Dữ liệu khởi tạo tối thiểu cho danh mục Loại trực/Vị trí trực — chỉ gồm ví dụ đã nêu rõ trong đặc tả
+// KPI + Quản lý Trực V1 (vị trí "LĐ" dành riêng Bác sĩ); các loại/vị trí khác do Phòng KH-NV tự thêm
+// qua DutySchedule.Catalog.gs khi triển khai thực tế — KHÔNG tự suy đoán thêm danh mục chưa được duyệt.
+function getDefaultDutyTypes_() {
+  return [
+    { DutyTypeName: 'Trực lãnh đạo', Description: 'Trực điều hành chung toàn viện' },
+    { DutyTypeName: 'Trực chuyên môn', Description: 'Trực khám/điều trị tại khoa, phòng' }
+  ].map(function (t) {
+    t.DutyTypeID = generateId('DTYPE');
+    t.Status = 'Active';
+    t.CreatedAt = nowIso();
+    t.UpdatedAt = nowIso();
+    return t;
+  });
+}
+
+function getDefaultDutyPositions_() {
+  return [
+    { PositionName: 'LĐ', EmployeeType: 'Bác sĩ', Description: 'Trực lãnh đạo — chỉ dành cho Bác sĩ' },
+    { PositionName: 'Trực chính', EmployeeType: '', Description: '' },
+    { PositionName: 'Trực phụ', EmployeeType: '', Description: '' }
+  ].map(function (p) {
+    p.DutyPositionID = generateId('DPOS');
+    p.Status = 'Active';
+    p.CreatedAt = nowIso();
+    p.UpdatedAt = nowIso();
+    return p;
   });
 }

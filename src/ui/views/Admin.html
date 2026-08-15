@@ -29,6 +29,7 @@
     <button @click="adminTab = 'users'" class="tab" :class="adminTab === 'users' ? 'active' : ''">Người dùng &amp; Vai trò</button>
     <button @click="adminTab = 'permissions'" class="tab" :class="adminTab === 'permissions' ? 'active' : ''">Phân quyền theo khoa/phòng</button>
     <button @click="adminTab = 'ai'" class="tab" :class="adminTab === 'ai' ? 'active' : ''">Cấu hình AI</button>
+    <button @click="adminTab = 'dutyCatalog'" class="tab" :class="adminTab === 'dutyCatalog' ? 'active' : ''">Danh mục trực</button>
     <button @click="adminTab = 'log'" class="tab" :class="adminTab === 'log' ? 'active' : ''">Audit Log</button>
   </div>
 
@@ -178,6 +179,57 @@
     </div>
   </div>
 
+  <!-- Tab: Danh mục trực -->
+  <div x-show="adminTab === 'dutyCatalog'" x-init="if (adminTab === 'dutyCatalog') loadDutyCatalogsIfNeeded_();">
+    <div class="card">
+      <div class="card-header">
+        <h3>Loại trực</h3>
+        <button @click="openModal('addDutyType')" class="btn btn-primary btn-sm">+ Thêm loại trực</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Tên loại trực</th><th>Mô tả</th><th></th></tr></thead>
+          <tbody>
+            <template x-for="t in dutyTypesCatalog" :key="t.DutyTypeID">
+              <tr>
+                <td x-text="t.DutyTypeName"></td>
+                <td x-text="t.Description"></td>
+                <td><button @click="deactivateDutyTypeAction(t)" class="btn-link">Ngừng dùng</button></td>
+              </tr>
+            </template>
+            <template x-if="dutyTypesCatalog.length === 0">
+              <tr><td colspan="3" class="text-xs holo-text-dim py-4">Chưa có loại trực nào.</td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card mt-4">
+      <div class="card-header">
+        <h3>Vị trí trực</h3>
+        <button @click="openModal('addDutyPosition')" class="btn btn-primary btn-sm">+ Thêm vị trí trực</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Tên vị trí</th><th>Loại nhân viên áp dụng</th><th>Mô tả</th><th></th></tr></thead>
+          <tbody>
+            <template x-for="p in dutyPositionsCatalog" :key="p.DutyPositionID">
+              <tr>
+                <td x-text="p.PositionName"></td>
+                <td x-text="p.EmployeeType || 'Tất cả'"></td>
+                <td x-text="p.Description"></td>
+                <td><button @click="deactivateDutyPositionAction(p)" class="btn-link">Ngừng dùng</button></td>
+              </tr>
+            </template>
+            <template x-if="dutyPositionsCatalog.length === 0">
+              <tr><td colspan="4" class="text-xs holo-text-dim py-4">Chưa có vị trí trực nào.</td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <!-- Tab: Audit Log -->
   <div x-show="adminTab === 'log'">
     <div class="card">
@@ -215,9 +267,14 @@
             <option value="DUTY_SCHEDULE_CREATED">Tạo lịch trực</option>
             <option value="DUTY_SCHEDULE_SUBMITTED">Gửi duyệt lịch trực</option>
             <option value="DUTY_SCHEDULE_REVISION_REQUESTED">Yêu cầu chỉnh sửa lịch trực</option>
+            <option value="DUTY_SCHEDULE_FORWARDED_TO_DIRECTOR">Chuyển Ban Giám Đốc duyệt lịch trực</option>
             <option value="DUTY_SCHEDULE_APPROVED">Duyệt lịch trực</option>
             <option value="DUTY_SCHEDULE_PUBLISHED">Công bố lịch trực</option>
             <option value="DUTY_SHIFT_ADDED">Thêm ca trực</option>
+            <option value="DUTY_TYPE_CREATED">Tạo loại trực</option>
+            <option value="DUTY_TYPE_DEACTIVATED">Ngừng dùng loại trực</option>
+            <option value="DUTY_POSITION_CREATED">Tạo vị trí trực</option>
+            <option value="DUTY_POSITION_DEACTIVATED">Ngừng dùng vị trí trực</option>
             <option value="DUTY_SWAP_REQUESTED">Đề nghị đổi trực</option>
             <option value="DUTY_SWAP_APPROVED">Duyệt đổi trực</option>
             <option value="DUTY_SWAP_REJECTED">Từ chối đổi trực</option>
@@ -313,6 +370,70 @@
         <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
         <button @click="createUserAction()" :disabled="creatingUser || !newUserForm.email || !newUserForm.username" class="btn btn-primary">
           <span x-text="creatingUser ? 'Đang thêm...' : '+ Thêm người dùng'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Thêm loại trực -->
+  <div x-show="modalOpen === 'addDutyType'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Thêm loại trực</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="required">Tên loại trực</label>
+          <input type="text" x-model="newDutyTypeForm.dutyTypeName" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>Mô tả</label>
+          <input type="text" x-model="newDutyTypeForm.description" class="form-control">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="createDutyTypeAction()" :disabled="creatingDutyType || !newDutyTypeForm.dutyTypeName" class="btn btn-primary">
+          <span x-text="creatingDutyType ? 'Đang thêm...' : '+ Thêm'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Thêm vị trí trực -->
+  <div x-show="modalOpen === 'addDutyPosition'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Thêm vị trí trực</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="required">Tên vị trí</label>
+          <input type="text" x-model="newDutyPositionForm.positionName" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>Loại nhân viên áp dụng</label>
+          <select x-model="newDutyPositionForm.employeeType" class="form-control">
+            <option value="">-- Tất cả loại nhân viên --</option>
+            <option value="Bác sĩ">Bác sĩ</option>
+            <option value="Điều dưỡng">Điều dưỡng</option>
+            <option value="Kỹ thuật viên">Kỹ thuật viên</option>
+            <option value="Hành chính">Hành chính</option>
+            <option value="Kế toán">Kế toán</option>
+            <option value="Quản lý">Quản lý</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Mô tả</label>
+          <input type="text" x-model="newDutyPositionForm.description" class="form-control">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="createDutyPositionAction()" :disabled="creatingDutyPosition || !newDutyPositionForm.positionName" class="btn btn-primary">
+          <span x-text="creatingDutyPosition ? 'Đang thêm...' : '+ Thêm'"></span>
         </button>
       </div>
     </div>

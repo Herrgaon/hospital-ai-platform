@@ -13,6 +13,8 @@ const SHEETS = {
   DUTY_SCHEDULES: 'DutySchedules',
   DUTY_SHIFTS: 'DutyShifts',
   DUTY_SWAP_REQUESTS: 'DutySwapRequests',
+  DUTY_TYPES: 'DutyTypes',
+  DUTY_POSITIONS: 'DutyPositions',
   ATTENDANCE: 'Attendance',
   ATTENDANCE_ADJUSTMENTS: 'AttendanceAdjustments',
   OVERTIME: 'Overtime',
@@ -109,6 +111,13 @@ const SCHEMA = {
     'RejectedByUserID', 'RejectedAt', 'RejectionReason',
     'CreatedAt', 'UpdatedAt'
   ],
+
+  // Danh mục loại trực/vị trí trực — cấu hình được (Admin/Phòng KH-NV quản lý), KHÔNG hard-code trong
+  // UI. Bổ sung theo đặc tả KPI + Quản lý Trực & Làm ngoài giờ V1 (2026-08-15).
+  [SHEETS.DUTY_TYPES]: ['DutyTypeID', 'DutyTypeName', 'Description', 'Status', 'CreatedAt', 'UpdatedAt'],
+  // EmployeeType rỗng = áp dụng cho mọi loại nhân viên; có giá trị = chỉ hiện trong danh sách chọn khi
+  // xếp trực cho nhân viên đúng loại đó (VD vị trí "LĐ" chỉ dành Bác sĩ).
+  [SHEETS.DUTY_POSITIONS]: ['DutyPositionID', 'PositionName', 'EmployeeType', 'Description', 'Status', 'CreatedAt', 'UpdatedAt'],
 
   // Chấm công — Giai đoạn 2. Status: OPEN (còn sửa được trực tiếp) | LOCKED (đã chốt, mọi thay đổi
   // phải qua AttendanceAdjustments, không sửa thẳng — đúng yêu cầu "không sửa âm thầm dữ liệu đã chốt").

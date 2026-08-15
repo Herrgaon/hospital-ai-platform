@@ -138,4 +138,10 @@ function seedDefaultData_() {
 
   const providersRepo = getSheetRepository(SHEETS.AI_PROVIDERS);
   getDefaultAIProviders_().forEach(function (provider) { providersRepo.append(provider); });
+
+  const dutyTypesRepo = getSheetRepository(SHEETS.DUTY_TYPES);
+  getDefaultDutyTypes_().forEach(function (t) { dutyTypesRepo.append(t); });
+
+  const dutyPositionsRepo = getSheetRepository(SHEETS.DUTY_POSITIONS);
+  getDefaultDutyPositions_().forEach(function (p) { dutyPositionsRepo.append(p); });
 }

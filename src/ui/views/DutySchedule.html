@@ -89,8 +89,9 @@
             <button x-show="currentDutySchedule && isDutyScheduleEditable(currentDutySchedule.schedule) && can(currentDutySchedule.schedule.DepartmentID, 'CanEdit')" @click="openAddShiftModal()" class="btn btn-secondary btn-sm">+ Thêm ca trực</button>
             <button x-show="currentDutySchedule && isDutyScheduleEditable(currentDutySchedule.schedule) && can(currentDutySchedule.schedule.DepartmentID, 'CanSubmit')" @click="submitDutyScheduleAction()" class="btn btn-primary btn-sm">Gửi duyệt</button>
             <button x-show="currentDutySchedule && currentDutySchedule.schedule.Status === 'SUBMITTED' && can(currentDutySchedule.schedule.DepartmentID, 'CanApprove')" @click="markDutyScheduleUnderReviewAction()" class="btn btn-secondary btn-sm">Bắt đầu xét duyệt</button>
-            <button x-show="currentDutySchedule && ['SUBMITTED','UNDER_REVIEW'].includes(currentDutySchedule.schedule.Status) && can(currentDutySchedule.schedule.DepartmentID, 'CanReject')" @click="requestDutyScheduleRevisionAction()" class="btn btn-secondary btn-sm">Yêu cầu chỉnh sửa</button>
-            <button x-show="currentDutySchedule && ['SUBMITTED','UNDER_REVIEW'].includes(currentDutySchedule.schedule.Status) && can(currentDutySchedule.schedule.DepartmentID, 'CanApprove')" @click="approveDutyScheduleAction()" class="btn btn-primary btn-sm">Duyệt</button>
+            <button x-show="currentDutySchedule && ['SUBMITTED','UNDER_REVIEW','PENDING_DIRECTOR_APPROVAL'].includes(currentDutySchedule.schedule.Status) && can(currentDutySchedule.schedule.DepartmentID, 'CanReject')" @click="requestDutyScheduleRevisionAction()" class="btn btn-secondary btn-sm">Yêu cầu chỉnh sửa</button>
+            <button x-show="currentDutySchedule && ['SUBMITTED','UNDER_REVIEW'].includes(currentDutySchedule.schedule.Status) && can(currentDutySchedule.schedule.DepartmentID, 'CanApprove')" @click="forwardDutyScheduleForDirectorApprovalAction()" class="btn btn-primary btn-sm">Chuyển Ban Giám Đốc duyệt</button>
+            <button x-show="currentDutySchedule && currentDutySchedule.schedule.Status === 'PENDING_DIRECTOR_APPROVAL' && isBanGiamDoc" @click="approveDutyScheduleByDirectorAction()" class="btn btn-primary btn-sm">Phê duyệt (Ban Giám Đốc)</button>
             <button x-show="currentDutySchedule && currentDutySchedule.schedule.Status === 'APPROVED' && can(currentDutySchedule.schedule.DepartmentID, 'CanPublish')" @click="publishDutyScheduleAction()" class="btn btn-primary btn-sm">Công bố</button>
             <button @click="printCurrentDutySchedule()" class="btn btn-secondary btn-sm">In danh sách</button>
           </div>
@@ -100,6 +101,17 @@
           <div class="notice notice-info">
             <span class="notice-icon">ℹ</span>
             <span x-text="'Ý kiến Phòng KH-NV: ' + currentDutySchedule.schedule.ReviewComment"></span>
+          </div>
+        </template>
+
+        <template x-if="currentDutySchedule && currentDutySchedule.warnings && currentDutySchedule.warnings.length > 0">
+          <div class="notice notice-warning">
+            <span class="notice-icon">⚠</span>
+            <div>
+              <template x-for="w in currentDutySchedule.warnings" :key="w.dutyShiftId + w.type">
+                <div x-text="w.message"></div>
+              </template>
+            </div>
           </div>
         </template>
 
@@ -144,7 +156,12 @@
           </div>
           <div class="form-group">
             <label class="required">Loại trực</label>
-            <input type="text" x-model="addShiftForm.dutyType" class="form-control" placeholder="Trực thường, Trực lãnh đạo...">
+            <select x-model="addShiftForm.dutyType" class="form-control">
+              <option value="">-- Chọn loại trực --</option>
+              <template x-for="t in dutyTypesCatalog" :key="t.DutyTypeID">
+                <option :value="t.DutyTypeName" x-text="t.DutyTypeName"></option>
+              </template>
+            </select>
           </div>
           <div class="form-group">
             <label class="required">Nhân viên</label>
@@ -156,8 +173,13 @@
             </select>
           </div>
           <div class="form-group">
-            <label>Vai trò trong ca</label>
-            <input type="text" x-model="addShiftForm.roleInShift" class="form-control" placeholder="Trực chính, Trực phụ...">
+            <label>Vị trí trực</label>
+            <select x-model="addShiftForm.roleInShift" class="form-control">
+              <option value="">-- Chọn vị trí (không bắt buộc) --</option>
+              <template x-for="p in dutyPositionsCatalog" :key="p.DutyPositionID">
+                <option :value="p.PositionName" x-text="p.PositionName"></option>
+              </template>
+            </select>
           </div>
           <div class="form-group">
             <label class="required">Giờ bắt đầu</label>

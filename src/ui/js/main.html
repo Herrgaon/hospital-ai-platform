@@ -552,6 +552,7 @@
       dutyStatusLabel(status) {
         const map = {
           DRAFT: 'Nháp', SUBMITTED: 'Đã gửi duyệt', UNDER_REVIEW: 'Đang xét duyệt',
+          PENDING_DIRECTOR_APPROVAL: 'Chờ Ban Giám Đốc duyệt',
           NEED_REVISION: 'Cần chỉnh sửa', APPROVED: 'Đã duyệt', PUBLISHED: 'Đã công bố'
         };
         return map[status] || status;
@@ -559,6 +560,7 @@
       dutyStatusBadgeClass(status) {
         const map = {
           DRAFT: 'badge-gray', SUBMITTED: 'badge-cyan', UNDER_REVIEW: 'badge-orange',
+          PENDING_DIRECTOR_APPROVAL: 'badge-orange',
           NEED_REVISION: 'badge-red', APPROVED: 'badge-purple', PUBLISHED: 'badge-green'
         };
         return map[status] || 'badge-gray';
@@ -607,9 +609,70 @@
       },
       addShiftForm: { shiftDate: '', dutyType: '', employeeId: '', roleInShift: '', shiftStart: '', shiftEnd: '', notes: '' },
       addingShift: false,
+      dutyTypesCatalog: [],
+      dutyPositionsCatalog: [],
+      loadDutyCatalogsIfNeeded_() {
+        if (this.dutyTypesCatalog.length === 0) {
+          google.script.run
+            .withSuccessHandler((rows) => { this.dutyTypesCatalog = rows; })
+            .withFailureHandler((e) => { this.errorMessage = e.message; })
+            .api_listActiveDutyTypes(this.authToken);
+        }
+        if (this.dutyPositionsCatalog.length === 0) {
+          google.script.run
+            .withSuccessHandler((rows) => { this.dutyPositionsCatalog = rows; })
+            .withFailureHandler((e) => { this.errorMessage = e.message; })
+            .api_listActiveDutyPositions(this.authToken, '');
+        }
+      },
       openAddShiftModal() {
         this.addShiftForm = { shiftDate: this.currentDutySchedule.schedule.WeekStartDate, dutyType: '', employeeId: '', roleInShift: '', shiftStart: '', shiftEnd: '', notes: '' };
+        this.loadDutyCatalogsIfNeeded_();
         this.openModal('addShift');
+      },
+      newDutyTypeForm: { dutyTypeName: '', description: '' },
+      creatingDutyType: false,
+      createDutyTypeAction() {
+        this.creatingDutyType = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.creatingDutyType = false;
+            this.closeModal();
+            this.newDutyTypeForm = { dutyTypeName: '', description: '' };
+            this.dutyTypesCatalog = [];
+            this.loadDutyCatalogsIfNeeded_();
+          })
+          .withFailureHandler((e) => { this.creatingDutyType = false; this.errorMessage = e.message; })
+          .api_createDutyType(this.authToken, this.newDutyTypeForm);
+      },
+      deactivateDutyTypeAction(t) {
+        if (!confirm('Ngừng dùng loại trực "' + t.DutyTypeName + '"?')) return;
+        google.script.run
+          .withSuccessHandler(() => { this.dutyTypesCatalog = this.dutyTypesCatalog.filter((x) => x.DutyTypeID !== t.DutyTypeID); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_deactivateDutyType(this.authToken, t.DutyTypeID);
+      },
+      newDutyPositionForm: { positionName: '', employeeType: '', description: '' },
+      creatingDutyPosition: false,
+      createDutyPositionAction() {
+        this.creatingDutyPosition = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.creatingDutyPosition = false;
+            this.closeModal();
+            this.newDutyPositionForm = { positionName: '', employeeType: '', description: '' };
+            this.dutyPositionsCatalog = [];
+            this.loadDutyCatalogsIfNeeded_();
+          })
+          .withFailureHandler((e) => { this.creatingDutyPosition = false; this.errorMessage = e.message; })
+          .api_createDutyPosition(this.authToken, this.newDutyPositionForm);
+      },
+      deactivateDutyPositionAction(p) {
+        if (!confirm('Ngừng dùng vị trí trực "' + p.PositionName + '"?')) return;
+        google.script.run
+          .withSuccessHandler(() => { this.dutyPositionsCatalog = this.dutyPositionsCatalog.filter((x) => x.DutyPositionID !== p.DutyPositionID); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_deactivateDutyPosition(this.authToken, p.DutyPositionID);
       },
       addDutyShiftAction() {
         this.addingShift = true;
@@ -653,11 +716,17 @@
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_requestDutyScheduleRevision(this.authToken, this.currentDutySchedule.schedule.DutyScheduleID, comment);
       },
-      approveDutyScheduleAction() {
+      forwardDutyScheduleForDirectorApprovalAction() {
         google.script.run
-          .withSuccessHandler(() => { this.toast('success', 'Đã duyệt lịch trực.'); this.refreshCurrentDutyScheduleDetail_(); })
+          .withSuccessHandler(() => { this.toast('success', 'Đã chuyển Ban Giám Đốc phê duyệt.'); this.refreshCurrentDutyScheduleDetail_(); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_approveDutySchedule(this.authToken, this.currentDutySchedule.schedule.DutyScheduleID, '');
+          .api_forwardDutyScheduleForDirectorApproval(this.authToken, this.currentDutySchedule.schedule.DutyScheduleID, '');
+      },
+      approveDutyScheduleByDirectorAction() {
+        google.script.run
+          .withSuccessHandler(() => { this.toast('success', 'Đã phê duyệt lịch trực.'); this.refreshCurrentDutyScheduleDetail_(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_approveDutyScheduleByDirector(this.authToken, this.currentDutySchedule.schedule.DutyScheduleID, '');
       },
       publishDutyScheduleAction() {
         google.script.run
