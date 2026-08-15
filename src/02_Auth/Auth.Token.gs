@@ -50,6 +50,33 @@ function issueAccessToken_(user) {
   return payloadB64 + '.' + signature;
 }
 
+// Bản ghi Users theo UserID, cache TTL ngắn — findById() (Storage.SheetRepository.gs) đọc TOÀN BỘ
+// sheet Users mỗi lần gọi, và verifyAccessToken_ chạy lại trên MỌI api_* request. Phát hiện qua đo
+// thực tế: ngay sau đăng nhập, client bắn ~9 lệnh google.script.run gần như đồng thời (loadAppData_ +
+// loadSwapPageData), mỗi lệnh tự verify token riêng — tức 9 lần đọc toàn bộ sheet Users chỉ để lấy
+// đúng 1 người dùng, cộng dồn thành độ trễ rõ rệt lúc chuyển từ màn đăng nhập sang giao diện làm việc.
+// TTL 20s là đánh đổi có chủ đích: đủ ngắn để thay đổi Role/Status của Admin có hiệu lực gần như ngay
+// (chậm nhất 20s), đủ dài để dọn sạch "bão" request đồng thời lúc tải trang. Cùng tinh thần chấp nhận
+// độ trễ nhỏ như cơ chế thu hồi token qua CacheService đã dùng.
+const USER_LOOKUP_CACHE_TTL_SECONDS_ = 20;
+
+// Gọi ngay sau khi đổi Role/Status của 1 User (Auth.Roles.gs#assignRole, deactivateEmployee,
+// Admin.UserManagement.gs#updateUserRole) — để thay đổi có hiệu lực NGAY thay vì chờ hết TTL cache.
+function invalidateUserLookupCache_(userId) {
+  CacheService.getScriptCache().remove('user_lookup_' + userId);
+}
+
+function getUserByIdCached_(userId) {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = 'user_lookup_' + userId;
+  const cached = cache.get(cacheKey);
+  if (cached) return JSON.parse(cached);
+
+  const user = getSheetRepository(SHEETS.USERS).findById('UserID', userId);
+  if (user) cache.put(cacheKey, JSON.stringify(user), USER_LOOKUP_CACHE_TTL_SECONDS_);
+  return user;
+}
+
 // Trả về bản ghi Users tương ứng nếu token hợp lệ, còn hạn, chưa bị thu hồi — throw Error (thông điệp
 // tiếng Việt) nếu không, đúng quy ước lỗi chung của toàn hệ thống.
 function verifyAccessToken_(token) {
@@ -72,7 +99,7 @@ function verifyAccessToken_(token) {
   }
   if (!payload.exp || Date.now() > payload.exp) throw new Error('Token đã hết hạn, vui lòng đăng nhập lại.');
 
-  const user = getSheetRepository(SHEETS.USERS).findById('UserID', payload.uid);
+  const user = getUserByIdCached_(payload.uid);
   if (!user || user.Status !== 'Active') throw new Error('Tài khoản không còn hoạt động.');
   return user;
 }

@@ -102,6 +102,7 @@ function deactivateEmployee(actingUser, employeeId) {
   if (!employee) throw new Error('Không tìm thấy nhân viên.');
   getSheetRepository(SHEETS.EMPLOYEES).updateById('EmployeeID', employeeId, { Status: 'Inactive', UpdatedAt: nowIso() });
   getSheetRepository(SHEETS.USERS).updateById('UserID', employee.UserID, { Status: 'Inactive', UpdatedAt: nowIso() });
+  invalidateUserLookupCache_(employee.UserID);
   logAudit(actingUser.UserID, 'EMPLOYEE_DEACTIVATED', 'Employee', employeeId, employee.FullName);
   return { success: true };
 }

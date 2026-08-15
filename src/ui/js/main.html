@@ -76,58 +76,46 @@
         }
       },
 
-      // Gọi lại sau login thành công VÀ khi khôi phục token đã lưu từ localStorage lúc mở trang —
-      // xác thực token còn dùng được (api_getCurrentUser sẽ báo lỗi nếu token hết hạn/không hợp lệ)
-      // trước khi nạp toàn bộ dữ liệu ứng dụng.
+      // Gọi lại sau login thành công VÀ khi khôi phục token đã lưu từ sessionStorage lúc mở trang.
+      // Trước đây đây là 1 lệnh api_getCurrentUser rồi mới gọi loadAppData_ (bắn tiếp ~9 lệnh
+      // google.script.run gần như đồng thời) — mỗi lệnh tự verify token + mở spreadsheet riêng, cộng
+      // dồn thành độ trễ rõ rệt lúc chuyển từ màn đăng nhập sang giao diện làm việc. Gộp toàn bộ vào
+      // api_getInitialAppData (Core.Api.gs) — ĐÚNG 1 round-trip duy nhất.
       loadCurrentUserAndAppData_() {
         google.script.run
-          .withSuccessHandler((user) => {
-            this.userEmail = user.Email;
-            this.currentUser = user;
-            this.profileForm.fullName = user.FullName;
-            this.loadAppData_();
-          })
+          .withSuccessHandler((data) => { this.applyInitialAppData_(data); })
           .withFailureHandler(() => {
             // Token hết hạn/không hợp lệ — quay lại màn hình đăng nhập, không hiện lỗi ồn ào.
             this.authToken = '';
             sessionStorage.removeItem('bvds_auth_token');
           })
-          .api_getCurrentUser(this.authToken);
+          .api_getInitialAppData(this.authToken);
       },
-
+      applyInitialAppData_(data) {
+        this.userEmail = data.user.Email;
+        this.currentUser = data.user;
+        this.profileForm.fullName = data.user.FullName;
+        this.myEmployeeId = data.myEmployee ? data.myEmployee.EmployeeID : '';
+        this.myPermissionMap = data.myPermissionMap;
+        this.departments = data.departments;
+        this.employees = data.employees;
+        this.userDirectory = data.userDirectory;
+        this.myActiveDutyLeaderShift = data.myActiveDutyLeaderShift;
+        this.myOfficialDutyShifts = data.myOfficialDutyShifts;
+        this.mySwapRequests = data.mySwapRequests;
+        this.pendingSwapConfirmations = data.pendingSwapConfirmations;
+      },
+      // Dùng khi cần tải lại TOÀN BỘ dữ liệu ban đầu ngoài lúc đăng nhập (hiếm khi cần — hầu hết màn
+      // hình tự tải lại đúng phần dữ liệu của mình qua các api_list*/api_get* riêng lẻ khi cần).
       loadAppData_() {
-        google.script.run
-          .withSuccessHandler((employee) => { this.myEmployeeId = employee ? employee.EmployeeID : ''; })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_getMyEmployee(this.authToken);
-
-        google.script.run
-          .withSuccessHandler((map) => { this.myPermissionMap = map; })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_getMyPermissionMap(this.authToken);
-
-        google.script.run
-          .withSuccessHandler((depts) => { this.departments = depts; })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listActiveDepartments(this.authToken);
-
-        google.script.run
-          .withSuccessHandler((emps) => { this.employees = emps; })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listEmployees(this.authToken);
-
-        google.script.run
-          .withSuccessHandler((dir) => { this.userDirectory = dir; })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listUserDirectory(this.authToken);
-
-        this.loadSwapPageData();
-        this.loadMyActiveDutyLeaderShift();
+        this.loadCurrentUserAndAppData_();
       },
 
       // §33 đặc tả: khi đăng nhập, nếu đang là Trưởng trực ca hiện tại thì hiển thị ngay ở Dashboard —
       // "không bắt người dùng tìm trong menu". Quyền này tự tính lại mỗi lần tải, tự hết khi hết ca
-      // (xem DutySchedule.RoleGrant.gs#getMyActiveDutyLeaderShift — không có trạng thái lưu trữ).
+      // (xem DutySchedule.RoleGrant.gs#getMyActiveDutyLeaderShift — không có trạng thái lưu trữ). Vẫn
+      // giữ hàm riêng này để làm mới ĐÚNG phần banner khi cần (VD sau khi công bố lịch trực), không
+      // phải tải lại toàn bộ dữ liệu ứng dụng.
       myActiveDutyLeaderShift: null,
       loadMyActiveDutyLeaderShift() {
         google.script.run
@@ -144,11 +132,9 @@
             this.loggingIn = false;
             this.authToken = result.token;
             sessionStorage.setItem('bvds_auth_token', result.token);
-            this.currentUser = result.user;
-            this.userEmail = result.user.Email;
-            this.profileForm.fullName = result.user.FullName;
             this.loginForm = { username: '', password: '' };
-            this.loadAppData_();
+            // Nạp toàn bộ dữ liệu ứng dụng qua đúng 1 round-trip (xem loadCurrentUserAndAppData_).
+            this.loadCurrentUserAndAppData_();
           })
           .withFailureHandler((e) => {
             this.loggingIn = false;

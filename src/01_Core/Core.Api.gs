@@ -105,6 +105,31 @@ function api_listEmployees(token) {
   return listEmployees();
 }
 
+// Gộp toàn bộ dữ liệu client cần NGAY SAU KHI đăng nhập/khôi phục phiên vào ĐÚNG 1 round-trip — trước
+// đây main.html#loadAppData_ bắn ~9 lệnh google.script.run gần như đồng thời (getMyEmployee/
+// getMyPermissionMap/listActiveDepartments/listEmployees/listUserDirectory/listMyDutyShifts/
+// listMySwapRequests/listPendingSwapConfirmations/getMyActiveDutyLeaderShift), mỗi lệnh tự verify
+// token + mở spreadsheet riêng, cộng dồn thành độ trễ rõ rệt lúc chuyển từ màn đăng nhập sang giao
+// diện làm việc (đúng phản ánh của Product Owner). Các api_list*/api_get* riêng lẻ VẪN giữ nguyên,
+// dùng khi cần tải lại đúng 1 phần dữ liệu (VD sau khi duyệt đổi trực) — hàm này chỉ thay cho loạt gọi
+// lúc khởi động.
+function api_getInitialAppData(token) {
+  const user = getCurrentUserFromToken_(token);
+  const employee = getMyEmployee(user);
+  return {
+    user: user,
+    myEmployee: employee,
+    myPermissionMap: getMyPermissionMap(user),
+    departments: listActiveDepartments(),
+    employees: listEmployees(),
+    userDirectory: listUserDirectory(),
+    myActiveDutyLeaderShift: getMyActiveDutyLeaderShift(user),
+    myOfficialDutyShifts: listMyDutyShifts(user, null, null).filter(function (s) { return s.Status === 'OFFICIAL'; }),
+    mySwapRequests: listMySwapRequests(user),
+    pendingSwapConfirmations: listPendingSwapConfirmations(user)
+  };
+}
+
 function api_getMyEmployee(token) {
   const user = getCurrentUserFromToken_(token);
   return getMyEmployee(user);

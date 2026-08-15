@@ -11,6 +11,7 @@ function assignRole(actingUser, targetUserId, newRole) {
     Role: newRole,
     UpdatedAt: nowIso()
   });
+  invalidateUserLookupCache_(targetUserId);
   logAudit(actingUser.UserID, 'ROLE_CHANGED', 'User', targetUserId, 'Role mới: ' + newRole);
   return updated;
 }
