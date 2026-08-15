@@ -36,6 +36,24 @@
         <div class="stat-card-detail">Yêu cầu đổi trực cần bạn xác nhận/duyệt</div>
       </div>
     </div>
+
+    <div class="stat-card" @click="go('attendance')">
+      <div class="stat-card-icon purple">🕘</div>
+      <div>
+        <div class="stat-card-label">Điều chỉnh công chờ xử lý</div>
+        <div class="stat-card-value" x-text="dashboard.pendingAttendanceAdjustments.length"></div>
+        <div class="stat-card-detail">Yêu cầu điều chỉnh công cần bạn xác nhận/duyệt</div>
+      </div>
+    </div>
+
+    <div class="stat-card" @click="go('kpi')">
+      <div class="stat-card-icon cyan">🎯</div>
+      <div>
+        <div class="stat-card-label">KPI tháng này</div>
+        <div class="stat-card-value" x-text="dashboard.myKpiResultsThisPeriod.length"></div>
+        <div class="stat-card-detail">Kết quả KPI đã ghi nhận trong tháng</div>
+      </div>
+    </div>
   </div>
 
   <div class="card">

@@ -59,10 +59,13 @@ function api_syncSchemaWithSpreadsheet(token) {
 function api_getDashboardSummary(token) {
   const user = getCurrentUserFromToken_(token);
   const weekStart = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+  const currentPeriod = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM');
   return {
     myTasks: listMyTasks(user),
     myShiftsThisWeek: listMyDutyShifts(user, weekStart, null),
-    pendingSwapConfirmations: listPendingSwapConfirmations(user)
+    pendingSwapConfirmations: listPendingSwapConfirmations(user),
+    pendingAttendanceAdjustments: listPendingAttendanceAdjustmentConfirmations(user),
+    myKpiResultsThisPeriod: listMyKpiResults(user, currentPeriod)
   };
 }
 

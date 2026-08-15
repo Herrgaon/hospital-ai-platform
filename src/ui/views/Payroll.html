@@ -38,7 +38,7 @@
     <div class="table-wrap">
       <table class="data-table">
         <thead>
-          <tr><th>Mã NV</th><th>Họ tên</th><th>Ngày công</th><th>Ngày nghỉ</th><th>Số ca trực</th><th>Giờ làm thêm</th><th>Giờ làm ngoài giờ</th></tr>
+          <tr><th>Mã NV</th><th>Họ tên</th><th>Ngày công</th><th>Ngày nghỉ</th><th>Số ca trực</th><th>Giờ làm thêm</th><th>Giờ làm ngoài giờ</th><th>Điểm KPI TB</th></tr>
         </thead>
         <tbody>
           <template x-for="r in payrollRows" :key="r.EmployeeID">
@@ -50,10 +50,11 @@
               <td x-text="r.DutyShiftCount"></td>
               <td x-text="r.OvertimeHours"></td>
               <td x-text="r.OutOfHoursHours"></td>
+              <td x-text="r.AvgKpiScore != null ? r.AvgKpiScore : '—'"></td>
             </tr>
           </template>
           <template x-if="payrollRows.length === 0">
-            <tr><td colspan="7" class="text-xs holo-text-dim py-4">Chọn tháng rồi bấm "Tổng hợp" để xem dữ liệu.</td></tr>
+            <tr><td colspan="8" class="text-xs holo-text-dim py-4">Chọn tháng rồi bấm "Tổng hợp" để xem dữ liệu.</td></tr>
           </template>
         </tbody>
       </table>

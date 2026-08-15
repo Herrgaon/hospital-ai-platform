@@ -270,7 +270,7 @@
       },
 
       // --- Dashboard ---
-      dashboard: { myTasks: [], myShiftsThisWeek: [], pendingSwapConfirmations: [] },
+      dashboard: { myTasks: [], myShiftsThisWeek: [], pendingSwapConfirmations: [], pendingAttendanceAdjustments: [], myKpiResultsThisPeriod: [] },
       loadDashboard() {
         google.script.run
           .withSuccessHandler((summary) => { this.dashboard = summary; })
