@@ -23,6 +23,7 @@ function getCurrentUser() {
     user = users.append({
       UserID: generateId('USR'),
       Email: email,
+      Username: '',
       FullName: email,
       Role: ROLE_NAMES.GUEST,
       Department: '',

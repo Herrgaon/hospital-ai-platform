@@ -125,8 +125,14 @@ function diagRunDutyScheduleLifecycle(departmentId) {
   approveDutySchedule(user, schedule.DutyScheduleID, 'OK');
   publishDutySchedule(user, schedule.DutyScheduleID);
 
-  const swapRequest = requestSwap(user, { originalShiftId: shift.DutyShiftID, replacementEmployeeId: employees[1].EmployeeID, reason: 'Smoke test' });
-  confirmSwapByReplacement(user, swapRequest.SwapRequestID);
+  // requestSwap/confirmSwapByReplacement kiểm tra QUYỀN SỞ HỮU (chính người trực/người được đề nghị
+  // thay thế mới được gọi) — CỐ Ý không có ngoại lệ cho SUPER_ADMIN (xem DutySchedule.Swap.gs). Phải
+  // "đóng vai" đúng nhân viên bằng UserID thật, không dùng user (SUPER_ADMIN) của phiên diagnostic.
+  const requestingActingUser = { UserID: employees[0].UserID };
+  const replacementActingUser = { UserID: employees[1].UserID };
+
+  const swapRequest = requestSwap(requestingActingUser, { originalShiftId: shift.DutyShiftID, replacementEmployeeId: employees[1].EmployeeID, reason: 'Smoke test' });
+  confirmSwapByReplacement(replacementActingUser, swapRequest.SwapRequestID);
   confirmSwapByDeptHead(user, swapRequest.SwapRequestID);
   const approvedSwap = approveSwapByKhNv(user, swapRequest.SwapRequestID);
 

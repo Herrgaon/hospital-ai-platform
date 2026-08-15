@@ -8,11 +8,18 @@ function getSystemSpreadsheet_() {
 
 function getSheetRepository(sheetName) {
   return {
+    // Định dạng PHẢI đặt trước khi ghi giá trị, không phải sau — appendRow() rồi mới setNumberFormat()
+    // đã thử và sai (xác nhận qua clasp run: "06:00" bị Sheets tự phân tích thành giờ ngay lúc
+    // appendRow, mất số 0 đầu thành "6:00" — đổi định dạng SAU đó chỉ đổi cách hiển thị/đọc ra, không
+    // phục hồi được giá trị gốc đã mất). Vì vậy tính trước vị trí dòng mới, định dạng đúng ô đó, rồi
+    // mới ghi giá trị bằng setValues() thay vì appendRow().
     append: function (rowObject) {
       const sheet = getSystemSpreadsheet_().getSheetByName(sheetName);
       const headers = SCHEMA[sheetName];
       const row = headers.map(function (h) { return rowObject[h] !== undefined ? rowObject[h] : ''; });
-      sheet.appendRow(row);
+      const nextRow = sheet.getLastRow() + 1;
+      applyPlainTextFormatToRow_(sheet, sheetName, nextRow);
+      sheet.getRange(nextRow, 1, 1, row.length).setValues([row]);
       return rowObject;
     },
 
@@ -55,4 +62,37 @@ function rowToObject_(headers, row) {
   const obj = {};
   headers.forEach(function (h, i) { obj[h] = row[i]; });
   return obj;
+}
+
+// Ép định dạng Plain Text cho đúng các cột liệt kê ở PLAIN_TEXT_COLUMNS (Storage.Schema.gs) — ngăn
+// Google Sheets tự chuyển chuỗi "YYYY-MM-DD"/"YYYY-MM" thành kiểu Date nội bộ.
+//
+// LỊCH SỬ: bản đầu ép định dạng trước cho 50.000 dòng/cột ngay lúc tạo sheet — phát hiện qua clasp run
+// thực tế: getRange() với hàng vượt kích thước hiện tại buộc MỞ RỘNG CẢ SHEET (mọi cột, không chỉ cột
+// đang định dạng), tổng số ô toàn bảng tính vượt trần 10.000.000 ô của Google Sheets chỉ sau vài sheet.
+// Sửa bằng cách định dạng ĐÚNG 1 DÒNG vừa ghi mỗi lần append() — chi phí không đổi theo thời gian, không
+// cần đoán trước cần bao nhiêu dòng. applyPlainTextColumnFormats_ (gọi lúc tạo sheet + đồng bộ schema)
+// giữ vai trò vá lưới an toàn cho dữ liệu cũ, phạm vi nhỏ, không đủ để chạm trần ô.
+function applyPlainTextFormatToRow_(sheet, sheetName, rowIndex) {
+  const columns = PLAIN_TEXT_COLUMNS[sheetName];
+  if (!columns || columns.length === 0) return;
+  const headers = SCHEMA[sheetName];
+  columns.forEach(function (columnName) {
+    const colIndex = headers.indexOf(columnName);
+    if (colIndex === -1) return;
+    sheet.getRange(rowIndex, colIndex + 1).setNumberFormat('@');
+  });
+}
+
+const PLAIN_TEXT_FORMAT_SAFETY_NET_ROWS_ = 2000;
+
+function applyPlainTextColumnFormats_(sheet, sheetName) {
+  const columns = PLAIN_TEXT_COLUMNS[sheetName];
+  if (!columns || columns.length === 0) return;
+  const headers = SCHEMA[sheetName];
+  columns.forEach(function (columnName) {
+    const colIndex = headers.indexOf(columnName);
+    if (colIndex === -1) return;
+    sheet.getRange(2, colIndex + 1, PLAIN_TEXT_FORMAT_SAFETY_NET_ROWS_, 1).setNumberFormat('@');
+  });
 }

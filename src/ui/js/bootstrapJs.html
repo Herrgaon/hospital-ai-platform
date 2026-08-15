@@ -6,7 +6,7 @@
       done: false,
       settingUp: false,
       credentialsSet: false,
-      employeeCode: '',
+      username: '',
       password: '',
       errorMessage: '',
       run() {
@@ -36,7 +36,7 @@
             this.settingUp = false;
             this.errorMessage = e.message;
           })
-          .setupFirstAdminCredentials(this.employeeCode, this.password);
+          .setupFirstAdminCredentials(this.username, this.password);
       }
     };
   }

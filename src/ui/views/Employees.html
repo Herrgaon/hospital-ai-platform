@@ -77,10 +77,16 @@
         <button @click="closeModal()" class="modal-close">×</button>
       </div>
       <div class="modal-body">
-        <p class="text-xs holo-text-dim mb-3">Nếu email chưa có tài khoản, hệ thống sẽ tự tạo tài khoản đăng nhập (vai trò mặc định: Nhân viên). Mã nhân viên dùng để đăng nhập qua Desktop App/Gateway sau này — đặt mật khẩu riêng ở bước "Đặt lại mật khẩu" sau khi tạo.</p>
-        <div class="form-group">
-          <label class="required">Mã nhân viên</label>
-          <input type="text" x-model="newEmployeeForm.employeeCode" class="form-control" placeholder="VD: BS001">
+        <p class="text-xs holo-text-dim mb-3">Nếu email chưa có tài khoản, hệ thống sẽ tự tạo tài khoản đăng nhập (vai trò mặc định: Nhân viên). Tên đăng nhập dùng để vào hệ thống (không nhất thiết trùng mã nhân viên) — đặt mật khẩu riêng ở bước "Đặt lại mật khẩu" sau khi tạo.</p>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="required">Tên đăng nhập</label>
+            <input type="text" x-model="newEmployeeForm.username" class="form-control" placeholder="VD: bsnguyenvana">
+          </div>
+          <div class="form-group">
+            <label class="required">Mã nhân viên</label>
+            <input type="text" x-model="newEmployeeForm.employeeCode" class="form-control" placeholder="VD: BS001">
+          </div>
         </div>
         <div class="form-group">
           <label class="required">Email</label>
@@ -128,7 +134,7 @@
       </div>
       <div class="modal-footer">
         <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
-        <button @click="createEmployeeAction()" :disabled="creatingEmployee || !newEmployeeForm.employeeCode || !newEmployeeForm.email || !newEmployeeForm.fullName || !newEmployeeForm.departmentId" class="btn btn-primary">
+        <button @click="createEmployeeAction()" :disabled="creatingEmployee || !newEmployeeForm.username || !newEmployeeForm.employeeCode || !newEmployeeForm.email || !newEmployeeForm.fullName || !newEmployeeForm.departmentId" class="btn btn-primary">
           <span x-text="creatingEmployee ? 'Đang thêm...' : '+ Thêm nhân viên'"></span>
         </button>
       </div>

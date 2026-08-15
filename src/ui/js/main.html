@@ -10,7 +10,7 @@
       // Auth.Session.gs). Token lưu ở localStorage để giữ đăng nhập qua các lần tải lại trang; mỗi lệnh
       // gọi google.script.run...api_xxx() đều truyền this.authToken làm tham số đầu tiên. ---
       authToken: '',
-      loginForm: { employeeCode: '', password: '' },
+      loginForm: { username: '', password: '' },
       loggingIn: false,
       loginError: '',
 
@@ -127,14 +127,14 @@
             this.currentUser = result.user;
             this.userEmail = result.user.Email;
             this.profileForm.fullName = result.user.FullName;
-            this.loginForm = { employeeCode: '', password: '' };
+            this.loginForm = { username: '', password: '' };
             this.loadAppData_();
           })
           .withFailureHandler((e) => {
             this.loggingIn = false;
             this.loginError = e.message;
           })
-          .api_login(this.loginForm.employeeCode, this.loginForm.password);
+          .api_login(this.loginForm.username, this.loginForm.password);
       },
 
       logoutAction() {
@@ -291,10 +291,10 @@
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_listEmployees(this.authToken);
       },
-      newEmployeeForm: { employeeCode: '', email: '', fullName: '', departmentId: '', position: '', employeeType: '', phoneNumber: '', startDate: '' },
+      newEmployeeForm: { employeeCode: '', username: '', email: '', fullName: '', departmentId: '', position: '', employeeType: '', phoneNumber: '', startDate: '' },
       creatingEmployee: false,
       openAddEmployeeModal() {
-        this.newEmployeeForm = { employeeCode: '', email: '', fullName: '', departmentId: '', position: '', employeeType: '', phoneNumber: '', startDate: '' };
+        this.newEmployeeForm = { employeeCode: '', username: '', email: '', fullName: '', departmentId: '', position: '', employeeType: '', phoneNumber: '', startDate: '' };
         this.openModal('addEmployee');
       },
       createEmployeeAction() {
@@ -1153,7 +1153,7 @@
 
       // --- Quản trị ---
       adminTab: 'users',
-      newUserForm: { email: '', fullName: '', role: 'NHAN_VIEN' },
+      newUserForm: { email: '', username: '', fullName: '', role: 'NHAN_VIEN' },
       creatingUser: false,
       syncingSchema: false,
       schemaSyncResult: null,
@@ -1192,7 +1192,7 @@
         google.script.run
           .withSuccessHandler(() => {
             this.creatingUser = false;
-            this.newUserForm = { email: '', fullName: '', role: 'NHAN_VIEN' };
+            this.newUserForm = { email: '', username: '', fullName: '', role: 'NHAN_VIEN' };
             this.closeModal();
             this.toast('success', 'Đã thêm người dùng mới.');
             this.loadAdminData();
@@ -1201,7 +1201,7 @@
             this.creatingUser = false;
             this.errorMessage = e.message;
           })
-          .api_createUser(this.authToken, this.newUserForm.email, this.newUserForm.fullName, this.newUserForm.role, '');
+          .api_createUser(this.authToken, this.newUserForm.email, this.newUserForm.username, this.newUserForm.fullName, this.newUserForm.role, '');
       },
 
       loadDepartmentPermissionsAction() {

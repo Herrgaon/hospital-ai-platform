@@ -293,6 +293,10 @@
           <input type="email" x-model="newUserForm.email" class="form-control">
         </div>
         <div class="form-group">
+          <label class="required">Tên đăng nhập</label>
+          <input type="text" x-model="newUserForm.username" class="form-control">
+        </div>
+        <div class="form-group">
           <label>Tên hiển thị</label>
           <input type="text" x-model="newUserForm.fullName" class="form-control">
         </div>
@@ -307,7 +311,7 @@
       </div>
       <div class="modal-footer">
         <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
-        <button @click="createUserAction()" :disabled="creatingUser || !newUserForm.email" class="btn btn-primary">
+        <button @click="createUserAction()" :disabled="creatingUser || !newUserForm.email || !newUserForm.username" class="btn btn-primary">
           <span x-text="creatingUser ? 'Đang thêm...' : '+ Thêm người dùng'"></span>
         </button>
       </div>

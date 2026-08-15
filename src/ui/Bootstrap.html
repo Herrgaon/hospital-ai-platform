@@ -27,16 +27,16 @@
 
       <template x-if="done && !credentialsSet">
         <div class="space-y-3">
-          <p class="text-sm holo-text-accent">✓ Khởi tạo thành công. Đặt mã nhân viên và mật khẩu để đăng nhập.</p>
+          <p class="text-sm holo-text-accent">✓ Khởi tạo thành công. Đặt tên đăng nhập và mật khẩu quản trị.</p>
           <div class="form-group !mb-2">
-            <label class="required">Mã nhân viên</label>
-            <input type="text" x-model="employeeCode" class="form-control" placeholder="VD: ADMIN001">
+            <label class="required">Tên đăng nhập</label>
+            <input type="text" x-model="username" class="form-control" placeholder="VD: admin">
           </div>
           <div class="form-group !mb-2">
             <label class="required">Mật khẩu (tối thiểu 8 ký tự)</label>
             <input type="password" x-model="password" class="form-control">
           </div>
-          <button @click="setupCredentials()" :disabled="settingUp || !employeeCode || password.length < 8" class="btn btn-primary w-full">
+          <button @click="setupCredentials()" :disabled="settingUp || !username || password.length < 8" class="btn btn-primary w-full">
             <span x-text="settingUp ? 'ĐANG LƯU...' : 'LƯU VÀ ĐĂNG NHẬP'"></span>
           </button>
         </div>

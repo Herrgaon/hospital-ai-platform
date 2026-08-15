@@ -9,17 +9,17 @@ function requireEmployeeManager_(actingUser) {
   }
 }
 
-function findOrCreateUserForEmployee_(actingUser, email, fullName, departmentName) {
+function findOrCreateUserForEmployee_(actingUser, email, username, fullName, departmentName) {
   const normalizedEmail = String(email).trim().toLowerCase();
   const existing = getSheetRepository(SHEETS.USERS).findAll().find(function (u) { return u.Email.toLowerCase() === normalizedEmail; });
   if (existing) return existing;
-  return createUser(actingUser, normalizedEmail, fullName, ROLE_NAMES.NHAN_VIEN, departmentName || '');
+  return createUser(actingUser, normalizedEmail, username, fullName, ROLE_NAMES.NHAN_VIEN, departmentName || '');
 }
 
 function createEmployee(actingUser, input) {
   requireEmployeeManager_(actingUser);
-  if (isBlank(input.email) || isBlank(input.fullName) || isBlank(input.departmentId) || isBlank(input.employeeCode)) {
-    throw new Error('Thiếu thông tin bắt buộc: mã nhân viên, email, họ tên hoặc khoa/phòng.');
+  if (isBlank(input.email) || isBlank(input.username) || isBlank(input.fullName) || isBlank(input.departmentId) || isBlank(input.employeeCode)) {
+    throw new Error('Thiếu thông tin bắt buộc: tên đăng nhập, mã nhân viên, email, họ tên hoặc khoa/phòng.');
   }
   const department = getSheetRepository(SHEETS.DEPARTMENTS).findById('DepartmentID', input.departmentId);
   if (!department) throw new Error('Khoa/Phòng không tồn tại.');
@@ -28,7 +28,7 @@ function createEmployee(actingUser, input) {
   const duplicateCode = employeesRepo.findAll().find(function (e) { return e.EmployeeCode === input.employeeCode; });
   if (duplicateCode) throw new Error('Mã nhân viên "' + input.employeeCode + '" đã được sử dụng.');
 
-  const user = findOrCreateUserForEmployee_(actingUser, input.email, input.fullName, department.DepartmentName);
+  const user = findOrCreateUserForEmployee_(actingUser, input.email, input.username, input.fullName, department.DepartmentName);
   const existingEmployee = employeesRepo.findAll().find(function (e) { return e.UserID === user.UserID; });
   if (existingEmployee) {
     throw new Error('Người dùng này đã có hồ sơ nhân viên.');

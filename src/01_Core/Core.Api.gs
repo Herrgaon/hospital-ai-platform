@@ -5,8 +5,8 @@
 // còn phiên Google nào để dựa vào — token là nguồn danh tính duy nhất, dùng chung giữa trình duyệt và
 // Desktop App. Service layer phía dưới vẫn tự kiểm tra quyền lại (requirePermission/hasPermission).
 
-function api_login(employeeCode, password) {
-  return authenticateWithPassword(employeeCode, password);
+function api_login(username, password) {
+  return authenticateWithPassword(username, password);
 }
 
 function api_logout(token) {
@@ -41,9 +41,9 @@ function api_changeMyPassword(token, oldPassword, newPassword) {
   return changeMyPassword(user, oldPassword, newPassword);
 }
 
-function api_createUser(token, email, fullName, role, department) {
+function api_createUser(token, email, username, fullName, role, department) {
   const user = getCurrentUserFromToken_(token);
-  return createUser(user, email, fullName, role, department);
+  return createUser(user, email, username, fullName, role, department);
 }
 
 function api_updateUserProfile(token, targetUserId, fullName, department) {

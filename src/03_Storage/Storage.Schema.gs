@@ -28,10 +28,12 @@ const SHEETS = {
 };
 
 const SCHEMA = {
-  // PasswordHash/PasswordSalt phục vụ đăng nhập mã nhân viên (Auth.Password.gs) — hash bằng PBKDF2 tự
-  // dựng qua HMAC-SHA256 (Apps Script không có bcrypt/argon2 sẵn). Rỗng nếu tài khoản chưa từng được
-  // đặt mật khẩu (ví dụ user vào bằng phiên Google, chưa có nhu cầu đăng nhập qua Gateway/Desktop).
-  [SHEETS.USERS]: ['UserID', 'Email', 'FullName', 'Role', 'Department', 'Status', 'CreatedAt', 'UpdatedAt', 'AvatarUrl', 'PasswordHash', 'PasswordSalt'],
+  // Username: định danh đăng nhập, CỐ Ý tách khỏi Employees.EmployeeCode (mã nhân viên chỉ phục vụ
+  // nghiệp vụ/HR, có thể đổi mà không ảnh hưởng đăng nhập, và không phải ai cũng nhớ đúng mã nhân
+  // viên) — theo yêu cầu Product Owner 2026-08-15. PasswordHash/PasswordSalt hash bằng PBKDF2 tự dựng
+  // qua HMAC-SHA256 (Apps Script không có bcrypt/argon2 sẵn). Rỗng nếu tài khoản chưa từng được đặt
+  // mật khẩu.
+  [SHEETS.USERS]: ['UserID', 'Email', 'Username', 'FullName', 'Role', 'Department', 'Status', 'CreatedAt', 'UpdatedAt', 'AvatarUrl', 'PasswordHash', 'PasswordSalt'],
   [SHEETS.ROLES]: ['RoleID', 'RoleName', 'Description'],
 
   // DepartmentID='*' = phạm vi toàn viện (role-global). 10 cờ hành động đúng theo đặc tả:
@@ -193,6 +195,32 @@ const ROLE_NAMES = {
   NGUOI_LAP_LICH_TRUC: 'NGUOI_LAP_LICH_TRUC',
   NGUOI_NHAP_SO_LIEU: 'NGUOI_NHAP_SO_LIEU',
   GUEST: 'GUEST'
+};
+
+// Google Sheets tự phát hiện chuỗi trông giống ngày tháng (VD "2026-08-17") và âm thầm chuyển thành
+// kiểu Date nội bộ, dù ghi vào bằng setValues() với 1 chuỗi JS thuần — phát hiện qua clasp run thực tế
+// (DutySchedules/DutyShifts trả lỗi "returned value is not a supported return type" qua Execution API,
+// và toàn bộ logic so sánh chuỗi ngày kiểu a.WorkDate >= dateFrom sẽ sai âm thầm nếu không sửa). Đã
+// thực nghiệm xác nhận: định dạng Plain Text ('@') giữ đúng các cột này là CHUỖI, nhưng lại biến
+// boolean thành chuỗi "true"/"false" — do đó CHỈ áp dụng '@' cho đúng các cột liệt kê dưới đây, không
+// áp cho cả sheet (sẽ phá vỡ toàn bộ Permissions.CanView/CanCreate/...). Xem
+// Storage.SheetFormat.gs#applyPlainTextColumnFormats_.
+// Cùng cơ chế tự phát hiện cũng áp dụng cho chuỗi giờ "HH:MM" (Sheets coi là giá trị Time-of-day, nội
+// bộ vẫn là Date với phần ngày mặc định) — phát hiện qua clasp run thực tế trên DutyShifts.ShiftStart/
+// ShiftEnd (lỗi serialization giống hệt lỗi ngày tháng, dù ShiftDate đã sửa đúng). Liệt kê đủ mọi cột
+// giờ dạng "HH:MM" trong toàn schema, không chỉ cột ngày tháng.
+const PLAIN_TEXT_COLUMNS = {
+  [SHEETS.EMPLOYEES]: ['StartDate'],
+  [SHEETS.TASKS]: ['DueDate'],
+  [SHEETS.CLINICAL_ASSIGNMENTS]: ['AssignmentDate', 'ShiftStart', 'ShiftEnd'],
+  [SHEETS.DUTY_SCHEDULES]: ['WeekStartDate', 'WeekEndDate'],
+  [SHEETS.DUTY_SHIFTS]: ['ShiftDate', 'ShiftStart', 'ShiftEnd'],
+  [SHEETS.ATTENDANCE]: ['WorkDate', 'CheckIn', 'CheckOut'],
+  [SHEETS.OVERTIME]: ['WorkDate', 'StartTime', 'EndTime'],
+  [SHEETS.MONTHLY_CLINICAL_STATS]: ['YearMonth'],
+  [SHEETS.INSURANCE_AUDITS]: ['YearMonth'],
+  [SHEETS.KPI_RULES]: ['EffectiveFrom', 'EffectiveTo'],
+  [SHEETS.KPI_RESULTS]: ['Period']
 };
 
 const DEPARTMENT_TYPES = {

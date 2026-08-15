@@ -76,6 +76,7 @@ function createSystemSpreadsheet_() {
     const headers = SCHEMA[sheetName];
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     sheet.setFrozenRows(1);
+    applyPlainTextColumnFormats_(sheet, sheetName);
     ss.setNamedRange('RNG_' + sheetName, sheet.getRange(1, 1, Math.max(sheet.getMaxRows(), 2), headers.length));
   });
   // Sheet mặc định "Sheet1" do SpreadsheetApp.create() tạo sẵn, không nằm trong SCHEMA — xoá đi.
@@ -103,9 +104,9 @@ function createRootFolderStructure_() {
 // Vẫn dùng getCurrentUser() (Session-based) ở đây — hợp lý vì gọi ngay trong cùng phiên vừa chạy
 // initializeSystem(), cùng resolve về đúng 1 danh tính (executeAs=USER_DEPLOYING nên luôn nhất quán).
 // Tự khoá lại sau lần đầu (chỉ chạy được khi tài khoản CHƯA có mật khẩu) — không phải cửa hậu vĩnh viễn.
-function setupFirstAdminCredentials(employeeCode, password) {
+function setupFirstAdminCredentials(username, password) {
   if (!isSystemInitialized()) throw new Error('Hệ thống chưa được khởi tạo.');
-  if (isBlank(employeeCode)) throw new Error('Vui lòng nhập mã nhân viên.');
+  if (isBlank(username)) throw new Error('Vui lòng nhập tên đăng nhập.');
   if (!isValidPassword_(password)) throw new Error('Mật khẩu phải có ít nhất 8 ký tự.');
 
   const adminUser = getCurrentUser();
@@ -113,20 +114,16 @@ function setupFirstAdminCredentials(employeeCode, password) {
     throw new Error('Tài khoản này đã có mật khẩu — vào lại bằng màn hình đăng nhập.');
   }
 
-  const employeesRepo = getSheetRepository(SHEETS.EMPLOYEES);
-  const employee = employeesRepo.findAll().find(function (e) { return e.UserID === adminUser.UserID; });
-  if (!employee) throw new Error('Không tìm thấy hồ sơ nhân viên quản trị.');
-
-  const duplicateCode = employeesRepo.findAll().find(function (e) { return e.EmployeeCode === employeeCode && e.EmployeeID !== employee.EmployeeID; });
-  if (duplicateCode) throw new Error('Mã nhân viên đã được sử dụng.');
-  employeesRepo.updateById('EmployeeID', employee.EmployeeID, { EmployeeCode: employeeCode, UpdatedAt: nowIso() });
+  const usersRepo = getSheetRepository(SHEETS.USERS);
+  const duplicateUsername = usersRepo.findAll().find(function (u) { return u.Username === username && u.UserID !== adminUser.UserID; });
+  if (duplicateUsername) throw new Error('Tên đăng nhập đã được sử dụng.');
 
   const hashed = hashPassword_(password);
-  getSheetRepository(SHEETS.USERS).updateById('UserID', adminUser.UserID, {
-    PasswordHash: hashed.hash, PasswordSalt: hashed.salt, UpdatedAt: nowIso()
+  usersRepo.updateById('UserID', adminUser.UserID, {
+    Username: username, PasswordHash: hashed.hash, PasswordSalt: hashed.salt, UpdatedAt: nowIso()
   });
-  logAudit(adminUser.UserID, 'USER_PASSWORD_CHANGED', 'User', adminUser.UserID, 'Đặt mật khẩu quản trị lần đầu sau Initialize System');
-  return { success: true, employeeCode: employeeCode };
+  logAudit(adminUser.UserID, 'USER_PASSWORD_CHANGED', 'User', adminUser.UserID, 'Đặt tên đăng nhập/mật khẩu quản trị lần đầu sau Initialize System');
+  return { success: true, username: username };
 }
 
 function seedDefaultData_() {

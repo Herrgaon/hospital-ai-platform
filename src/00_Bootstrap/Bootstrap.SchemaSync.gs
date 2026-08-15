@@ -62,6 +62,10 @@ function syncSchemaWithSpreadsheet(user) {
       }
     }
 
+    // Idempotent — an toàn gọi lại mỗi lần đồng bộ, kể cả khi không có gì thay đổi ở trên (vá cho hệ
+    // thống khởi tạo trước khi có PLAIN_TEXT_COLUMNS, hoặc khi danh sách cột này được bổ sung sau này).
+    applyPlainTextColumnFormats_(sheet, sheetName);
+
     const rangeName = 'RNG_' + sheetName;
     spreadsheet.getNamedRanges()
       .filter(function (nr) { return nr.getName() === rangeName; })

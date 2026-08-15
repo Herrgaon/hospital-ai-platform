@@ -15,7 +15,7 @@ function doPost(e) {
     const params = body.params || {};
 
     if (action === 'auth.login') {
-      return gatewayJsonResponse_({ success: true, data: authenticateWithPassword(params.employeeCode, params.password) });
+      return gatewayJsonResponse_({ success: true, data: authenticateWithPassword(params.username, params.password) });
     }
     if (action === 'auth.logout') {
       return gatewayJsonResponse_({ success: true, data: logoutWithToken(body.token) });

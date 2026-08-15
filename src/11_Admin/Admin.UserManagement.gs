@@ -9,9 +9,9 @@ function listAllUsers(actingUser) {
 }
 
 // SUPER_ADMIN/Phòng TC-HC tạo trước tài khoản cho nhân viên chưa từng đăng nhập (ví dụ để gán
-// Role/Department sẵn trước khi họ dùng lần đầu). getCurrentUser() (Auth.Session.gs) tìm theo Email
-// nên khi người đó đăng nhập thật, hệ thống nhận đúng bản ghi này thay vì tự tạo mới với Role=Guest.
-function createUser(actingUser, email, fullName, role, department) {
+// Role/Department sẵn trước khi họ dùng lần đầu). Username là định danh đăng nhập (tách khỏi
+// Employees.EmployeeCode — xem Auth.Gateway.gs), phải là duy nhất toàn hệ thống.
+function createUser(actingUser, email, username, fullName, role, department) {
   if (actingUser.Role !== ROLE_NAMES.SUPER_ADMIN && actingUser.Role !== ROLE_NAMES.PHONG_TC_HC) {
     throw new Error('Chỉ Quản trị hệ thống hoặc Phòng Tổ chức – Hành chính được thêm người dùng.');
   }
@@ -19,16 +19,24 @@ function createUser(actingUser, email, fullName, role, department) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
     throw new Error('Email không hợp lệ.');
   }
+  if (isBlank(username)) {
+    throw new Error('Vui lòng nhập tên đăng nhập.');
+  }
 
   const usersRepo = getSheetRepository(SHEETS.USERS);
-  const existing = usersRepo.findAll().find(function (u) { return u.Email.toLowerCase() === normalizedEmail; });
-  if (existing) {
+  const existingEmail = usersRepo.findAll().find(function (u) { return u.Email.toLowerCase() === normalizedEmail; });
+  if (existingEmail) {
     throw new Error('Người dùng với email này đã tồn tại.');
+  }
+  const existingUsername = usersRepo.findAll().find(function (u) { return u.Username === username; });
+  if (existingUsername) {
+    throw new Error('Tên đăng nhập "' + username + '" đã được sử dụng.');
   }
 
   const user = usersRepo.append({
     UserID: generateId('USR'),
     Email: normalizedEmail,
+    Username: username,
     FullName: fullName || normalizedEmail,
     Role: role || ROLE_NAMES.GUEST,
     Department: department || '',
@@ -37,7 +45,7 @@ function createUser(actingUser, email, fullName, role, department) {
     UpdatedAt: nowIso(),
     AvatarUrl: ''
   });
-  logAudit(actingUser.UserID, 'USER_CREATED', 'User', user.UserID, normalizedEmail);
+  logAudit(actingUser.UserID, 'USER_CREATED', 'User', user.UserID, normalizedEmail + ' (' + username + ')');
   return user;
 }
 
