@@ -89,9 +89,8 @@ function getDefaultDepartments_() {
   });
 }
 
-// Dữ liệu khởi tạo tối thiểu cho danh mục Loại trực/Vị trí trực — chỉ gồm ví dụ đã nêu rõ trong đặc tả
-// KPI + Quản lý Trực V1 (vị trí "LĐ" dành riêng Bác sĩ); các loại/vị trí khác do Phòng KH-NV tự thêm
-// qua DutySchedule.Catalog.gs khi triển khai thực tế — KHÔNG tự suy đoán thêm danh mục chưa được duyệt.
+// Dữ liệu khởi tạo tối thiểu cho danh mục Loại trực — Phòng KH-NV tự thêm/sửa loại khác qua
+// DutySchedule.Catalog.gs khi triển khai thực tế — KHÔNG tự suy đoán thêm danh mục chưa được duyệt.
 function getDefaultDutyTypes_() {
   return [
     { DutyTypeName: 'Trực lãnh đạo', Description: 'Trực điều hành chung toàn viện' },
@@ -105,11 +104,23 @@ function getDefaultDutyTypes_() {
   });
 }
 
+// Đúng nguyên văn ví dụ "từ cơ chế hiện tại" ở §21 đặc tả KPI + Quản lý Trực V1 — Bác sĩ: LĐ/TT/PK/
+// CC/Nhi; Điều dưỡng-Hộ sinh: CC/PK/Nội/Ngoại/Lây/Sản. "TT" = Trưởng trực, đánh dấu IsTruongTruc: true
+// để DutySchedule.RoleGrant.gs tự động cấp quyền SUBMIT_OVERTIME theo ca (§31) — KH-NV có thể đổi tên
+// hoặc đánh dấu thêm vị trí khác là Trưởng trực qua màn Danh mục trực, không hard-code chữ "TT".
 function getDefaultDutyPositions_() {
   return [
-    { PositionName: 'LĐ', EmployeeType: 'Bác sĩ', Description: 'Trực lãnh đạo — chỉ dành cho Bác sĩ' },
-    { PositionName: 'Trực chính', EmployeeType: '', Description: '' },
-    { PositionName: 'Trực phụ', EmployeeType: '', Description: '' }
+    { PositionName: 'LĐ', EmployeeType: 'Bác sĩ', IsTruongTruc: false, Description: 'Trực lãnh đạo' },
+    { PositionName: 'TT', EmployeeType: 'Bác sĩ', IsTruongTruc: true, Description: 'Trưởng trực' },
+    { PositionName: 'PK', EmployeeType: 'Bác sĩ', IsTruongTruc: false, Description: 'Trực phòng khám' },
+    { PositionName: 'CC', EmployeeType: 'Bác sĩ', IsTruongTruc: false, Description: 'Trực cấp cứu' },
+    { PositionName: 'Nhi', EmployeeType: 'Bác sĩ', IsTruongTruc: false, Description: 'Trực nhi' },
+    { PositionName: 'CC', EmployeeType: 'Điều dưỡng', IsTruongTruc: false, Description: 'Trực cấp cứu' },
+    { PositionName: 'PK', EmployeeType: 'Điều dưỡng', IsTruongTruc: false, Description: 'Trực phòng khám' },
+    { PositionName: 'Nội', EmployeeType: 'Điều dưỡng', IsTruongTruc: false, Description: '' },
+    { PositionName: 'Ngoại', EmployeeType: 'Điều dưỡng', IsTruongTruc: false, Description: '' },
+    { PositionName: 'Lây', EmployeeType: 'Điều dưỡng', IsTruongTruc: false, Description: '' },
+    { PositionName: 'Sản', EmployeeType: 'Điều dưỡng', IsTruongTruc: false, Description: '' }
   ].map(function (p) {
     p.DutyPositionID = generateId('DPOS');
     p.Status = 'Active';

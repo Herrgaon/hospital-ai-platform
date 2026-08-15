@@ -39,7 +39,8 @@ function createDutyPosition(actingUser, input) {
   if (isBlank(input.positionName)) throw new Error('Thiếu tên vị trí trực.');
   const position = getSheetRepository(SHEETS.DUTY_POSITIONS).append({
     DutyPositionID: generateId('DPOS'), PositionName: input.positionName, EmployeeType: input.employeeType || '',
-    Description: input.description || '', Status: 'Active', CreatedAt: nowIso(), UpdatedAt: nowIso()
+    IsTruongTruc: !!input.isTruongTruc, Description: input.description || '', Status: 'Active',
+    CreatedAt: nowIso(), UpdatedAt: nowIso()
   });
   logAudit(actingUser.UserID, 'DUTY_POSITION_CREATED', 'DutyPosition', position.DutyPositionID, input.positionName);
   return position;

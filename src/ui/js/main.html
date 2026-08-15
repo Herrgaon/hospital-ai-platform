@@ -115,6 +115,18 @@
           .api_listUserDirectory(this.authToken);
 
         this.loadSwapPageData();
+        this.loadMyActiveDutyLeaderShift();
+      },
+
+      // §33 đặc tả: khi đăng nhập, nếu đang là Trưởng trực ca hiện tại thì hiển thị ngay ở Dashboard —
+      // "không bắt người dùng tìm trong menu". Quyền này tự tính lại mỗi lần tải, tự hết khi hết ca
+      // (xem DutySchedule.RoleGrant.gs#getMyActiveDutyLeaderShift — không có trạng thái lưu trữ).
+      myActiveDutyLeaderShift: null,
+      loadMyActiveDutyLeaderShift() {
+        google.script.run
+          .withSuccessHandler((result) => { this.myActiveDutyLeaderShift = result; })
+          .withFailureHandler(() => {})
+          .api_getMyActiveDutyLeaderShift(this.authToken);
       },
 
       loginAction() {
@@ -652,7 +664,7 @@
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_deactivateDutyType(this.authToken, t.DutyTypeID);
       },
-      newDutyPositionForm: { positionName: '', employeeType: '', description: '' },
+      newDutyPositionForm: { positionName: '', employeeType: '', description: '', isTruongTruc: false },
       creatingDutyPosition: false,
       createDutyPositionAction() {
         this.creatingDutyPosition = true;
@@ -660,7 +672,7 @@
           .withSuccessHandler(() => {
             this.creatingDutyPosition = false;
             this.closeModal();
-            this.newDutyPositionForm = { positionName: '', employeeType: '', description: '' };
+            this.newDutyPositionForm = { positionName: '', employeeType: '', description: '', isTruongTruc: false };
             this.dutyPositionsCatalog = [];
             this.loadDutyCatalogsIfNeeded_();
           })

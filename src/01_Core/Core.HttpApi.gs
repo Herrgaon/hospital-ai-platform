@@ -100,6 +100,7 @@ const GATEWAY_ACTIONS_ = {
   'dutyCatalog.createPosition': function (user, params) { return createDutyPosition(user, params); },
   'dutyCatalog.deactivatePosition': function (user, params) { return deactivateDutyPosition(user, params.dutyPositionId); },
   'dutyCatalog.listPositions': function (user, params) { return listActiveDutyPositions(params.employeeType); },
+  'duty.myActiveLeaderShift': function (user) { return getMyActiveDutyLeaderShift(user); },
 
   'swap.request': function (user, params) { return requestSwap(user, params); },
   'swap.confirmReplacement': function (user, params) { return confirmSwapByReplacement(user, params.swapRequestId); },

@@ -209,20 +209,22 @@
         <h3>Vị trí trực</h3>
         <button @click="openModal('addDutyPosition')" class="btn btn-primary btn-sm">+ Thêm vị trí trực</button>
       </div>
+      <p class="text-xs holo-text-dim mb-2">Đánh dấu "Trưởng trực" để hệ thống tự động cấp quyền lập danh sách làm ngoài giờ cho người giữ vị trí này trong đúng phạm vi ca trực — không cấp cố định.</p>
       <div class="table-wrap">
         <table class="data-table">
-          <thead><tr><th>Tên vị trí</th><th>Loại nhân viên áp dụng</th><th>Mô tả</th><th></th></tr></thead>
+          <thead><tr><th>Tên vị trí</th><th>Loại nhân viên áp dụng</th><th>Trưởng trực</th><th>Mô tả</th><th></th></tr></thead>
           <tbody>
             <template x-for="p in dutyPositionsCatalog" :key="p.DutyPositionID">
               <tr>
                 <td x-text="p.PositionName"></td>
                 <td x-text="p.EmployeeType || 'Tất cả'"></td>
+                <td><span class="badge" :class="p.IsTruongTruc ? 'badge-purple' : 'badge-gray'" x-text="p.IsTruongTruc ? 'Có' : '—'"></span></td>
                 <td x-text="p.Description"></td>
                 <td><button @click="deactivateDutyPositionAction(p)" class="btn-link">Ngừng dùng</button></td>
               </tr>
             </template>
             <template x-if="dutyPositionsCatalog.length === 0">
-              <tr><td colspan="4" class="text-xs holo-text-dim py-4">Chưa có vị trí trực nào.</td></tr>
+              <tr><td colspan="5" class="text-xs holo-text-dim py-4">Chưa có vị trí trực nào.</td></tr>
             </template>
           </tbody>
         </table>
@@ -429,6 +431,10 @@
           <label>Mô tả</label>
           <input type="text" x-model="newDutyPositionForm.description" class="form-control">
         </div>
+        <label class="form-check-label">
+          <input type="checkbox" x-model="newDutyPositionForm.isTruongTruc">
+          Vị trí này là "Trưởng trực" — tự động cấp quyền lập danh sách làm ngoài giờ theo ca
+        </label>
       </div>
       <div class="modal-footer">
         <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>

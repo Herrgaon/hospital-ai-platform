@@ -117,7 +117,10 @@ const SCHEMA = {
   [SHEETS.DUTY_TYPES]: ['DutyTypeID', 'DutyTypeName', 'Description', 'Status', 'CreatedAt', 'UpdatedAt'],
   // EmployeeType rỗng = áp dụng cho mọi loại nhân viên; có giá trị = chỉ hiện trong danh sách chọn khi
   // xếp trực cho nhân viên đúng loại đó (VD vị trí "LĐ" chỉ dành Bác sĩ).
-  [SHEETS.DUTY_POSITIONS]: ['DutyPositionID', 'PositionName', 'EmployeeType', 'Description', 'Status', 'CreatedAt', 'UpdatedAt'],
+  // IsTruongTruc: đánh dấu vị trí trực này = "Trưởng trực" — cấu hình được (KH-NV tự đặt cho đúng vị
+  // trí thật của bệnh viện), KHÔNG hard-code tên "TT" trong code. Dùng bởi DutySchedule.RoleGrant.gs
+  // để tự động cấp quyền tạm thời SUBMIT_OVERTIME theo ca đúng §31 đặc tả KPI + Quản lý Trực V1.
+  [SHEETS.DUTY_POSITIONS]: ['DutyPositionID', 'PositionName', 'EmployeeType', 'IsTruongTruc', 'Description', 'Status', 'CreatedAt', 'UpdatedAt'],
 
   // Chấm công — Giai đoạn 2. Status: OPEN (còn sửa được trực tiếp) | LOCKED (đã chốt, mọi thay đổi
   // phải qua AttendanceAdjustments, không sửa thẳng — đúng yêu cầu "không sửa âm thầm dữ liệu đã chốt").

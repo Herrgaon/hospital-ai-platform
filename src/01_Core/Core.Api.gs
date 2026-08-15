@@ -330,6 +330,11 @@ function api_listActiveDutyPositions(token, employeeType) {
   return listActiveDutyPositions(employeeType);
 }
 
+function api_getMyActiveDutyLeaderShift(token) {
+  const user = getCurrentUserFromToken_(token);
+  return getMyActiveDutyLeaderShift(user);
+}
+
 // --- Duty Swap (Đổi trực) ---
 
 function api_requestDutySwap(token, input) {
