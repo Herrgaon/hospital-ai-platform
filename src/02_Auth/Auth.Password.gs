@@ -9,7 +9,11 @@
 const PBKDF2_ITERATIONS_ = 20000;
 const PBKDF2_KEY_LENGTH_BYTES_ = 32;
 
+// Utilities.computeHmacSha256Signature không có overload (Byte[] value, String key) — xác nhận qua
+// clasp run thực tế (lỗi "The parameters (number[],String) don't match the method signature"), không
+// phải giả định. Phải quy cả 2 tham số về Byte[] nhất quán.
 function pbkdf2Sha256_(password, saltBytes, iterations, keyLengthBytes) {
+  const passwordBytes = Utilities.newBlob(password).getBytes();
   const hashLenBytes = 32;
   const blockCount = Math.ceil(keyLengthBytes / hashLenBytes);
   let derivedBytes = [];
@@ -19,10 +23,10 @@ function pbkdf2Sha256_(password, saltBytes, iterations, keyLengthBytes) {
       (blockIndex >>> 24) & 0xFF, (blockIndex >>> 16) & 0xFF,
       (blockIndex >>> 8) & 0xFF, blockIndex & 0xFF
     ];
-    let u = Utilities.computeHmacSha256Signature(saltBytes.concat(blockIndexBytes), password);
+    let u = Utilities.computeHmacSha256Signature(saltBytes.concat(blockIndexBytes), passwordBytes);
     let t = u.slice();
     for (let i = 1; i < iterations; i++) {
-      u = Utilities.computeHmacSha256Signature(u, password);
+      u = Utilities.computeHmacSha256Signature(u, passwordBytes);
       t = t.map(function (b, idx) { return b ^ u[idx]; });
     }
     derivedBytes = derivedBytes.concat(t);
