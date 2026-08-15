@@ -1,12 +1,19 @@
-<!-- Alpine.js qua CDN — ghim phiên bản cụ thể (không dùng range @3.x.x thả nổi) + SRI. Nâng phiên
-     bản: đổi cả version trong URL lẫn hash integrity cùng lúc. -->
+<!-- Alpine.js qua CDN — ghim phiên bản cụ thể (không dùng range @3.x.x thả nổi) + SRI. Nâng phiên bản:
+     đổi cả version trong URL lẫn hash integrity cùng lúc. -->
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.15.12/dist/cdn.min.js"
         integrity="sha384-pb6hrQvo4s23cEUFtj0CZkzGE3jyK3pj26RIupXXxhSrrcUA/Cn0lZgcCrGH0t6L"
         crossorigin="anonymous"></script>
 <script>
   function appShell() {
     return {
-      currentView: 'dashboard',
+      // --- Đăng nhập (mã nhân viên + mật khẩu qua Gateway — KHÔNG còn dựa vào phiên Google, xem
+      // Auth.Session.gs). Token lưu ở localStorage để giữ đăng nhập qua các lần tải lại trang; mỗi lệnh
+      // gọi google.script.run...api_xxx() đều truyền this.authToken làm tham số đầu tiên. ---
+      authToken: '',
+      loginForm: { employeeCode: '', password: '' },
+      loggingIn: false,
+      loginError: '',
+
       userEmail: '',
       currentUser: {},
       myEmployeeId: '',
@@ -36,8 +43,8 @@
       userDirectory: [],
 
       init() {
-        // errorMessage được gán ở rất nhiều chỗ (withFailureHandler) nhưng theo dõi tập trung ở đây
-        // để MỌI lỗi tự động hiện thành toast, không cần sửa lại từng chỗ gọi.
+        // errorMessage được gán ở rất nhiều chỗ (withFailureHandler) nhưng theo dõi tập trung ở đây để
+        // MỌI lỗi tự động hiện thành toast, không cần sửa lại từng chỗ gọi.
         this.$watch('errorMessage', (value) => { if (value) this.toast('error', value); });
 
         this.currentView = (location.hash || '#dashboard').replace('#', '');
@@ -50,48 +57,93 @@
         }
 
         google.script.run
+          .withSuccessHandler((enabled) => { this.aiEnabled = enabled; })
+          .withFailureHandler(() => {})
+          .api_isAiEnabled();
+
+        const savedToken = localStorage.getItem('bvds_auth_token');
+        if (savedToken) {
+          this.authToken = savedToken;
+          this.loadCurrentUserAndAppData_();
+        }
+      },
+
+      // Gọi lại sau login thành công VÀ khi khôi phục token đã lưu từ localStorage lúc mở trang —
+      // xác thực token còn dùng được (api_getCurrentUser sẽ báo lỗi nếu token hết hạn/không hợp lệ)
+      // trước khi nạp toàn bộ dữ liệu ứng dụng.
+      loadCurrentUserAndAppData_() {
+        google.script.run
           .withSuccessHandler((user) => {
             this.userEmail = user.Email;
             this.currentUser = user;
             this.profileForm.fullName = user.FullName;
+            this.loadAppData_();
           })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_getCurrentUser();
+          .withFailureHandler(() => {
+            // Token hết hạn/không hợp lệ — quay lại màn hình đăng nhập, không hiện lỗi ồn ào.
+            this.authToken = '';
+            localStorage.removeItem('bvds_auth_token');
+          })
+          .api_getCurrentUser(this.authToken);
+      },
 
+      loadAppData_() {
         google.script.run
           .withSuccessHandler((employee) => { this.myEmployeeId = employee ? employee.EmployeeID : ''; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_getMyEmployee();
+          .api_getMyEmployee(this.authToken);
 
-        // Bản đồ quyền trên từng khoa/phòng — dùng để ẩn/hiện nút bấm đúng theo phân quyền thay vì
-        // hiện hết rồi để lộ lỗi khi bấm.
         google.script.run
           .withSuccessHandler((map) => { this.myPermissionMap = map; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_getMyPermissionMap();
+          .api_getMyPermissionMap(this.authToken);
 
         google.script.run
           .withSuccessHandler((depts) => { this.departments = depts; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listActiveDepartments();
+          .api_listActiveDepartments(this.authToken);
 
         google.script.run
           .withSuccessHandler((emps) => { this.employees = emps; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listEmployees();
+          .api_listEmployees(this.authToken);
 
         google.script.run
           .withSuccessHandler((dir) => { this.userDirectory = dir; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listUserDirectory();
+          .api_listUserDirectory(this.authToken);
 
-        google.script.run
-          .withSuccessHandler((enabled) => { this.aiEnabled = enabled; })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_isAiEnabled();
-
-        // Nạp trước cho badge chuông thông báo ở header — hiển thị được dù chưa vào đúng màn hình.
         this.loadSwapPageData();
+      },
+
+      loginAction() {
+        this.loggingIn = true;
+        this.loginError = '';
+        google.script.run
+          .withSuccessHandler((result) => {
+            this.loggingIn = false;
+            this.authToken = result.token;
+            localStorage.setItem('bvds_auth_token', result.token);
+            this.currentUser = result.user;
+            this.userEmail = result.user.Email;
+            this.profileForm.fullName = result.user.FullName;
+            this.loginForm = { employeeCode: '', password: '' };
+            this.loadAppData_();
+          })
+          .withFailureHandler((e) => {
+            this.loggingIn = false;
+            this.loginError = e.message;
+          })
+          .api_login(this.loginForm.employeeCode, this.loginForm.password);
+      },
+
+      logoutAction() {
+        const token = this.authToken;
+        this.authToken = '';
+        this.currentUser = {};
+        localStorage.removeItem('bvds_auth_token');
+        this.currentView = 'dashboard';
+        google.script.run.withFailureHandler(() => {}).api_logout(token);
       },
 
       active(view) {
@@ -187,7 +239,7 @@
             this.savingProfile = false;
             this.errorMessage = e.message;
           })
-          .api_updateMyProfile(this.profileForm.fullName);
+          .api_updateMyProfile(this.authToken, this.profileForm.fullName);
       },
 
       onAvatarFileSelected(event) {
@@ -214,7 +266,7 @@
             this.uploadingAvatar = false;
             this.errorMessage = e.message;
           })
-          .api_updateMyAvatar(this.pendingAvatarFile.base64, this.pendingAvatarFile.mimeType);
+          .api_updateMyAvatar(this.authToken, this.pendingAvatarFile.base64, this.pendingAvatarFile.mimeType);
       },
 
       // --- Dashboard ---
@@ -223,7 +275,7 @@
         google.script.run
           .withSuccessHandler((summary) => { this.dashboard = summary; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_getDashboardSummary();
+          .api_getDashboardSummary(this.authToken);
       },
 
       // --- Nhân sự ---
@@ -237,7 +289,7 @@
         google.script.run
           .withSuccessHandler((emps) => { this.employees = emps; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listEmployees();
+          .api_listEmployees(this.authToken);
       },
       newEmployeeForm: { employeeCode: '', email: '', fullName: '', departmentId: '', position: '', employeeType: '', phoneNumber: '', startDate: '' },
       creatingEmployee: false,
@@ -258,14 +310,14 @@
             this.creatingEmployee = false;
             this.errorMessage = e.message;
           })
-          .api_createEmployee(this.newEmployeeForm);
+          .api_createEmployee(this.authToken, this.newEmployeeForm);
       },
       deactivateEmployeeAction(e) {
         if (!confirm('Ngừng hoạt động nhân viên "' + e.FullName + '"? Tài khoản đăng nhập của họ cũng sẽ bị khoá.')) return;
         google.script.run
           .withSuccessHandler(() => { this.loadEmployeesPage(); })
           .withFailureHandler((err) => { this.errorMessage = err.message; })
-          .api_deactivateEmployee(e.EmployeeID);
+          .api_deactivateEmployee(this.authToken, e.EmployeeID);
       },
 
       resetPasswordTarget: null,
@@ -288,7 +340,7 @@
             this.resettingPassword = false;
             this.errorMessage = e.message;
           })
-          .api_resetEmployeePassword(this.resetPasswordTarget.EmployeeID, this.resetPasswordForm.newPassword);
+          .api_resetEmployeePassword(this.authToken, this.resetPasswordTarget.EmployeeID, this.resetPasswordForm.newPassword);
       },
 
       changePasswordForm: { oldPassword: '', newPassword: '' },
@@ -309,7 +361,7 @@
             this.changingPassword = false;
             this.errorMessage = e.message;
           })
-          .api_changeMyPassword(this.changePasswordForm.oldPassword, this.changePasswordForm.newPassword);
+          .api_changeMyPassword(this.authToken, this.changePasswordForm.oldPassword, this.changePasswordForm.newPassword);
       },
 
       // --- Khoa/Phòng ---
@@ -317,7 +369,7 @@
         google.script.run
           .withSuccessHandler((depts) => { this.departments = depts; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listActiveDepartments();
+          .api_listActiveDepartments(this.authToken);
       },
       newDepartmentForm: { departmentName: '', departmentType: 'KHOA_LAM_SANG', headUserId: '' },
       creatingDepartment: false,
@@ -338,20 +390,20 @@
             this.creatingDepartment = false;
             this.errorMessage = e.message;
           })
-          .api_createDepartment(this.newDepartmentForm);
+          .api_createDepartment(this.authToken, this.newDepartmentForm);
       },
       updateDepartmentHeadAction(d) {
         google.script.run
           .withSuccessHandler(() => { this.toast('success', 'Đã cập nhật trưởng khoa/phòng.'); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_updateDepartment(d.DepartmentID, { headUserId: d.HeadUserID });
+          .api_updateDepartment(this.authToken, d.DepartmentID, { headUserId: d.HeadUserID });
       },
       deactivateDepartmentAction(d) {
         if (!confirm('Ngừng hoạt động khoa/phòng "' + d.DepartmentName + '"?')) return;
         google.script.run
           .withSuccessHandler(() => { this.loadDepartmentsPage(); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_deactivateDepartment(d.DepartmentID);
+          .api_deactivateDepartment(this.authToken, d.DepartmentID);
       },
 
       // --- Quản lý công việc ---
@@ -363,14 +415,14 @@
         google.script.run
           .withSuccessHandler((tasks) => { this.myTasks = tasks; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listMyTasks();
+          .api_listMyTasks(this.authToken);
       },
       loadDepartmentTasksAction() {
         if (!this.taskDepartmentFilter) { this.departmentTasks = []; return; }
         google.script.run
           .withSuccessHandler((tasks) => { this.departmentTasks = tasks; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listTasksByDepartment(this.taskDepartmentFilter);
+          .api_listTasksByDepartment(this.authToken, this.taskDepartmentFilter);
       },
       assignTaskForm: { departmentId: '', assigneeEmployeeId: '', title: '', description: '', dueDate: '', priority: 'NORMAL' },
       assigningTask: false,
@@ -393,7 +445,7 @@
             this.assigningTask = false;
             this.errorMessage = e.message;
           })
-          .api_assignTask(this.assignTaskForm);
+          .api_assignTask(this.authToken, this.assignTaskForm);
       },
       currentTask: null,
       taskProgressInput: 0,
@@ -415,19 +467,19 @@
         google.script.run
           .withSuccessHandler((updated) => { this.refreshCurrentTask_(updated); this.toast('success', 'Đã cập nhật tiến độ.'); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_updateTaskProgress(this.currentTask.TaskID, this.taskProgressInput);
+          .api_updateTaskProgress(this.authToken, this.currentTask.TaskID, this.taskProgressInput);
       },
       submitTaskResultAction() {
         google.script.run
           .withSuccessHandler((updated) => { this.refreshCurrentTask_(updated); this.taskResultInput = ''; this.toast('success', 'Đã nộp kết quả.'); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_submitTaskResult(this.currentTask.TaskID, this.taskResultInput);
+          .api_submitTaskResult(this.authToken, this.currentTask.TaskID, this.taskResultInput);
       },
       evaluateTaskAction() {
         google.script.run
           .withSuccessHandler((updated) => { this.refreshCurrentTask_(updated); this.toast('success', 'Đã lưu đánh giá.'); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_evaluateTask(this.currentTask.TaskID, this.taskEvaluationForm);
+          .api_evaluateTask(this.authToken, this.currentTask.TaskID, this.taskEvaluationForm);
       },
 
       // --- Phân công khối lâm sàng ---
@@ -439,14 +491,14 @@
         google.script.run
           .withSuccessHandler((rows) => { this.myClinicalAssignments = rows; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listMyClinicalAssignments(null, null);
+          .api_listMyClinicalAssignments(this.authToken, null, null);
       },
       loadDepartmentClinicalAssignmentsAction() {
         if (!this.clinicalDepartmentFilter) { this.departmentClinicalAssignments = []; return; }
         google.script.run
           .withSuccessHandler((rows) => { this.departmentClinicalAssignments = rows; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listClinicalAssignmentsByDepartment(this.clinicalDepartmentFilter, null, null);
+          .api_listClinicalAssignmentsByDepartment(this.authToken, this.clinicalDepartmentFilter, null, null);
       },
       clinicalAssignmentForm: { departmentId: '', employeeId: '', assignmentDate: '', workType: 'Khám', shiftStart: '', shiftEnd: '', notes: '' },
       creatingClinicalAssignment: false,
@@ -469,14 +521,14 @@
             this.creatingClinicalAssignment = false;
             this.errorMessage = e.message;
           })
-          .api_createClinicalAssignment(this.clinicalAssignmentForm);
+          .api_createClinicalAssignment(this.authToken, this.clinicalAssignmentForm);
       },
       deleteClinicalAssignmentAction(a) {
         if (!confirm('Xoá phân công ngày ' + a.AssignmentDate + '?')) return;
         google.script.run
           .withSuccessHandler(() => { this.loadDepartmentClinicalAssignmentsAction(); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_deleteClinicalAssignment(a.AssignmentID);
+          .api_deleteClinicalAssignment(this.authToken, a.AssignmentID);
       },
 
       // --- Lịch trực tuần ---
@@ -488,7 +540,7 @@
         google.script.run
           .withSuccessHandler((rows) => { this.dutySchedules = rows; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listDutySchedulesByDepartment(this.dutyDepartmentFilter);
+          .api_listDutySchedulesByDepartment(this.authToken, this.dutyDepartmentFilter);
       },
       dutyStatusLabel(status) {
         const map = {
@@ -526,7 +578,7 @@
             this.creatingDutySchedule = false;
             this.errorMessage = e.message;
           })
-          .api_createDutySchedule(this.dutyDepartmentFilter, this.newDutyScheduleForm.weekStartDate, this.newDutyScheduleForm.weekEndDate);
+          .api_createDutySchedule(this.authToken, this.dutyDepartmentFilter, this.newDutyScheduleForm.weekStartDate, this.newDutyScheduleForm.weekEndDate);
       },
       openDutyScheduleDetail(s) {
         google.script.run
@@ -535,7 +587,7 @@
             this.openModal('dutyScheduleDetail');
           })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_getDutyScheduleDetail(s.DutyScheduleID);
+          .api_getDutyScheduleDetail(this.authToken, s.DutyScheduleID);
       },
       refreshCurrentDutyScheduleDetail_() {
         google.script.run
@@ -544,7 +596,7 @@
             this.dutySchedules = this.dutySchedules.map((s) => s.DutyScheduleID === detail.schedule.DutyScheduleID ? detail.schedule : s);
           })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_getDutyScheduleDetail(this.currentDutySchedule.schedule.DutyScheduleID);
+          .api_getDutyScheduleDetail(this.authToken, this.currentDutySchedule.schedule.DutyScheduleID);
       },
       addShiftForm: { shiftDate: '', dutyType: '', employeeId: '', roleInShift: '', shiftStart: '', shiftEnd: '', notes: '' },
       addingShift: false,
@@ -565,26 +617,26 @@
             this.addingShift = false;
             this.errorMessage = e.message;
           })
-          .api_addDutyShift(this.currentDutySchedule.schedule.DutyScheduleID, this.addShiftForm);
+          .api_addDutyShift(this.authToken, this.currentDutySchedule.schedule.DutyScheduleID, this.addShiftForm);
       },
       removeDutyShiftAction(sh) {
         if (!confirm('Xoá ca trực ngày ' + sh.ShiftDate + '?')) return;
         google.script.run
           .withSuccessHandler(() => { this.refreshCurrentDutyScheduleDetail_(); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_removeDutyShift(sh.DutyShiftID);
+          .api_removeDutyShift(this.authToken, sh.DutyShiftID);
       },
       submitDutyScheduleAction() {
         google.script.run
           .withSuccessHandler(() => { this.toast('success', 'Đã gửi duyệt lịch trực.'); this.refreshCurrentDutyScheduleDetail_(); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_submitDutySchedule(this.currentDutySchedule.schedule.DutyScheduleID);
+          .api_submitDutySchedule(this.authToken, this.currentDutySchedule.schedule.DutyScheduleID);
       },
       markDutyScheduleUnderReviewAction() {
         google.script.run
           .withSuccessHandler(() => { this.refreshCurrentDutyScheduleDetail_(); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_markDutyScheduleUnderReview(this.currentDutySchedule.schedule.DutyScheduleID);
+          .api_markDutyScheduleUnderReview(this.authToken, this.currentDutySchedule.schedule.DutyScheduleID);
       },
       requestDutyScheduleRevisionAction() {
         const comment = prompt('Lý do yêu cầu chỉnh sửa:');
@@ -592,19 +644,19 @@
         google.script.run
           .withSuccessHandler(() => { this.toast('info', 'Đã yêu cầu chỉnh sửa.'); this.refreshCurrentDutyScheduleDetail_(); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_requestDutyScheduleRevision(this.currentDutySchedule.schedule.DutyScheduleID, comment);
+          .api_requestDutyScheduleRevision(this.authToken, this.currentDutySchedule.schedule.DutyScheduleID, comment);
       },
       approveDutyScheduleAction() {
         google.script.run
           .withSuccessHandler(() => { this.toast('success', 'Đã duyệt lịch trực.'); this.refreshCurrentDutyScheduleDetail_(); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_approveDutySchedule(this.currentDutySchedule.schedule.DutyScheduleID, '');
+          .api_approveDutySchedule(this.authToken, this.currentDutySchedule.schedule.DutyScheduleID, '');
       },
       publishDutyScheduleAction() {
         google.script.run
           .withSuccessHandler(() => { this.toast('success', 'Đã công bố lịch trực toàn viện.'); this.refreshCurrentDutyScheduleDetail_(); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_publishDutySchedule(this.currentDutySchedule.schedule.DutyScheduleID);
+          .api_publishDutySchedule(this.authToken, this.currentDutySchedule.schedule.DutyScheduleID);
       },
       printCurrentDutySchedule() {
         window.print();
@@ -615,18 +667,19 @@
       mySwapRequests: [],
       pendingSwapConfirmations: [],
       loadSwapPageData() {
+        if (!this.authToken) return;
         google.script.run
           .withSuccessHandler((rows) => { this.myOfficialDutyShifts = rows.filter((s) => s.Status === 'OFFICIAL'); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listMyDutyShifts(null, null);
+          .api_listMyDutyShifts(this.authToken, null, null);
         google.script.run
           .withSuccessHandler((rows) => { this.mySwapRequests = rows; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listMySwapRequests();
+          .api_listMySwapRequests(this.authToken);
         google.script.run
           .withSuccessHandler((rows) => { this.pendingSwapConfirmations = rows; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listPendingSwapConfirmations();
+          .api_listPendingSwapConfirmations(this.authToken);
       },
       swapStatusLabel(status) {
         const map = {
@@ -654,7 +707,7 @@
             this.requestingSwap = false;
             this.errorMessage = e.message;
           })
-          .api_requestDutySwap({
+          .api_requestDutySwap(this.authToken, {
             originalShiftId: this.requestSwapForm.shift.DutyShiftID,
             replacementEmployeeId: this.requestSwapForm.replacementEmployeeId,
             reason: this.requestSwapForm.reason
@@ -664,19 +717,19 @@
         google.script.run
           .withSuccessHandler(() => { this.toast('success', 'Đã xác nhận.'); this.loadSwapPageData(); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_confirmDutySwapByReplacement(sw.SwapRequestID);
+          .api_confirmDutySwapByReplacement(this.authToken, sw.SwapRequestID);
       },
       confirmSwapDeptHeadAction(sw) {
         google.script.run
           .withSuccessHandler(() => { this.toast('success', 'Trưởng khoa đã xác nhận.'); this.loadSwapPageData(); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_confirmDutySwapByDeptHead(sw.SwapRequestID);
+          .api_confirmDutySwapByDeptHead(this.authToken, sw.SwapRequestID);
       },
       approveSwapKhNvAction(sw) {
         google.script.run
           .withSuccessHandler(() => { this.toast('success', 'Đã duyệt đổi trực.'); this.loadSwapPageData(); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_approveDutySwapByKhNv(sw.SwapRequestID);
+          .api_approveDutySwapByKhNv(this.authToken, sw.SwapRequestID);
       },
       rejectSwapAction(sw) {
         const reason = prompt('Lý do từ chối:');
@@ -684,7 +737,7 @@
         google.script.run
           .withSuccessHandler(() => { this.toast('info', 'Đã từ chối đổi trực.'); this.loadSwapPageData(); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_rejectDutySwap(sw.SwapRequestID, reason);
+          .api_rejectDutySwap(this.authToken, sw.SwapRequestID, reason);
       },
 
       // --- Quản trị ---
@@ -707,20 +760,20 @@
       newPermissionUserId: '',
 
       loadAdminData() {
-        google.script.run.withSuccessHandler((users) => { this.allUsers = users; }).withFailureHandler((e) => { this.errorMessage = e.message; }).api_listAllUsers();
+        google.script.run.withSuccessHandler((users) => { this.allUsers = users; }).withFailureHandler((e) => { this.errorMessage = e.message; }).api_listAllUsers(this.authToken);
         google.script.run.withSuccessHandler((roles) => { this.allRoles = roles; }).withFailureHandler((e) => { this.errorMessage = e.message; }).api_getAllRoles();
-        google.script.run.withSuccessHandler((providers) => { this.aiProviders = providers; }).withFailureHandler((e) => { this.errorMessage = e.message; }).api_listAIProviders();
+        google.script.run.withSuccessHandler((providers) => { this.aiProviders = providers; }).withFailureHandler((e) => { this.errorMessage = e.message; }).api_listAIProviders(this.authToken);
         google.script.run.withSuccessHandler((enabled) => { this.aiEnabled = enabled; }).withFailureHandler((e) => { this.errorMessage = e.message; }).api_isAiEnabled();
-        google.script.run.withSuccessHandler((config) => { this.activeAiConfig = config; }).withFailureHandler((e) => { this.errorMessage = e.message; }).api_getActiveAIProviderConfig();
+        google.script.run.withSuccessHandler((config) => { this.activeAiConfig = config; }).withFailureHandler((e) => { this.errorMessage = e.message; }).api_getActiveAIProviderConfig(this.authToken);
       },
 
       saveUserRole(u) {
         google.script.run
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_assignRole(u.UserID, u.Role);
+          .api_assignRole(this.authToken, u.UserID, u.Role);
         google.script.run
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_updateUserProfile(u.UserID, u.FullName, u.Department || '');
+          .api_updateUserProfile(this.authToken, u.UserID, u.FullName, u.Department || '');
       },
 
       createUserAction() {
@@ -737,7 +790,7 @@
             this.creatingUser = false;
             this.errorMessage = e.message;
           })
-          .api_createUser(this.newUserForm.email, this.newUserForm.fullName, this.newUserForm.role, '');
+          .api_createUser(this.authToken, this.newUserForm.email, this.newUserForm.fullName, this.newUserForm.role, '');
       },
 
       loadDepartmentPermissionsAction() {
@@ -745,7 +798,7 @@
         google.script.run
           .withSuccessHandler((perms) => { this.departmentPermissions = perms; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listPermissionsForDepartment(this.permissionDepartmentFilter);
+          .api_listPermissionsForDepartment(this.authToken, this.permissionDepartmentFilter);
       },
 
       addPermissionRowAction() {
@@ -768,7 +821,7 @@
         google.script.run
           .withSuccessHandler(() => { this.loadDepartmentPermissionsAction(); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_setEmployeePermissionOverride(perm.UserID, this.permissionDepartmentFilter, {
+          .api_setEmployeePermissionOverride(this.authToken, perm.UserID, this.permissionDepartmentFilter, {
             CanView: perm.CanView, CanCreate: perm.CanCreate, CanEdit: perm.CanEdit, CanDelete: perm.CanDelete,
             CanSubmit: perm.CanSubmit, CanApprove: perm.CanApprove, CanReject: perm.CanReject,
             CanPublish: perm.CanPublish, CanLock: perm.CanLock, CanExport: perm.CanExport
@@ -778,7 +831,7 @@
       toggleAi() {
         google.script.run
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_setAiEnabled(this.aiEnabled);
+          .api_setAiEnabled(this.authToken, this.aiEnabled);
       },
 
       saveAiConfig() {
@@ -793,7 +846,7 @@
             this.savingAiConfig = false;
             this.errorMessage = e.message;
           })
-          .api_updateAIProviderConfig(this.aiForm.providerId, this.aiForm.modelName, this.aiForm.apiKey, this.aiForm.temperature, this.aiForm.maxTokens, this.aiForm.timeout);
+          .api_updateAIProviderConfig(this.authToken, this.aiForm.providerId, this.aiForm.modelName, this.aiForm.apiKey, this.aiForm.temperature, this.aiForm.maxTokens, this.aiForm.timeout);
       },
 
       syncSchemaAction() {
@@ -807,7 +860,7 @@
             this.syncingSchema = false;
             this.errorMessage = e.message;
           })
-          .api_syncSchemaWithSpreadsheet();
+          .api_syncSchemaWithSpreadsheet(this.authToken);
       },
 
       auditFilters: { userId: '', action: '', fromDate: '', toDate: '' },
@@ -835,7 +888,7 @@
         google.script.run
           .withSuccessHandler((logs) => { this.auditLogs = logs; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_searchAuditLog(this.buildAuditApiFilters_());
+          .api_searchAuditLog(this.authToken, this.buildAuditApiFilters_());
       },
 
       exportAuditLogAction() {
@@ -849,7 +902,7 @@
             this.exportingAuditLog = false;
             this.errorMessage = e.message;
           })
-          .api_exportAuditLogToExcel(this.buildAuditApiFilters_());
+          .api_exportAuditLogToExcel(this.authToken, this.buildAuditApiFilters_());
       }
     };
   }

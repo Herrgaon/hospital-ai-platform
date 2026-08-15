@@ -5,7 +5,11 @@
   <?!= include('ui/css/main') ?>
 </head>
 <body>
-  <div x-data="appShell()" x-init="init()" class="app-shell">
+  <div x-data="appShell()" x-init="init()">
+
+  <?!= include('ui/views/Login') ?>
+
+  <div x-show="authToken && currentUser.UserID" x-cloak class="app-shell">
 
     <!-- Sidebar -->
     <aside class="app-sidebar">
@@ -70,6 +74,7 @@
               <span x-text="savingProfile ? 'Đang lưu...' : 'Lưu thay đổi'"></span>
             </button>
             <button @click="showProfileMenu = false; openChangePasswordModal()" class="btn btn-secondary btn-sm w-full">Đổi mật khẩu</button>
+            <button @click="logoutAction()" class="btn btn-secondary btn-sm w-full">Đăng xuất</button>
           </div>
         </div>
       </header>
@@ -121,6 +126,7 @@
         <div class="toast" :class="'toast-' + t.type" x-text="t.message"></div>
       </template>
     </div>
+  </div>
   </div>
 
   <?!= include('ui/js/main') ?>

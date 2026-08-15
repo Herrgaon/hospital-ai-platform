@@ -95,6 +95,39 @@ function createRootFolderStructure_() {
   return root;
 }
 
+// Bước tiếp theo NGAY sau initializeSystem() thành công — đặt mã nhân viên + mật khẩu đăng nhập đầu
+// tiên cho Quản trị hệ thống. Cần thiết vì kể từ khi chuyển sang đăng nhập mã NV/mật khẩu (thay
+// Session Google, xem Auth.Session.gs), initializeSystem() tự nó KHÔNG tạo được lối vào nào để đăng
+// nhập lại — không có bước này, hệ thống vừa khởi tạo xong sẽ không ai vào được.
+// Vẫn dùng getCurrentUser() (Session-based) ở đây — hợp lý vì gọi ngay trong cùng phiên vừa chạy
+// initializeSystem(), cùng resolve về đúng 1 danh tính (executeAs=USER_DEPLOYING nên luôn nhất quán).
+// Tự khoá lại sau lần đầu (chỉ chạy được khi tài khoản CHƯA có mật khẩu) — không phải cửa hậu vĩnh viễn.
+function setupFirstAdminCredentials(employeeCode, password) {
+  if (!isSystemInitialized()) throw new Error('Hệ thống chưa được khởi tạo.');
+  if (isBlank(employeeCode)) throw new Error('Vui lòng nhập mã nhân viên.');
+  if (!isValidPassword_(password)) throw new Error('Mật khẩu phải có ít nhất 8 ký tự.');
+
+  const adminUser = getCurrentUser();
+  if (!isBlank(adminUser.PasswordHash)) {
+    throw new Error('Tài khoản này đã có mật khẩu — vào lại bằng màn hình đăng nhập.');
+  }
+
+  const employeesRepo = getSheetRepository(SHEETS.EMPLOYEES);
+  const employee = employeesRepo.findAll().find(function (e) { return e.UserID === adminUser.UserID; });
+  if (!employee) throw new Error('Không tìm thấy hồ sơ nhân viên quản trị.');
+
+  const duplicateCode = employeesRepo.findAll().find(function (e) { return e.EmployeeCode === employeeCode && e.EmployeeID !== employee.EmployeeID; });
+  if (duplicateCode) throw new Error('Mã nhân viên đã được sử dụng.');
+  employeesRepo.updateById('EmployeeID', employee.EmployeeID, { EmployeeCode: employeeCode, UpdatedAt: nowIso() });
+
+  const hashed = hashPassword_(password);
+  getSheetRepository(SHEETS.USERS).updateById('UserID', adminUser.UserID, {
+    PasswordHash: hashed.hash, PasswordSalt: hashed.salt, UpdatedAt: nowIso()
+  });
+  logAudit(adminUser.UserID, 'USER_PASSWORD_CHANGED', 'User', adminUser.UserID, 'Đặt mật khẩu quản trị lần đầu sau Initialize System');
+  return { success: true, employeeCode: employeeCode };
+}
+
 function seedDefaultData_() {
   const rolesRepo = getSheetRepository(SHEETS.ROLES);
   getDefaultRoles_().forEach(function (role) { rolesRepo.append(role); });

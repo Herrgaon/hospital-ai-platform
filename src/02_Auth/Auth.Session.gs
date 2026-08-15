@@ -1,5 +1,13 @@
-// Xác định danh tính người dùng hiện tại — xem docs/13-security.md mục 1.
-
+// Xác định danh tính người dùng hiện tại.
+//
+// 2026-08-15: hệ thống chuyển sang đăng nhập mã nhân viên + mật khẩu (Auth.Gateway.gs) cho MỌI client
+// (trình duyệt lẫn Desktop App sau này) — Web App deploy ở chế độ executeAs=USER_DEPLOYING,
+// access=ANYONE_ANONYMOUS (xem appsscript.json), nghĩa là Session.getActiveUser() trong lúc phục vụ
+// google.script.run/doGet/doPost luôn trả về danh tính người TRIỂN KHAI script, KHÔNG PHẢI người
+// đang thao tác — không còn dùng được để xác định "ai đang gọi API" nữa. getCurrentUser() (dưới đây)
+// vì vậy CHỈ còn dùng trong đúng 1 chỗ: Bootstrap.InitializeSystem.gs, để xác định ai bấm "Initialize
+// System" lần đầu (hành động thiết lập 1 lần, hợp lý khi vẫn gắn với danh tính script). Mọi lời gọi
+// API nghiệp vụ khác PHẢI qua getCurrentUserFromToken_(token) — xem Core.Api.gs.
 function getCurrentUserEmail() {
   return Session.getActiveUser().getEmail();
 }
@@ -21,11 +29,20 @@ function getCurrentUser() {
       Status: 'Active',
       CreatedAt: nowIso(),
       UpdatedAt: nowIso(),
-      AvatarUrl: ''
+      AvatarUrl: '',
+      PasswordHash: '',
+      PasswordSalt: ''
     });
     logAudit(user.UserID, 'USER_AUTO_CREATED', 'User', user.UserID, 'Đăng nhập lần đầu, gán mặc định Role=Guest');
   }
   return user;
+}
+
+// Đường xác thực chính cho MỌI lệnh gọi API nghiệp vụ (Core.Api.gs, Core.HttpApi.gs) — thay thế hoàn
+// toàn getCurrentUser() cho mục đích này. Dùng chung 1 cơ chế token cho cả trình duyệt lẫn Desktop App
+// — đúng "không tạo hai hệ thống tài khoản độc lập" (xem báo cáo thẩm định kiến trúc).
+function getCurrentUserFromToken_(token) {
+  return verifyAccessToken_(token);
 }
 
 // Tự sửa hồ sơ của CHÍNH MÌNH (nickname hiển thị) — khác Admin.UserManagement.gs#updateUserProfile

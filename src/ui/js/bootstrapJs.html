@@ -4,6 +4,10 @@
     return {
       running: false,
       done: false,
+      settingUp: false,
+      credentialsSet: false,
+      employeeCode: '',
+      password: '',
       errorMessage: '',
       run() {
         this.running = true;
@@ -12,13 +16,27 @@
           .withSuccessHandler(() => {
             this.running = false;
             this.done = true;
-            window.location.reload();
           })
           .withFailureHandler((e) => {
             this.running = false;
             this.errorMessage = e.message;
           })
           .initializeSystem();
+      },
+      setupCredentials() {
+        this.settingUp = true;
+        this.errorMessage = '';
+        google.script.run
+          .withSuccessHandler(() => {
+            this.settingUp = false;
+            this.credentialsSet = true;
+            setTimeout(() => { window.location.reload(); }, 1200);
+          })
+          .withFailureHandler((e) => {
+            this.settingUp = false;
+            this.errorMessage = e.message;
+          })
+          .setupFirstAdminCredentials(this.employeeCode, this.password);
       }
     };
   }
