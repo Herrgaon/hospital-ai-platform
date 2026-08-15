@@ -1,9 +1,20 @@
 // Lớp truy cập Google Sheets dùng chung cho mọi Service — xem docs/05-architecture.md mục 3.
 // Service không được gọi SpreadsheetApp trực tiếp, luôn qua getSheetRepository().
 
+// Cache Ở CẤP EXECUTION (biến toàn cục sống hết 1 lượt gọi google.script.run, KHÔNG phải cache xuyên
+// nhiều lượt gọi như CacheService) — phát hiện qua đo thời gian thực tế: api_getInitialAppData gọi
+// ~10 hàm Service, mỗi hàm bên trong lại gọi getSheetRepository() cho 1-2 sheet, mỗi lần đều
+// SpreadsheetApp.openById() lại TỪ ĐẦU dù cùng 1 spreadsheet — SpreadsheetApp.openById() là 1 trong
+// những lệnh tốn thời gian nhất của Apps Script (mở kết nối), lặp lại 15-20 lần trong 1 lượt gọi cộng
+// dồn thành độ trễ rõ rệt lúc đăng nhập. Chỉ cache HANDLE (đối tượng Spreadsheet), KHÔNG cache dữ liệu
+// ô — mọi lệnh getRange()...getValues() sau đó vẫn đọc dữ liệu MỚI NHẤT như cũ, không có rủi ro dữ liệu
+// cũ. An toàn vì ID spreadsheet không đổi giữa các lệnh trong cùng 1 lượt gọi.
+let cachedSystemSpreadsheet_ = null;
 function getSystemSpreadsheet_() {
+  if (cachedSystemSpreadsheet_) return cachedSystemSpreadsheet_;
   const id = getConfig(CONFIG_KEYS.SYSTEM_DB_SPREADSHEET_ID);
-  return SpreadsheetApp.openById(id);
+  cachedSystemSpreadsheet_ = SpreadsheetApp.openById(id);
+  return cachedSystemSpreadsheet_;
 }
 
 function getSheetRepository(sheetName) {

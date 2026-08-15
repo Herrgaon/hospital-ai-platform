@@ -113,9 +113,16 @@ function api_listEmployees(token) {
 // diện làm việc (đúng phản ánh của Product Owner). Các api_list*/api_get* riêng lẻ VẪN giữ nguyên,
 // dùng khi cần tải lại đúng 1 phần dữ liệu (VD sau khi duyệt đổi trực) — hàm này chỉ thay cho loạt gọi
 // lúc khởi động.
+// 2026-08-15: gộp thêm dữ liệu Trang chủ (trước đây api_getDashboardSummary — Dashboard.html tự gọi
+// NGAY LÚC MOUNT, chạy GẦN NHƯ ĐỒNG THỜI với round-trip này thành 2 lượt gọi Apps Script riêng biệt,
+// mỗi lượt tự cộng dồn chi phí mở spreadsheet/xác thực — vẫn còn dư địa chậm dù đã gộp lần 1). Không
+// gọi lại listPendingSwapConfirmations lần 2 (đã có sẵn ở trên).
 function api_getInitialAppData(token) {
   const user = getCurrentUserFromToken_(token);
   const employee = getMyEmployee(user);
+  const pendingSwapConfirmations = listPendingSwapConfirmations(user);
+  const weekStart = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
+  const currentPeriod = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM');
   return {
     user: user,
     myEmployee: employee,
@@ -126,7 +133,14 @@ function api_getInitialAppData(token) {
     myActiveDutyLeaderShift: getMyActiveDutyLeaderShift(user),
     myOfficialDutyShifts: listMyDutyShifts(user, null, null).filter(function (s) { return s.Status === 'OFFICIAL'; }),
     mySwapRequests: listMySwapRequests(user),
-    pendingSwapConfirmations: listPendingSwapConfirmations(user)
+    pendingSwapConfirmations: pendingSwapConfirmations,
+    dashboard: {
+      myTasks: listMyTasks(user),
+      myShiftsThisWeek: listMyDutyShifts(user, weekStart, null),
+      pendingSwapConfirmations: pendingSwapConfirmations,
+      pendingAttendanceAdjustments: listPendingAttendanceAdjustmentConfirmations(user),
+      myKpiResultsThisPeriod: listMyKpiResults(user, currentPeriod)
+    }
   };
 }
 
