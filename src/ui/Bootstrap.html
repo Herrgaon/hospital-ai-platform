@@ -34,7 +34,12 @@
           </div>
           <div class="form-group !mb-2">
             <label class="required">Mật khẩu (tối thiểu 8 ký tự)</label>
-            <input type="password" x-model="password" class="form-control">
+            <div class="relative">
+              <input :type="showPassword ? 'text' : 'password'" x-model="password" class="form-control pr-10">
+              <button type="button" @click="showPassword = !showPassword" class="absolute right-2 top-1/2 -translate-y-1/2 text-sm opacity-60 hover:opacity-100" :title="showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'" tabindex="-1">
+                <span x-text="showPassword ? '🙈' : '👁'"></span>
+              </button>
+            </div>
           </div>
           <button @click="setupCredentials()" :disabled="settingUp || !username || password.length < 8" class="btn btn-primary w-full">
             <span x-text="settingUp ? 'ĐANG LƯU...' : 'LƯU VÀ ĐĂNG NHẬP'"></span>

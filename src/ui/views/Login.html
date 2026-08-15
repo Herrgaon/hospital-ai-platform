@@ -13,7 +13,12 @@
     </div>
     <div class="form-group !mb-2">
       <label class="required">Mật khẩu</label>
-      <input type="password" x-model="loginForm.password" @keyup.enter="loginAction()" class="form-control" autocomplete="current-password">
+      <div class="relative">
+        <input :type="showLoginPassword ? 'text' : 'password'" x-model="loginForm.password" @keyup.enter="loginAction()" class="form-control pr-10" autocomplete="current-password">
+        <button type="button" @click="showLoginPassword = !showLoginPassword" class="absolute right-2 top-1/2 -translate-y-1/2 text-sm opacity-60 hover:opacity-100" :title="showLoginPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'" tabindex="-1">
+          <span x-text="showLoginPassword ? '🙈' : '👁'"></span>
+        </button>
+      </div>
     </div>
     <button @click="loginAction()" :disabled="loggingIn || !loginForm.username || !loginForm.password" class="btn btn-primary w-full">
       <span x-text="loggingIn ? 'Đang đăng nhập...' : 'Đăng nhập'"></span>

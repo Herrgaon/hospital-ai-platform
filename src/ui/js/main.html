@@ -13,6 +13,7 @@
       loginForm: { username: '', password: '' },
       loggingIn: false,
       loginError: '',
+      showLoginPassword: false,
 
       userEmail: '',
       currentUser: {},
@@ -323,9 +324,11 @@
       resetPasswordTarget: null,
       resetPasswordForm: { newPassword: '' },
       resettingPassword: false,
+      showResetPassword: false,
       openResetPasswordModal(e) {
         this.resetPasswordTarget = e;
         this.resetPasswordForm = { newPassword: '' };
+        this.showResetPassword = false;
         this.openModal('resetEmployeePassword');
       },
       resetEmployeePasswordAction() {
@@ -345,8 +348,12 @@
 
       changePasswordForm: { oldPassword: '', newPassword: '' },
       changingPassword: false,
+      showChangePasswordOld: false,
+      showChangePasswordNew: false,
       openChangePasswordModal() {
         this.changePasswordForm = { oldPassword: '', newPassword: '' };
+        this.showChangePasswordOld = false;
+        this.showChangePasswordNew = false;
         this.openModal('changePassword');
       },
       changeMyPasswordAction() {

@@ -113,14 +113,23 @@
           <button @click="closeModal()" class="modal-close">×</button>
         </div>
         <div class="modal-body">
-          <p class="text-xs holo-text-dim mb-3">Chỉ áp dụng nếu bạn đã từng được đặt mật khẩu để đăng nhập qua Desktop App/Gateway. Không ảnh hưởng đến việc đăng nhập bằng tài khoản Google trên trình duyệt.</p>
           <div class="form-group">
             <label class="required">Mật khẩu hiện tại</label>
-            <input type="password" x-model="changePasswordForm.oldPassword" class="form-control">
+            <div class="relative">
+              <input :type="showChangePasswordOld ? 'text' : 'password'" x-model="changePasswordForm.oldPassword" class="form-control pr-10">
+              <button type="button" @click="showChangePasswordOld = !showChangePasswordOld" class="absolute right-2 top-1/2 -translate-y-1/2 text-sm opacity-60 hover:opacity-100" :title="showChangePasswordOld ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'" tabindex="-1">
+                <span x-text="showChangePasswordOld ? '🙈' : '👁'"></span>
+              </button>
+            </div>
           </div>
           <div class="form-group">
             <label class="required">Mật khẩu mới (tối thiểu 8 ký tự)</label>
-            <input type="password" x-model="changePasswordForm.newPassword" class="form-control">
+            <div class="relative">
+              <input :type="showChangePasswordNew ? 'text' : 'password'" x-model="changePasswordForm.newPassword" class="form-control pr-10">
+              <button type="button" @click="showChangePasswordNew = !showChangePasswordNew" class="absolute right-2 top-1/2 -translate-y-1/2 text-sm opacity-60 hover:opacity-100" :title="showChangePasswordNew ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'" tabindex="-1">
+                <span x-text="showChangePasswordNew ? '🙈' : '👁'"></span>
+              </button>
+            </div>
           </div>
         </div>
         <div class="modal-footer">
