@@ -42,6 +42,20 @@
       aiEnabled: false,
       errorMessage: '',
 
+      // Sidebar: nhóm điều hướng thu gọn/mở rộng — nhớ lựa chọn qua localStorage (sở thích giao diện
+      // thuần tuý, không phải dữ liệu phiên đăng nhập, khác hẳn lý do dùng sessionStorage cho token).
+      // Mặc định TẤT CẢ mở rộng (giữ nguyên trải nghiệm cũ) — người dùng tự thu gọn nhóm nào muốn ẩn.
+      collapsedNavGroups: {},
+      loadCollapsedNavGroups_() {
+        try { this.collapsedNavGroups = JSON.parse(localStorage.getItem('bvds_collapsed_nav_groups') || '{}'); }
+        catch (e) { this.collapsedNavGroups = {}; }
+      },
+      isNavGroupCollapsed(key) { return !!this.collapsedNavGroups[key]; },
+      toggleNavGroup(key) {
+        this.collapsedNavGroups[key] = !this.collapsedNavGroups[key];
+        localStorage.setItem('bvds_collapsed_nav_groups', JSON.stringify(this.collapsedNavGroups));
+      },
+
       departments: [],
       employees: [],
       userDirectory: [],
@@ -52,6 +66,7 @@
         this.$watch('errorMessage', (value) => { if (value) this.toast('error', value); });
 
         this.currentView = (location.hash || '#dashboard').replace('#', '');
+        this.loadCollapsedNavGroups_();
         if (!document.documentElement.classList.contains('theme-loaded')) {
           document.documentElement.classList.add('theme-loaded');
           if (localStorage.getItem('theme') === 'dark' ||

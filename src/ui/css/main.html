@@ -120,10 +120,15 @@
   }
   .app-nav-icon { width: 18px; text-align: center; font-size: 14px; }
   .app-nav-group-label {
+    display: flex; align-items: center; justify-content: space-between; width: 100%;
     padding: 14px 14px 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
     text-transform: uppercase; color: rgba(224,251,255,0.35);
+    background: none; border: none; cursor: pointer; font-family: inherit;
   }
   .app-nav-group-label:first-child { padding-top: 4px; }
+  .app-nav-group-label:hover { color: rgba(224,251,255,0.6); }
+  .app-nav-group-chevron { font-size: 9px; transition: transform 0.15s ease; }
+  .app-nav-group-label.collapsed .app-nav-group-chevron { transform: rotate(-90deg); }
   .app-sidebar-footer {
     padding: 12px 18px; border-top: 1px solid rgba(34,211,238,0.15);
     font-family: 'Share Tech Mono', ui-monospace, monospace; font-size: 10.5px;
