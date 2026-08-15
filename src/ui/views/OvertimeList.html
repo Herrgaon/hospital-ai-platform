@@ -1,0 +1,185 @@
+<div x-show="currentView === 'overtimeList'" x-init="if (currentView === 'overtimeList') loadOvertimeListPageData();" class="max-w-5xl mx-auto">
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-header-icon">🌙</div>
+      <div>
+        <h1 class="page-title-text">DANH SÁCH LÀM NGOÀI GIỜ THEO CA TRỰC</h1>
+        <p class="page-subtitle">Trưởng trực lập theo đúng phạm vi ca được phân công — Phòng KH-NV tiếp nhận, kiểm tra, chốt</p>
+      </div>
+    </div>
+    <div class="page-header-actions" x-show="myActiveDutyLeaderShift">
+      <button @click="createOvertimeListForActiveShiftAction()" :disabled="creatingOvertimeList" class="btn btn-primary">
+        <span x-text="creatingOvertimeList ? 'Đang tạo...' : '+ Lập danh sách cho ca đang trực'"></span>
+      </button>
+    </div>
+  </div>
+
+  <template x-if="!myActiveDutyLeaderShift">
+    <div class="notice notice-info mb-4">
+      <span class="notice-icon">ℹ</span>
+      <span>Bạn chỉ có thể lập danh sách mới khi đang giữ vai trò Trưởng trực của 1 ca trực chính thức — quyền này tự động theo đúng ca, không cấp cố định.</span>
+    </div>
+  </template>
+
+  <div class="tabs">
+    <button @click="overtimeListTab = 'mine'" class="tab" :class="overtimeListTab === 'mine' ? 'active' : ''">Của tôi</button>
+    <button x-show="isKhNv || isSuperAdmin" @click="overtimeListTab = 'khnv'; loadPendingOvertimeListsForKhNv();" class="tab" :class="overtimeListTab === 'khnv' ? 'active' : ''">Chờ Phòng KH-NV xử lý</button>
+  </div>
+
+  <div x-show="overtimeListTab === 'mine'">
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Ca trực</th><th>Số nhân viên</th><th>Trạng thái</th><th></th></tr></thead>
+          <tbody>
+            <template x-for="l in myOvertimeLists" :key="l.OvertimeListID">
+              <tr>
+                <td x-text="l.DepartmentID ? departmentNameById(l.DepartmentID) : l.OvertimeListID"></td>
+                <td x-text="overtimeListItemCounts[l.OvertimeListID] ?? '—'"></td>
+                <td><span class="badge" :class="overtimeListStatusBadgeClass(l.Status)" x-text="overtimeListStatusLabel(l.Status)"></span></td>
+                <td><button @click="openOvertimeListDetail(l)" class="btn-link">Chi tiết</button></td>
+              </tr>
+            </template>
+            <template x-if="myOvertimeLists.length === 0">
+              <tr><td colspan="4" class="text-xs holo-text-dim py-4">Bạn chưa lập danh sách làm ngoài giờ nào.</td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div x-show="overtimeListTab === 'khnv'">
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Khoa/Phòng</th><th>Người lập</th><th>Trạng thái</th><th></th></tr></thead>
+          <tbody>
+            <template x-for="l in pendingOvertimeListsForKhNv" :key="l.OvertimeListID">
+              <tr>
+                <td x-text="departmentNameById(l.DepartmentID)"></td>
+                <td x-text="userEmailById(l.SubmittedByUserID)"></td>
+                <td><span class="badge" :class="overtimeListStatusBadgeClass(l.Status)" x-text="overtimeListStatusLabel(l.Status)"></span></td>
+                <td><button @click="openOvertimeListDetail(l)" class="btn-link">Chi tiết</button></td>
+              </tr>
+            </template>
+            <template x-if="pendingOvertimeListsForKhNv.length === 0">
+              <tr><td colspan="4" class="text-xs holo-text-dim py-4">Không có danh sách nào đang chờ xử lý.</td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Chi tiết danh sách làm ngoài giờ -->
+  <div x-show="modalOpen === 'overtimeListDetail'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal modal-lg" x-show="currentOvertimeList">
+      <div class="modal-header">
+        <h2>Danh sách làm ngoài giờ</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body space-y-4" x-show="currentOvertimeList">
+        <div class="flex items-center justify-between">
+          <span class="badge" :class="currentOvertimeList && overtimeListStatusBadgeClass(currentOvertimeList.list.Status)" x-text="currentOvertimeList && overtimeListStatusLabel(currentOvertimeList.list.Status)"></span>
+          <div class="flex gap-2 flex-wrap justify-end">
+            <button x-show="currentOvertimeList && isOvertimeListMine(currentOvertimeList.list) && isOvertimeListEditable(currentOvertimeList.list)" @click="openAddOvertimeListItemModal()" class="btn btn-secondary btn-sm">+ Thêm nhân viên</button>
+            <button x-show="currentOvertimeList && isOvertimeListMine(currentOvertimeList.list) && isOvertimeListEditable(currentOvertimeList.list)" @click="submitOvertimeListAction()" class="btn btn-primary btn-sm">Gửi Phòng KH-NV</button>
+            <button x-show="currentOvertimeList && currentOvertimeList.list.Status === 'SUBMITTED' && (isKhNv || isSuperAdmin)" @click="receiveOvertimeListAction()" class="btn btn-secondary btn-sm">Tiếp nhận</button>
+            <button x-show="currentOvertimeList && currentOvertimeList.list.Status === 'KHNV_RECEIVED' && (isKhNv || isSuperAdmin)" @click="markOvertimeListUnderReviewAction()" class="btn btn-secondary btn-sm">Bắt đầu kiểm tra</button>
+            <button x-show="currentOvertimeList && ['SUBMITTED','KHNV_RECEIVED','UNDER_REVIEW'].includes(currentOvertimeList.list.Status) && (isKhNv || isSuperAdmin)" @click="requestOvertimeListRevisionAction()" class="btn btn-secondary btn-sm">Yêu cầu bổ sung</button>
+            <button x-show="currentOvertimeList && currentOvertimeList.list.Status === 'UNDER_REVIEW' && (isKhNv || isSuperAdmin)" @click="finalizeOvertimeListAction()" class="btn btn-primary btn-sm">Chốt danh sách</button>
+            <button x-show="currentOvertimeList && currentOvertimeList.list.Status === 'FINALIZED' && isOvertimeListMine(currentOvertimeList.list) && !currentOvertimeList.list.UnlockRequestedAt" @click="requestOvertimeListUnlockAction()" class="btn btn-secondary btn-sm">Yêu cầu mở khoá</button>
+            <button x-show="currentOvertimeList && currentOvertimeList.list.Status === 'FINALIZED' && currentOvertimeList.list.UnlockRequestedAt && (isKhNv || isSuperAdmin)" @click="approveOvertimeListUnlockAction()" class="btn btn-primary btn-sm">Duyệt mở khoá</button>
+          </div>
+        </div>
+
+        <template x-if="currentOvertimeList && currentOvertimeList.list.UnlockRequestedAt && currentOvertimeList.list.Status === 'FINALIZED'">
+          <div class="notice notice-warning">
+            <span class="notice-icon">⚠</span>
+            <span x-text="'Đang chờ duyệt mở khoá — Lý do: ' + currentOvertimeList.list.UnlockReason"></span>
+          </div>
+        </template>
+        <template x-if="currentOvertimeList && currentOvertimeList.list.ReviewComment && currentOvertimeList.list.Status === 'NEED_REVISION'">
+          <div class="notice notice-info">
+            <span class="notice-icon">ℹ</span>
+            <span x-text="'Ý kiến Phòng KH-NV: ' + currentOvertimeList.list.ReviewComment"></span>
+          </div>
+        </template>
+
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Nhân viên</th><th>Khoa/Phòng</th><th>Ngày</th><th>Thời gian</th><th>Nội dung</th><th x-show="currentOvertimeList && isOvertimeListMine(currentOvertimeList.list) && isOvertimeListEditable(currentOvertimeList.list)"></th></tr></thead>
+            <tbody>
+              <template x-for="item in (currentOvertimeList ? currentOvertimeList.items : [])" :key="item.OvertimeListItemID">
+                <tr>
+                  <td x-text="employeeNameById(item.EmployeeID)"></td>
+                  <td x-text="departmentNameById(item.DepartmentID)"></td>
+                  <td x-text="item.WorkDate"></td>
+                  <td x-text="item.StartTime + ' - ' + item.EndTime"></td>
+                  <td>
+                    <div x-text="item.WorkDescription"></div>
+                    <template x-for="w in (currentOvertimeList.warnings[item.OvertimeListItemID] || [])" :key="w.type">
+                      <div class="text-xs" style="color:#b45309" x-text="'⚠ ' + w.message"></div>
+                    </template>
+                  </td>
+                  <td x-show="currentOvertimeList && isOvertimeListMine(currentOvertimeList.list) && isOvertimeListEditable(currentOvertimeList.list)">
+                    <button @click="removeOvertimeListItemAction(item)" class="btn-link">Xoá</button>
+                  </td>
+                </tr>
+              </template>
+              <template x-if="currentOvertimeList && currentOvertimeList.items.length === 0">
+                <tr><td colspan="6" class="text-xs holo-text-dim py-4">Chưa có nhân viên nào trong danh sách.</td></tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Thêm nhân viên vào danh sách làm ngoài giờ -->
+  <div x-show="modalOpen === 'addOvertimeListItem'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Thêm nhân viên làm ngoài giờ</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="required">Nhân viên</label>
+          <select x-model="addOvertimeListItemForm.employeeId" class="form-control">
+            <option value="">-- Chọn nhân viên --</option>
+            <template x-for="e in employees" :key="e.EmployeeID">
+              <option :value="e.EmployeeID" x-text="e.FullName + ' — ' + departmentNameById(e.DepartmentID)"></option>
+            </template>
+          </select>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="required">Ngày</label>
+            <input type="date" x-model="addOvertimeListItemForm.workDate" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="required">Giờ bắt đầu</label>
+            <input type="time" x-model="addOvertimeListItemForm.startTime" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="required">Giờ kết thúc</label>
+            <input type="time" x-model="addOvertimeListItemForm.endTime" class="form-control">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Nội dung công việc</label>
+          <input type="text" x-model="addOvertimeListItemForm.workDescription" class="form-control">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="addOvertimeListItemAction()" :disabled="addingOvertimeListItem || !addOvertimeListItemForm.employeeId || !addOvertimeListItemForm.workDate || !addOvertimeListItemForm.startTime || !addOvertimeListItemForm.endTime" class="btn btn-primary">
+          <span x-text="addingOvertimeListItem ? 'Đang thêm...' : 'Thêm'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

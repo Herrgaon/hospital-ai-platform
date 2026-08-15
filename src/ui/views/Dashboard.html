@@ -10,17 +10,17 @@
   </div>
 
   <!-- §33 đặc tả KPI + Quản lý Trực V1: khi đang là Trưởng trực ca hiện tại, hiển thị ngay ở Dashboard,
-       không bắt người dùng tìm trong menu. Nút "Lập danh sách làm ngoài giờ" sẽ nối vào đây khi module
-       Làm ngoài giờ riêng (Giai đoạn 4) hoàn thành. -->
+       không bắt người dùng tìm trong menu. -->
   <template x-if="myActiveDutyLeaderShift">
     <div class="notice notice-info mb-4">
       <span class="notice-icon">★</span>
-      <div>
+      <div class="flex-1">
         <strong>Bạn đang là Trưởng trực ca <span x-text="myActiveDutyLeaderShift.shift.ShiftDate"></span></strong>
         <div class="text-xs holo-text-dim mt-1">
           <span x-text="myActiveDutyLeaderShift.shift.ShiftStart + ' – ' + myActiveDutyLeaderShift.shift.ShiftEnd"></span>
           · <span x-text="departmentNameById(myActiveDutyLeaderShift.shift.DepartmentID)"></span>
         </div>
+        <button @click="go('overtimeList')" class="btn btn-primary btn-sm mt-2">Lập danh sách làm ngoài giờ</button>
       </div>
     </div>
   </template>

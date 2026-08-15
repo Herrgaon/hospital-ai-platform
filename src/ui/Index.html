@@ -30,6 +30,7 @@
         <a href="#swap" @click.prevent="go('swap')" class="app-nav-item" :class="active('swap')"><span class="app-nav-icon">⇄</span> Đổi trực</a>
         <a href="#attendance" @click.prevent="go('attendance')" class="app-nav-item" :class="active('attendance')"><span class="app-nav-icon">🕘</span> Chấm công</a>
         <a href="#overtime" @click.prevent="go('overtime')" class="app-nav-item" :class="active('overtime')"><span class="app-nav-icon">⏱</span> Làm thêm giờ</a>
+        <a href="#overtimeList" @click.prevent="go('overtimeList')" class="app-nav-item" :class="active('overtimeList')"><span class="app-nav-icon">🌙</span> DS ngoài giờ theo ca</a>
         <a href="#payroll" @click.prevent="go('payroll')" class="app-nav-item" x-show="canAnywhere('CanExport')" :class="active('payroll')"><span class="app-nav-icon">📊</span> Tổng hợp kế toán</a>
         <a href="#clinicalStats" @click.prevent="go('clinicalStats')" class="app-nav-item" :class="active('clinicalStats')"><span class="app-nav-icon">📈</span> Số liệu chuyên môn</a>
         <a href="#insurance" @click.prevent="go('insurance')" class="app-nav-item" :class="active('insurance')"><span class="app-nav-icon">🏥</span> BHYT / Xuất toán</a>
@@ -97,6 +98,7 @@
         <?!= include('ui/views/DutySwap') ?>
         <?!= include('ui/views/Attendance') ?>
         <?!= include('ui/views/Overtime') ?>
+        <?!= include('ui/views/OvertimeList') ?>
         <?!= include('ui/views/Payroll') ?>
         <?!= include('ui/views/ClinicalStats') ?>
         <?!= include('ui/views/InsuranceAudit') ?>

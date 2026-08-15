@@ -129,6 +129,21 @@ const GATEWAY_ACTIONS_ = {
   'overtime.listMine': function (user, params) { return listMyOvertime(user, params.dateFrom, params.dateTo); },
   'overtime.listByDepartment': function (user, params) { return listOvertimeByDepartment(user, params.departmentId, params.dateFrom, params.dateTo); },
 
+  'overtimeList.create': function (user, params) { return createOvertimeList(user, params.dutyShiftId); },
+  'overtimeList.addItem': function (user, params) { return addOvertimeListItem(user, params.overtimeListId, params); },
+  'overtimeList.updateItem': function (user, params) { return updateOvertimeListItem(user, params.overtimeListItemId, params.patch); },
+  'overtimeList.removeItem': function (user, params) { return removeOvertimeListItem(user, params.overtimeListItemId); },
+  'overtimeList.getDetail': function (user, params) { return getOvertimeListDetail(user, params.overtimeListId); },
+  'overtimeList.listMine': function (user) { return listMyOvertimeLists(user); },
+  'overtimeList.listPendingForKhNv': function (user) { return listPendingOvertimeListsForKhNv(user); },
+  'overtimeList.submit': function (user, params) { return submitOvertimeList(user, params.overtimeListId); },
+  'overtimeList.receive': function (user, params) { return receiveOvertimeList(user, params.overtimeListId); },
+  'overtimeList.markUnderReview': function (user, params) { return markOvertimeListUnderReview(user, params.overtimeListId); },
+  'overtimeList.requestRevision': function (user, params) { return requestOvertimeListRevision(user, params.overtimeListId, params.reason); },
+  'overtimeList.finalize': function (user, params) { return finalizeOvertimeList(user, params.overtimeListId); },
+  'overtimeList.requestUnlock': function (user, params) { return requestOvertimeListUnlock(user, params.overtimeListId, params.reason); },
+  'overtimeList.approveUnlock': function (user, params) { return approveOvertimeListUnlock(user, params.overtimeListId); },
+
   'payroll.dutySummary': function (user, params) { return getDutySummaryForMonth(user, params.departmentId, params.yearMonth); },
   'payroll.aggregation': function (user, params) { return getPayrollAggregationForMonth(user, params.departmentId, params.yearMonth); },
 

@@ -461,6 +461,78 @@ function api_listOvertimeByDepartment(token, departmentId, dateFrom, dateTo) {
   return listOvertimeByDepartment(user, departmentId, dateFrom, dateTo);
 }
 
+// --- Làm ngoài giờ theo ca trực (OvertimeList — §30-36, tách khỏi Overtime tự đề nghị ở trên) ---
+
+function api_createOvertimeList(token, dutyShiftId) {
+  const user = getCurrentUserFromToken_(token);
+  return createOvertimeList(user, dutyShiftId);
+}
+
+function api_addOvertimeListItem(token, overtimeListId, input) {
+  const user = getCurrentUserFromToken_(token);
+  return addOvertimeListItem(user, overtimeListId, input);
+}
+
+function api_updateOvertimeListItem(token, overtimeListItemId, patch) {
+  const user = getCurrentUserFromToken_(token);
+  return updateOvertimeListItem(user, overtimeListItemId, patch);
+}
+
+function api_removeOvertimeListItem(token, overtimeListItemId) {
+  const user = getCurrentUserFromToken_(token);
+  return removeOvertimeListItem(user, overtimeListItemId);
+}
+
+function api_getOvertimeListDetail(token, overtimeListId) {
+  const user = getCurrentUserFromToken_(token);
+  return getOvertimeListDetail(user, overtimeListId);
+}
+
+function api_listMyOvertimeLists(token) {
+  const user = getCurrentUserFromToken_(token);
+  return listMyOvertimeLists(user);
+}
+
+function api_listPendingOvertimeListsForKhNv(token) {
+  const user = getCurrentUserFromToken_(token);
+  return listPendingOvertimeListsForKhNv(user);
+}
+
+function api_submitOvertimeList(token, overtimeListId) {
+  const user = getCurrentUserFromToken_(token);
+  return submitOvertimeList(user, overtimeListId);
+}
+
+function api_receiveOvertimeList(token, overtimeListId) {
+  const user = getCurrentUserFromToken_(token);
+  return receiveOvertimeList(user, overtimeListId);
+}
+
+function api_markOvertimeListUnderReview(token, overtimeListId) {
+  const user = getCurrentUserFromToken_(token);
+  return markOvertimeListUnderReview(user, overtimeListId);
+}
+
+function api_requestOvertimeListRevision(token, overtimeListId, reason) {
+  const user = getCurrentUserFromToken_(token);
+  return requestOvertimeListRevision(user, overtimeListId, reason);
+}
+
+function api_finalizeOvertimeList(token, overtimeListId) {
+  const user = getCurrentUserFromToken_(token);
+  return finalizeOvertimeList(user, overtimeListId);
+}
+
+function api_requestOvertimeListUnlock(token, overtimeListId, reason) {
+  const user = getCurrentUserFromToken_(token);
+  return requestOvertimeListUnlock(user, overtimeListId, reason);
+}
+
+function api_approveOvertimeListUnlock(token, overtimeListId) {
+  const user = getCurrentUserFromToken_(token);
+  return approveOvertimeListUnlock(user, overtimeListId);
+}
+
 // --- Tổng hợp trực / Tổng hợp kế toán (Payroll Aggregation) ---
 
 function api_getDutySummaryForMonth(token, departmentId, yearMonth) {

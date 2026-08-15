@@ -1003,6 +1003,162 @@
           .api_rejectOvertime(this.authToken, o.OvertimeID, reason);
       },
 
+      // --- Làm ngoài giờ theo ca trực (OvertimeList — §30-36, tách khỏi Làm thêm giờ ở trên) ---
+      overtimeListTab: 'mine',
+      myOvertimeLists: [],
+      pendingOvertimeListsForKhNv: [],
+      overtimeListItemCounts: {},
+      currentOvertimeList: null,
+      creatingOvertimeList: false,
+      loadOvertimeListPageData() {
+        google.script.run
+          .withSuccessHandler((rows) => {
+            this.myOvertimeLists = rows;
+            rows.forEach((l) => this.refreshOvertimeListItemCount_(l.OvertimeListID));
+          })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listMyOvertimeLists(this.authToken);
+      },
+      refreshOvertimeListItemCount_(overtimeListId) {
+        google.script.run
+          .withSuccessHandler((detail) => { this.overtimeListItemCounts[overtimeListId] = detail.items.length; })
+          .withFailureHandler(() => {})
+          .api_getOvertimeListDetail(this.authToken, overtimeListId);
+      },
+      loadPendingOvertimeListsForKhNv() {
+        google.script.run
+          .withSuccessHandler((rows) => { this.pendingOvertimeListsForKhNv = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listPendingOvertimeListsForKhNv(this.authToken);
+      },
+      createOvertimeListForActiveShiftAction() {
+        if (!this.myActiveDutyLeaderShift) return;
+        this.creatingOvertimeList = true;
+        google.script.run
+          .withSuccessHandler((list) => {
+            this.creatingOvertimeList = false;
+            this.loadOvertimeListPageData();
+            this.openOvertimeListDetail(list);
+          })
+          .withFailureHandler((e) => {
+            this.creatingOvertimeList = false;
+            this.errorMessage = e.message;
+          })
+          .api_createOvertimeList(this.authToken, this.myActiveDutyLeaderShift.shift.DutyShiftID);
+      },
+      overtimeListStatusLabel(status) {
+        const map = {
+          DRAFT: 'Nháp', SUBMITTED: 'Đã gửi', KHNV_RECEIVED: 'KH-NV đã tiếp nhận',
+          UNDER_REVIEW: 'Đang kiểm tra', NEED_REVISION: 'Cần bổ sung', FINALIZED: 'Đã chốt'
+        };
+        return map[status] || status;
+      },
+      overtimeListStatusBadgeClass(status) {
+        const map = {
+          DRAFT: 'badge-gray', SUBMITTED: 'badge-cyan', KHNV_RECEIVED: 'badge-cyan',
+          UNDER_REVIEW: 'badge-orange', NEED_REVISION: 'badge-red', FINALIZED: 'badge-green'
+        };
+        return map[status] || 'badge-gray';
+      },
+      isOvertimeListMine(list) {
+        return list.SubmittedByUserID === this.currentUser.UserID;
+      },
+      isOvertimeListEditable(list) {
+        return list.Status === 'DRAFT' || list.Status === 'NEED_REVISION';
+      },
+      openOvertimeListDetail(l) {
+        google.script.run
+          .withSuccessHandler((detail) => {
+            this.currentOvertimeList = detail;
+            this.openModal('overtimeListDetail');
+          })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_getOvertimeListDetail(this.authToken, l.OvertimeListID);
+      },
+      refreshCurrentOvertimeListDetail_() {
+        google.script.run
+          .withSuccessHandler((detail) => {
+            this.currentOvertimeList = detail;
+            this.overtimeListItemCounts[detail.list.OvertimeListID] = detail.items.length;
+          })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_getOvertimeListDetail(this.authToken, this.currentOvertimeList.list.OvertimeListID);
+      },
+      addOvertimeListItemForm: { employeeId: '', workDate: '', startTime: '', endTime: '', workDescription: '' },
+      addingOvertimeListItem: false,
+      openAddOvertimeListItemModal() {
+        this.addOvertimeListItemForm = { employeeId: '', workDate: '', startTime: '', endTime: '', workDescription: '' };
+        this.openModal('addOvertimeListItem');
+      },
+      addOvertimeListItemAction() {
+        this.addingOvertimeListItem = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.addingOvertimeListItem = false;
+            this.closeModal();
+            this.refreshCurrentOvertimeListDetail_();
+            this.openModal('overtimeListDetail');
+          })
+          .withFailureHandler((e) => {
+            this.addingOvertimeListItem = false;
+            this.errorMessage = e.message;
+          })
+          .api_addOvertimeListItem(this.authToken, this.currentOvertimeList.list.OvertimeListID, this.addOvertimeListItemForm);
+      },
+      removeOvertimeListItemAction(item) {
+        if (!confirm('Xoá nhân viên ' + this.employeeNameById(item.EmployeeID) + ' khỏi danh sách?')) return;
+        google.script.run
+          .withSuccessHandler(() => { this.refreshCurrentOvertimeListDetail_(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_removeOvertimeListItem(this.authToken, item.OvertimeListItemID);
+      },
+      submitOvertimeListAction() {
+        google.script.run
+          .withSuccessHandler(() => { this.toast('success', 'Đã gửi Phòng KH-NV.'); this.refreshCurrentOvertimeListDetail_(); this.loadOvertimeListPageData(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_submitOvertimeList(this.authToken, this.currentOvertimeList.list.OvertimeListID);
+      },
+      receiveOvertimeListAction() {
+        google.script.run
+          .withSuccessHandler(() => { this.refreshCurrentOvertimeListDetail_(); this.loadPendingOvertimeListsForKhNv(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_receiveOvertimeList(this.authToken, this.currentOvertimeList.list.OvertimeListID);
+      },
+      markOvertimeListUnderReviewAction() {
+        google.script.run
+          .withSuccessHandler(() => { this.refreshCurrentOvertimeListDetail_(); this.loadPendingOvertimeListsForKhNv(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_markOvertimeListUnderReview(this.authToken, this.currentOvertimeList.list.OvertimeListID);
+      },
+      requestOvertimeListRevisionAction() {
+        const reason = prompt('Lý do yêu cầu bổ sung:');
+        if (reason === null) return;
+        google.script.run
+          .withSuccessHandler(() => { this.toast('info', 'Đã yêu cầu bổ sung.'); this.refreshCurrentOvertimeListDetail_(); this.loadPendingOvertimeListsForKhNv(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_requestOvertimeListRevision(this.authToken, this.currentOvertimeList.list.OvertimeListID, reason);
+      },
+      finalizeOvertimeListAction() {
+        google.script.run
+          .withSuccessHandler(() => { this.toast('success', 'Đã chốt danh sách.'); this.refreshCurrentOvertimeListDetail_(); this.loadPendingOvertimeListsForKhNv(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_finalizeOvertimeList(this.authToken, this.currentOvertimeList.list.OvertimeListID);
+      },
+      requestOvertimeListUnlockAction() {
+        const reason = prompt('Lý do yêu cầu mở khoá:');
+        if (!reason) return;
+        google.script.run
+          .withSuccessHandler(() => { this.toast('info', 'Đã gửi yêu cầu mở khoá.'); this.refreshCurrentOvertimeListDetail_(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_requestOvertimeListUnlock(this.authToken, this.currentOvertimeList.list.OvertimeListID, reason);
+      },
+      approveOvertimeListUnlockAction() {
+        google.script.run
+          .withSuccessHandler(() => { this.toast('success', 'Đã mở khoá.'); this.refreshCurrentOvertimeListDetail_(); this.loadPendingOvertimeListsForKhNv(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_approveOvertimeListUnlock(this.authToken, this.currentOvertimeList.list.OvertimeListID);
+      },
+
       // --- Tổng hợp kế toán ---
       payrollYearMonth: '',
       payrollDepartmentFilter: '',

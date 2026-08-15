@@ -45,6 +45,14 @@ function diagListDutyPositions() {
   return getSheetRepository(SHEETS.DUTY_POSITIONS).findAll();
 }
 
+function diagListOvertimeLists() {
+  return getSheetRepository(SHEETS.OVERTIME_LISTS).findAll();
+}
+
+function diagListOvertimeListItems() {
+  return getSheetRepository(SHEETS.OVERTIME_LIST_ITEMS).findAll();
+}
+
 // --- Auth Gateway (Auth.Password.gs / Auth.Token.gs / Auth.Gateway.gs) ---
 
 function diagHashPassword(plainPassword) {

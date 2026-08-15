@@ -18,6 +18,8 @@ const SHEETS = {
   ATTENDANCE: 'Attendance',
   ATTENDANCE_ADJUSTMENTS: 'AttendanceAdjustments',
   OVERTIME: 'Overtime',
+  OVERTIME_LISTS: 'OvertimeLists',
+  OVERTIME_LIST_ITEMS: 'OvertimeListItems',
   MONTHLY_CLINICAL_STATS: 'MonthlyClinicalStats',
   INSURANCE_AUDITS: 'InsuranceAudits',
   KPI_RULES: 'KpiRules',
@@ -141,14 +143,36 @@ const SCHEMA = {
     'CreatedAt', 'UpdatedAt'
   ],
 
-  // Làm thêm giờ/Làm ngoài giờ dùng chung 1 sheet, phân biệt bằng OvertimeType — cùng hình dạng dữ
-  // liệu (người làm/ngày/thời gian/lý do/công việc/trạng thái duyệt), khác nhau ở BẢN CHẤT phân loại,
-  // không cần 2 bảng riêng (YAGNI). OvertimeType: LAM_THEM_GIO | LAM_NGOAI_GIO.
+  // Làm thêm giờ tự đề nghị (LAM_THEM_GIO) — nhân viên/quản lý tự tạo, duyệt đơn giản 1 bước, KHÔNG
+  // gắn với ca trực. KHÁC "Làm ngoài giờ theo ca trực" (§30-36 đặc tả KPI + Quản lý Trực V1) — đúng
+  // §17 "3 loại dữ liệu phải tách riêng, không gộp thành 1 bảng", luồng đó có sheet + quy trình riêng ở
+  // SHEETS.OVERTIME_LISTS/OVERTIME_LIST_ITEMS (17_OvertimeList/), do Trưởng trực lập theo đúng phạm vi
+  // ca được phân công (quyền tự động từ DutySchedule.RoleGrant.gs, không qua Permissions sheet).
   [SHEETS.OVERTIME]: [
     'OvertimeID', 'EmployeeID', 'DepartmentID', 'WorkDate', 'StartTime', 'EndTime', 'Hours',
     'OvertimeType', 'Reason', 'WorkDescription', 'Status',
     'ApprovedByUserID', 'ApprovedAt', 'RejectedByUserID', 'RejectedAt', 'RejectionReason',
     'CreatedAt', 'UpdatedAt'
+  ],
+
+  // Làm ngoài giờ theo ca trực — đúng §30-36: Trưởng trực (quyền tự động theo ca, xem
+  // DutySchedule.RoleGrant.gs) lập 1 danh sách cho ca mình phụ trách, KH-NV tiếp nhận/kiểm tra/chốt.
+  // Status: DRAFT -> SUBMITTED -> KHNV_RECEIVED -> UNDER_REVIEW -> (NEED_REVISION -> DRAFT lại) ->
+  // FINALIZED. Unlock*: yêu cầu/duyệt mở khoá để sửa sau khi đã chốt (§36) — KHÔNG tự động khoá theo
+  // thời hạn (chưa có giá trị cấu hình được duyệt, xem DutySchedule.RoleGrant.gs quy tắc "không tự suy
+  // đoán").
+  [SHEETS.OVERTIME_LISTS]: [
+    'OvertimeListID', 'DutyShiftID', 'DepartmentID', 'SubmittedByUserID', 'Status',
+    'SubmittedAt', 'ReceivedByUserID', 'ReceivedAt', 'ReviewComment',
+    'FinalizedByUserID', 'FinalizedAt',
+    'UnlockRequestedByUserID', 'UnlockRequestedAt', 'UnlockReason', 'UnlockedByUserID', 'UnlockedAt',
+    'CreatedAt', 'UpdatedAt'
+  ],
+  // Mỗi dòng = 1 nhân viên làm ngoài giờ trong danh sách — đúng bảng ví dụ §30 (Nhân viên/Khoa/Thời
+  // gian/Nội dung), dữ liệu nhân sự lấy từ Employees (§30 "không nhập lại họ tên/chức danh thủ công").
+  [SHEETS.OVERTIME_LIST_ITEMS]: [
+    'OvertimeListItemID', 'OvertimeListID', 'EmployeeID', 'DepartmentID',
+    'WorkDate', 'StartTime', 'EndTime', 'WorkDescription', 'CreatedAt', 'UpdatedAt'
   ],
 
   // Số liệu hoạt động chuyên môn theo tháng — Giai đoạn 3. CHỈ số liệu tổng hợp (không có tên/mã bệnh
@@ -229,6 +253,7 @@ const PLAIN_TEXT_COLUMNS = {
   [SHEETS.DUTY_SHIFTS]: ['ShiftDate', 'ShiftStart', 'ShiftEnd'],
   [SHEETS.ATTENDANCE]: ['WorkDate', 'CheckIn', 'CheckOut'],
   [SHEETS.OVERTIME]: ['WorkDate', 'StartTime', 'EndTime'],
+  [SHEETS.OVERTIME_LIST_ITEMS]: ['WorkDate', 'StartTime', 'EndTime'],
   [SHEETS.MONTHLY_CLINICAL_STATS]: ['YearMonth'],
   [SHEETS.INSURANCE_AUDITS]: ['YearMonth'],
   [SHEETS.KPI_RULES]: ['EffectiveFrom', 'EffectiveTo'],
