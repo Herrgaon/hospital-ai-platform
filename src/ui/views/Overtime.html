@@ -1,0 +1,150 @@
+<div x-show="currentView === 'overtime'" x-init="if (currentView === 'overtime') loadMyOvertimeAction();" class="max-w-5xl mx-auto">
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-header-icon">⏱</div>
+      <div>
+        <h1 class="page-title-text">LÀM THÊM GIỜ / LÀM NGOÀI GIỜ</h1>
+        <p class="page-subtitle">Khác với Trực — theo dõi riêng, không lẫn vào Lịch trực tuần</p>
+      </div>
+    </div>
+    <div class="page-header-actions" x-show="canAnywhere('CanCreate')">
+      <button @click="openRequestOvertimeModal()" class="btn btn-primary">+ Đề nghị làm thêm</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button @click="overtimeTab = 'mine'" class="tab" :class="overtimeTab === 'mine' ? 'active' : ''">Của tôi</button>
+    <button @click="overtimeTab = 'department'" class="tab" :class="overtimeTab === 'department' ? 'active' : ''">Theo khoa/phòng</button>
+  </div>
+
+  <div x-show="overtimeTab === 'mine'">
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Ngày</th><th>Loại</th><th>Thời gian</th><th>Số giờ</th><th>Trạng thái</th></tr></thead>
+          <tbody>
+            <template x-for="o in myOvertime" :key="o.OvertimeID">
+              <tr>
+                <td x-text="o.WorkDate"></td>
+                <td><span class="badge badge-gray" x-text="o.OvertimeType === 'LAM_THEM_GIO' ? 'Làm thêm giờ' : 'Làm ngoài giờ'"></span></td>
+                <td x-text="(o.StartTime || '') + (o.EndTime ? ' - ' + o.EndTime : '')"></td>
+                <td x-text="o.Hours"></td>
+                <td><span class="badge" :class="o.Status === 'APPROVED' ? 'badge-green' : (o.Status === 'REJECTED' ? 'badge-red' : 'badge-orange')" x-text="o.Status"></span></td>
+              </tr>
+            </template>
+            <template x-if="myOvertime.length === 0">
+              <tr><td colspan="5" class="text-xs holo-text-dim py-4">Chưa có đề nghị làm thêm nào.</td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div x-show="overtimeTab === 'department'">
+    <div class="toolbar">
+      <div class="filter-group">
+        <select x-model="overtimeDepartmentFilter" @change="loadDepartmentOvertimeAction()" class="filter-select">
+          <option value="">-- Chọn khoa/phòng --</option>
+          <template x-for="d in departments" :key="d.DepartmentID">
+            <option :value="d.DepartmentID" x-text="d.DepartmentName"></option>
+          </template>
+        </select>
+      </div>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Ngày</th><th>Nhân viên</th><th>Loại</th><th>Số giờ</th><th>Trạng thái</th><th></th></tr></thead>
+          <tbody>
+            <template x-for="o in departmentOvertime" :key="o.OvertimeID">
+              <tr>
+                <td x-text="o.WorkDate"></td>
+                <td x-text="employeeNameById(o.EmployeeID)"></td>
+                <td><span class="badge badge-gray" x-text="o.OvertimeType === 'LAM_THEM_GIO' ? 'Làm thêm giờ' : 'Làm ngoài giờ'"></span></td>
+                <td x-text="o.Hours"></td>
+                <td><span class="badge" :class="o.Status === 'APPROVED' ? 'badge-green' : (o.Status === 'REJECTED' ? 'badge-red' : 'badge-orange')" x-text="o.Status"></span></td>
+                <td class="flex gap-2" x-show="o.Status === 'PENDING'">
+                  <button @click="approveOvertimeAction(o)" class="btn-link">Duyệt</button>
+                  <button @click="rejectOvertimeAction(o)" class="btn-link">Từ chối</button>
+                </td>
+              </tr>
+            </template>
+            <template x-if="overtimeDepartmentFilter && departmentOvertime.length === 0">
+              <tr><td colspan="6" class="text-xs holo-text-dim py-4">Khoa/phòng này chưa có đề nghị làm thêm nào.</td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Đề nghị làm thêm -->
+  <div x-show="modalOpen === 'requestOvertime'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Đề nghị làm thêm</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="required">Khoa/Phòng</label>
+          <select x-model="requestOvertimeForm.departmentId" @change="requestOvertimeForm.employeeId = ''" class="form-control">
+            <option value="">-- Chọn khoa/phòng --</option>
+            <template x-for="d in departments.filter(d => can(d.DepartmentID, 'CanCreate'))" :key="d.DepartmentID">
+              <option :value="d.DepartmentID" x-text="d.DepartmentName"></option>
+            </template>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="required">Nhân viên</label>
+          <select x-model="requestOvertimeForm.employeeId" class="form-control">
+            <option value="">-- Chọn nhân viên --</option>
+            <template x-for="e in employeesByDepartment(requestOvertimeForm.departmentId)" :key="e.EmployeeID">
+              <option :value="e.EmployeeID" x-text="e.FullName"></option>
+            </template>
+          </select>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="required">Ngày</label>
+            <input type="date" x-model="requestOvertimeForm.workDate" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="required">Loại</label>
+            <select x-model="requestOvertimeForm.overtimeType" class="form-control">
+              <option value="LAM_THEM_GIO">Làm thêm giờ</option>
+              <option value="LAM_NGOAI_GIO">Làm ngoài giờ</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Giờ bắt đầu</label>
+            <input type="time" x-model="requestOvertimeForm.startTime" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Giờ kết thúc</label>
+            <input type="time" x-model="requestOvertimeForm.endTime" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="required">Số giờ</label>
+            <input type="number" step="0.5" x-model.number="requestOvertimeForm.hours" class="form-control">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Công việc thực hiện</label>
+          <input type="text" x-model="requestOvertimeForm.workDescription" class="form-control">
+        </div>
+        <div class="form-group">
+          <label>Lý do</label>
+          <textarea x-model="requestOvertimeForm.reason" class="form-control" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="requestOvertimeAction()" :disabled="requestingOvertime || !requestOvertimeForm.departmentId || !requestOvertimeForm.employeeId || !requestOvertimeForm.workDate || !requestOvertimeForm.hours" class="btn btn-primary">
+          <span x-text="requestingOvertime ? 'Đang gửi...' : 'Gửi đề nghị'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

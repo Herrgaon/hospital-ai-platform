@@ -13,6 +13,9 @@ const SHEETS = {
   DUTY_SCHEDULES: 'DutySchedules',
   DUTY_SHIFTS: 'DutyShifts',
   DUTY_SWAP_REQUESTS: 'DutySwapRequests',
+  ATTENDANCE: 'Attendance',
+  ATTENDANCE_ADJUSTMENTS: 'AttendanceAdjustments',
+  OVERTIME: 'Overtime',
   AI_PROVIDERS: 'AIProviders',
   AI_PROVIDER_CONFIG: 'AIProviderConfig',
   AI_PROVIDER_KEY_HISTORY: 'AIProviderKeyHistory',
@@ -101,6 +104,35 @@ const SCHEMA = {
     'CreatedAt', 'UpdatedAt'
   ],
 
+  // Chấm công — Giai đoạn 2. Status: OPEN (còn sửa được trực tiếp) | LOCKED (đã chốt, mọi thay đổi
+  // phải qua AttendanceAdjustments, không sửa thẳng — đúng yêu cầu "không sửa âm thầm dữ liệu đã chốt").
+  [SHEETS.ATTENDANCE]: [
+    'AttendanceID', 'EmployeeID', 'DepartmentID', 'WorkDate', 'ShiftType',
+    'CheckIn', 'CheckOut', 'LeaveType', 'WorkUnits', 'Status', 'Notes',
+    'RecordedByUserID', 'CreatedAt', 'UpdatedAt'
+  ],
+
+  // Điều chỉnh công — sub-workflow độc lập, giữ nguyên giá trị cũ/mới để có lịch sử đầy đủ.
+  // Status: REQUESTED -> DEPT_HEAD_CONFIRMED -> APPROVED (hoặc REJECTED ở bước chờ nào).
+  [SHEETS.ATTENDANCE_ADJUSTMENTS]: [
+    'AdjustmentID', 'AttendanceID', 'RequestedByUserID', 'Reason',
+    'OriginalCheckIn', 'OriginalCheckOut', 'OriginalLeaveType', 'OriginalWorkUnits',
+    'RequestedCheckIn', 'RequestedCheckOut', 'RequestedLeaveType', 'RequestedWorkUnits',
+    'Status', 'RequestedAt', 'DeptHeadConfirmedByUserID', 'DeptHeadConfirmedAt',
+    'ApprovedByUserID', 'ApprovedAt', 'RejectedByUserID', 'RejectedAt', 'RejectionReason',
+    'CreatedAt', 'UpdatedAt'
+  ],
+
+  // Làm thêm giờ/Làm ngoài giờ dùng chung 1 sheet, phân biệt bằng OvertimeType — cùng hình dạng dữ
+  // liệu (người làm/ngày/thời gian/lý do/công việc/trạng thái duyệt), khác nhau ở BẢN CHẤT phân loại,
+  // không cần 2 bảng riêng (YAGNI). OvertimeType: LAM_THEM_GIO | LAM_NGOAI_GIO.
+  [SHEETS.OVERTIME]: [
+    'OvertimeID', 'EmployeeID', 'DepartmentID', 'WorkDate', 'StartTime', 'EndTime', 'Hours',
+    'OvertimeType', 'Reason', 'WorkDescription', 'Status',
+    'ApprovedByUserID', 'ApprovedAt', 'RejectedByUserID', 'RejectedAt', 'RejectionReason',
+    'CreatedAt', 'UpdatedAt'
+  ],
+
   [SHEETS.AI_PROVIDERS]: ['ProviderID', 'ProviderName', 'BaseURL', 'IsActive'],
   [SHEETS.AI_PROVIDER_CONFIG]: ['ConfigID', 'ProviderID', 'ModelName', 'ApiKeySecretRef', 'Temperature', 'MaxTokens', 'Timeout', 'IsDefault', 'UpdatedByUserID', 'UpdatedAt'],
   [SHEETS.AI_PROVIDER_KEY_HISTORY]: ['HistoryID', 'ConfigID', 'ChangedByUserID', 'ChangedAt', 'Action'],
@@ -139,6 +171,7 @@ const DRIVE_FOLDERS = {
   SYSTEM_LOGS: 'Logs',
   SYSTEM_BACKUPS: 'Backups',
   SYSTEM_AVATARS: 'Avatars',
+  SYSTEM_EXPORTS: 'Exports',
   UPLOADS: 'Uploads',
   UPLOADS_TASKS: 'TaskAttachments'
 };

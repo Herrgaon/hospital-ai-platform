@@ -23,3 +23,10 @@ function getAvatarsFolder() {
   const systemFolder = getOrCreateSubfolder(getRootFolder_(), DRIVE_FOLDERS.SYSTEM);
   return getOrCreateSubfolder(systemFolder, DRIVE_FOLDERS.SYSTEM_AVATARS);
 }
+
+// File Excel xuất ra (Audit Log, Tổng hợp kế toán...) — tách khỏi Logs (Logs dành cho bản sao lưu
+// Spreadsheet hệ thống, không phải file người dùng chủ động xuất ra).
+function getExportsFolder() {
+  const systemFolder = getOrCreateSubfolder(getRootFolder_(), DRIVE_FOLDERS.SYSTEM);
+  return getOrCreateSubfolder(systemFolder, DRIVE_FOLDERS.SYSTEM_EXPORTS);
+}

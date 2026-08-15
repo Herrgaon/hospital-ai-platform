@@ -740,6 +740,209 @@
           .api_rejectDutySwap(this.authToken, sw.SwapRequestID, reason);
       },
 
+      // --- Chấm công ---
+      attendanceTab: 'mine',
+      myAttendance: [],
+      departmentAttendance: [],
+      attendanceDepartmentFilter: '',
+      myAttendanceAdjustments: [],
+      pendingAttendanceAdjustmentConfirmations: [],
+      loadMyAttendanceAction() {
+        google.script.run
+          .withSuccessHandler((rows) => { this.myAttendance = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listMyAttendance(this.authToken, null, null);
+      },
+      loadDepartmentAttendanceAction() {
+        if (!this.attendanceDepartmentFilter) { this.departmentAttendance = []; return; }
+        google.script.run
+          .withSuccessHandler((rows) => { this.departmentAttendance = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listAttendanceByDepartment(this.authToken, this.attendanceDepartmentFilter, null, null);
+      },
+      loadPendingAttendanceAdjustmentConfirmationsAction() {
+        google.script.run
+          .withSuccessHandler((rows) => { this.pendingAttendanceAdjustmentConfirmations = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listPendingAttendanceAdjustmentConfirmations(this.authToken);
+        google.script.run
+          .withSuccessHandler((rows) => { this.myAttendanceAdjustments = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listMyAttendanceAdjustments(this.authToken);
+      },
+      newAttendanceForm: { departmentId: '', employeeId: '', workDate: '', shiftType: '', checkIn: '', checkOut: '', leaveType: '', workUnits: 1, notes: '' },
+      creatingAttendance: false,
+      openAddAttendanceModal() {
+        this.newAttendanceForm = { departmentId: '', employeeId: '', workDate: '', shiftType: '', checkIn: '', checkOut: '', leaveType: '', workUnits: 1, notes: '' };
+        this.openModal('addAttendance');
+      },
+      recordAttendanceAction() {
+        this.creatingAttendance = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.creatingAttendance = false;
+            this.closeModal();
+            this.toast('success', 'Đã ghi nhận công.');
+            this.loadMyAttendanceAction();
+            if (this.attendanceDepartmentFilter) this.loadDepartmentAttendanceAction();
+          })
+          .withFailureHandler((e) => {
+            this.creatingAttendance = false;
+            this.errorMessage = e.message;
+          })
+          .api_recordAttendance(this.authToken, this.newAttendanceForm);
+      },
+      requestAdjustmentForm: { attendance: null, requestedCheckIn: '', requestedCheckOut: '', reason: '' },
+      requestingAdjustment: false,
+      openRequestAdjustmentModal(a) {
+        this.requestAdjustmentForm = { attendance: a, requestedCheckIn: a.CheckIn, requestedCheckOut: a.CheckOut, reason: '' };
+        this.openModal('requestAttendanceAdjustment');
+      },
+      requestAttendanceAdjustmentAction() {
+        this.requestingAdjustment = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.requestingAdjustment = false;
+            this.closeModal();
+            this.toast('success', 'Đã gửi đề nghị điều chỉnh.');
+            this.loadPendingAttendanceAdjustmentConfirmationsAction();
+          })
+          .withFailureHandler((e) => {
+            this.requestingAdjustment = false;
+            this.errorMessage = e.message;
+          })
+          .api_requestAttendanceAdjustment(this.authToken, {
+            attendanceId: this.requestAdjustmentForm.attendance.AttendanceID,
+            requestedCheckIn: this.requestAdjustmentForm.requestedCheckIn,
+            requestedCheckOut: this.requestAdjustmentForm.requestedCheckOut,
+            reason: this.requestAdjustmentForm.reason
+          });
+      },
+      confirmAttendanceAdjustmentAction(adj) {
+        google.script.run
+          .withSuccessHandler(() => { this.toast('success', 'Đã xác nhận.'); this.loadPendingAttendanceAdjustmentConfirmationsAction(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_confirmAttendanceAdjustmentByDeptHead(this.authToken, adj.AdjustmentID);
+      },
+      approveAttendanceAdjustmentAction(adj) {
+        google.script.run
+          .withSuccessHandler(() => { this.toast('success', 'Đã duyệt điều chỉnh công.'); this.loadPendingAttendanceAdjustmentConfirmationsAction(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_approveAttendanceAdjustment(this.authToken, adj.AdjustmentID);
+      },
+      rejectAttendanceAdjustmentAction(adj) {
+        const reason = prompt('Lý do từ chối:');
+        if (reason === null) return;
+        google.script.run
+          .withSuccessHandler(() => { this.toast('info', 'Đã từ chối.'); this.loadPendingAttendanceAdjustmentConfirmationsAction(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_rejectAttendanceAdjustment(this.authToken, adj.AdjustmentID, reason);
+      },
+      lockRangeForm: { dateFrom: '', dateTo: '' },
+      lockingAttendance: false,
+      openLockAttendanceModal() {
+        this.lockRangeForm = { dateFrom: '', dateTo: '' };
+        this.openModal('lockAttendance');
+      },
+      lockAttendanceRangeAction() {
+        this.lockingAttendance = true;
+        google.script.run
+          .withSuccessHandler((result) => {
+            this.lockingAttendance = false;
+            this.closeModal();
+            this.toast('success', 'Đã chốt ' + result.lockedCount + ' dòng công.');
+            this.loadDepartmentAttendanceAction();
+          })
+          .withFailureHandler((e) => {
+            this.lockingAttendance = false;
+            this.errorMessage = e.message;
+          })
+          .api_lockAttendanceRange(this.authToken, this.attendanceDepartmentFilter, this.lockRangeForm.dateFrom, this.lockRangeForm.dateTo);
+      },
+
+      // --- Làm thêm giờ / Làm ngoài giờ ---
+      overtimeTab: 'mine',
+      myOvertime: [],
+      departmentOvertime: [],
+      overtimeDepartmentFilter: '',
+      loadMyOvertimeAction() {
+        google.script.run
+          .withSuccessHandler((rows) => { this.myOvertime = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listMyOvertime(this.authToken, null, null);
+      },
+      loadDepartmentOvertimeAction() {
+        if (!this.overtimeDepartmentFilter) { this.departmentOvertime = []; return; }
+        google.script.run
+          .withSuccessHandler((rows) => { this.departmentOvertime = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listOvertimeByDepartment(this.authToken, this.overtimeDepartmentFilter, null, null);
+      },
+      requestOvertimeForm: { departmentId: '', employeeId: '', workDate: '', overtimeType: 'LAM_THEM_GIO', startTime: '', endTime: '', hours: null, workDescription: '', reason: '' },
+      requestingOvertime: false,
+      openRequestOvertimeModal() {
+        this.requestOvertimeForm = { departmentId: '', employeeId: '', workDate: '', overtimeType: 'LAM_THEM_GIO', startTime: '', endTime: '', hours: null, workDescription: '', reason: '' };
+        this.openModal('requestOvertime');
+      },
+      requestOvertimeAction() {
+        this.requestingOvertime = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.requestingOvertime = false;
+            this.closeModal();
+            this.toast('success', 'Đã gửi đề nghị làm thêm.');
+            this.loadMyOvertimeAction();
+            if (this.overtimeDepartmentFilter) this.loadDepartmentOvertimeAction();
+          })
+          .withFailureHandler((e) => {
+            this.requestingOvertime = false;
+            this.errorMessage = e.message;
+          })
+          .api_requestOvertime(this.authToken, this.requestOvertimeForm);
+      },
+      approveOvertimeAction(o) {
+        google.script.run
+          .withSuccessHandler(() => { this.toast('success', 'Đã duyệt.'); this.loadDepartmentOvertimeAction(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_approveOvertime(this.authToken, o.OvertimeID);
+      },
+      rejectOvertimeAction(o) {
+        const reason = prompt('Lý do từ chối:');
+        if (reason === null) return;
+        google.script.run
+          .withSuccessHandler(() => { this.toast('info', 'Đã từ chối.'); this.loadDepartmentOvertimeAction(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_rejectOvertime(this.authToken, o.OvertimeID, reason);
+      },
+
+      // --- Tổng hợp kế toán ---
+      payrollYearMonth: '',
+      payrollDepartmentFilter: '',
+      payrollRows: [],
+      exportingPayroll: false,
+      payrollExportResult: null,
+      loadPayrollAggregationAction() {
+        if (!this.payrollYearMonth) return;
+        google.script.run
+          .withSuccessHandler((rows) => { this.payrollRows = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_getPayrollAggregationForMonth(this.authToken, this.payrollDepartmentFilter || null, this.payrollYearMonth);
+      },
+      exportPayrollAction() {
+        this.exportingPayroll = true;
+        google.script.run
+          .withSuccessHandler((result) => {
+            this.exportingPayroll = false;
+            this.payrollExportResult = result;
+            this.toast('success', 'Đã xuất Excel.');
+          })
+          .withFailureHandler((e) => {
+            this.exportingPayroll = false;
+            this.errorMessage = e.message;
+          })
+          .api_exportPayrollAggregationToExcel(this.authToken, this.payrollDepartmentFilter || null, this.payrollYearMonth);
+      },
+
       // --- Quản trị ---
       adminTab: 'users',
       newUserForm: { email: '', fullName: '', role: 'NHAN_VIEN' },

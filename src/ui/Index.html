@@ -28,6 +28,9 @@
         <a href="#clinical" @click.prevent="go('clinical')" class="app-nav-item" :class="active('clinical')"><span class="app-nav-icon">✚</span> Phân công</a>
         <a href="#duty" @click.prevent="go('duty')" class="app-nav-item" :class="active('duty')"><span class="app-nav-icon">▧</span> Lịch trực tuần</a>
         <a href="#swap" @click.prevent="go('swap')" class="app-nav-item" :class="active('swap')"><span class="app-nav-icon">⇄</span> Đổi trực</a>
+        <a href="#attendance" @click.prevent="go('attendance')" class="app-nav-item" :class="active('attendance')"><span class="app-nav-icon">🕘</span> Chấm công</a>
+        <a href="#overtime" @click.prevent="go('overtime')" class="app-nav-item" :class="active('overtime')"><span class="app-nav-icon">⏱</span> Làm thêm giờ</a>
+        <a href="#payroll" @click.prevent="go('payroll')" class="app-nav-item" x-show="canAnywhere('CanExport')" :class="active('payroll')"><span class="app-nav-icon">📊</span> Tổng hợp kế toán</a>
         <a href="#admin" @click.prevent="go('admin')" class="app-nav-item" x-show="isSuperAdmin" :class="active('admin')"><span class="app-nav-icon">⚙</span> Admin</a>
       </nav>
       <div class="app-sidebar-footer">● STATUS: ONLINE</div>
@@ -89,6 +92,9 @@
         <?!= include('ui/views/ClinicalAssignments') ?>
         <?!= include('ui/views/DutySchedule') ?>
         <?!= include('ui/views/DutySwap') ?>
+        <?!= include('ui/views/Attendance') ?>
+        <?!= include('ui/views/Overtime') ?>
+        <?!= include('ui/views/Payroll') ?>
         <?!= include('ui/views/Admin') ?>
       </main>
     </div>

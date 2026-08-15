@@ -90,6 +90,7 @@ function createRootFolderStructure_() {
   getOrCreateSubfolder(systemFolder, DRIVE_FOLDERS.SYSTEM_LOGS);
   getOrCreateSubfolder(systemFolder, DRIVE_FOLDERS.SYSTEM_BACKUPS);
   getOrCreateSubfolder(systemFolder, DRIVE_FOLDERS.SYSTEM_AVATARS);
+  getOrCreateSubfolder(systemFolder, DRIVE_FOLDERS.SYSTEM_EXPORTS);
   const uploadsFolder = getOrCreateSubfolder(root, DRIVE_FOLDERS.UPLOADS);
   getOrCreateSubfolder(uploadsFolder, DRIVE_FOLDERS.UPLOADS_TASKS);
   return root;

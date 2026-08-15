@@ -1,0 +1,62 @@
+<div x-show="currentView === 'payroll'" class="max-w-5xl mx-auto">
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-header-icon">📊</div>
+      <div>
+        <h1 class="page-title-text">TỔNG HỢP KẾ TOÁN</h1>
+        <p class="page-subtitle">Ngày công – trực – làm thêm theo tháng, phục vụ đối chiếu (không tính tiền)</p>
+      </div>
+    </div>
+    <div class="page-header-actions" x-show="payrollRows.length > 0 && canAnywhere('CanExport')">
+      <button @click="exportPayrollAction()" :disabled="exportingPayroll" class="btn btn-primary">
+        <span x-text="exportingPayroll ? 'Đang xuất...' : 'Xuất Excel'"></span>
+      </button>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="filter-group">
+      <input type="month" x-model="payrollYearMonth" class="filter-input">
+      <select x-model="payrollDepartmentFilter" class="filter-select">
+        <option value="">Toàn viện (cần quyền xem toàn viện)</option>
+        <template x-for="d in departments" :key="d.DepartmentID">
+          <option :value="d.DepartmentID" x-text="d.DepartmentName"></option>
+        </template>
+      </select>
+      <button @click="loadPayrollAggregationAction()" :disabled="!payrollYearMonth" class="btn btn-secondary btn-sm">Tổng hợp</button>
+    </div>
+  </div>
+
+  <template x-if="payrollExportResult">
+    <div class="notice notice-info mb-4">
+      <span class="notice-icon">ℹ</span>
+      <span>Đã xuất file — <a :href="payrollExportResult.url" target="_blank" class="btn-link">Mở file Excel</a></span>
+    </div>
+  </template>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr><th>Mã NV</th><th>Họ tên</th><th>Ngày công</th><th>Ngày nghỉ</th><th>Số ca trực</th><th>Giờ làm thêm</th><th>Giờ làm ngoài giờ</th></tr>
+        </thead>
+        <tbody>
+          <template x-for="r in payrollRows" :key="r.EmployeeID">
+            <tr>
+              <td class="font-tech" x-text="r.EmployeeCode"></td>
+              <td x-text="r.FullName"></td>
+              <td x-text="r.WorkDays"></td>
+              <td x-text="r.LeaveDays"></td>
+              <td x-text="r.DutyShiftCount"></td>
+              <td x-text="r.OvertimeHours"></td>
+              <td x-text="r.OutOfHoursHours"></td>
+            </tr>
+          </template>
+          <template x-if="payrollRows.length === 0">
+            <tr><td colspan="7" class="text-xs holo-text-dim py-4">Chọn tháng rồi bấm "Tổng hợp" để xem dữ liệu.</td></tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

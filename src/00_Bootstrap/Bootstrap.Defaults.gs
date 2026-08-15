@@ -27,7 +27,10 @@ function getDefaultPermissions_() {
     { RoleID: ROLE_NAMES.SUPER_ADMIN, DepartmentID: '*', CanView: true, CanCreate: true, CanEdit: true, CanDelete: true, CanSubmit: true, CanApprove: true, CanReject: true, CanPublish: true, CanLock: true, CanExport: true },
     { RoleID: ROLE_NAMES.BAN_GIAM_DOC, DepartmentID: '*', CanView: true, CanCreate: false, CanEdit: false, CanDelete: false, CanSubmit: false, CanApprove: false, CanReject: false, CanPublish: false, CanLock: false, CanExport: true },
     { RoleID: ROLE_NAMES.PHONG_KH_NV, DepartmentID: '*', CanView: true, CanCreate: false, CanEdit: false, CanDelete: false, CanSubmit: false, CanApprove: true, CanReject: true, CanPublish: true, CanLock: false, CanExport: true },
-    { RoleID: ROLE_NAMES.PHONG_TC_HC, DepartmentID: '*', CanView: true, CanCreate: false, CanEdit: false, CanDelete: false, CanSubmit: false, CanApprove: false, CanReject: false, CanPublish: false, CanLock: false, CanExport: true },
+    // CanApprove/CanReject (phạm vi '*'): bước duyệt cuối cùng cho Điều chỉnh công. CanLock: chốt
+    // chấm công hàng tháng — tập trung ở Phòng TC-HC, không giao cho từng Trưởng khoa/phòng (đúng vai
+    // trò quản lý hồ sơ nhân sự/chấm công trung tâm) — xem Attendance.Service.gs.
+    { RoleID: ROLE_NAMES.PHONG_TC_HC, DepartmentID: '*', CanView: true, CanCreate: false, CanEdit: false, CanDelete: false, CanSubmit: false, CanApprove: true, CanReject: true, CanPublish: false, CanLock: true, CanExport: true },
     { RoleID: ROLE_NAMES.PHONG_TC_KT, DepartmentID: '*', CanView: true, CanCreate: false, CanEdit: false, CanDelete: false, CanSubmit: false, CanApprove: false, CanReject: false, CanPublish: false, CanLock: false, CanExport: true },
     { RoleID: ROLE_NAMES.TRUONG_KHOA, DepartmentID: '*', CanView: false, CanCreate: false, CanEdit: false, CanDelete: false, CanSubmit: false, CanApprove: false, CanReject: false, CanPublish: false, CanLock: false, CanExport: false },
     { RoleID: ROLE_NAMES.PHO_KHOA, DepartmentID: '*', CanView: false, CanCreate: false, CanEdit: false, CanDelete: false, CanSubmit: false, CanApprove: false, CanReject: false, CanPublish: false, CanLock: false, CanExport: false },

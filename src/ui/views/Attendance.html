@@ -1,0 +1,266 @@
+<div x-show="currentView === 'attendance'" x-init="if (currentView === 'attendance') { loadMyAttendanceAction(); loadPendingAttendanceAdjustmentConfirmationsAction(); }" class="max-w-5xl mx-auto">
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-header-icon">🕘</div>
+      <div>
+        <h1 class="page-title-text">CHẤM CÔNG</h1>
+        <p class="page-subtitle">Ngày công, ca làm, nghỉ phép — dữ liệu đã chốt chỉ sửa được qua Điều chỉnh công</p>
+      </div>
+    </div>
+    <div class="page-header-actions" x-show="canAnywhere('CanCreate')">
+      <button @click="openAddAttendanceModal()" class="btn btn-primary">+ Ghi nhận công</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button @click="attendanceTab = 'mine'" class="tab" :class="attendanceTab === 'mine' ? 'active' : ''">Của tôi</button>
+    <button @click="attendanceTab = 'department'" class="tab" :class="attendanceTab === 'department' ? 'active' : ''">Theo khoa/phòng</button>
+    <button @click="attendanceTab = 'adjustments'" class="tab" :class="attendanceTab === 'adjustments' ? 'active' : ''">Điều chỉnh công</button>
+  </div>
+
+  <!-- Tab: Của tôi -->
+  <div x-show="attendanceTab === 'mine'">
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Ngày</th><th>Ca</th><th>Giờ vào</th><th>Giờ ra</th><th>Loại nghỉ</th><th>Trạng thái</th><th></th></tr></thead>
+          <tbody>
+            <template x-for="a in myAttendance" :key="a.AttendanceID">
+              <tr>
+                <td x-text="a.WorkDate"></td>
+                <td x-text="a.ShiftType"></td>
+                <td x-text="a.CheckIn"></td>
+                <td x-text="a.CheckOut"></td>
+                <td x-text="a.LeaveType"></td>
+                <td><span class="badge" :class="a.Status === 'LOCKED' ? 'badge-gray' : 'badge-green'" x-text="a.Status === 'LOCKED' ? 'Đã chốt' : 'Chưa chốt'"></span></td>
+                <td><button @click="openRequestAdjustmentModal(a)" class="btn-link">Đề nghị điều chỉnh</button></td>
+              </tr>
+            </template>
+            <template x-if="myAttendance.length === 0">
+              <tr><td colspan="7" class="text-xs holo-text-dim py-4">Chưa có dữ liệu chấm công.</td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Theo khoa/phòng -->
+  <div x-show="attendanceTab === 'department'">
+    <div class="toolbar">
+      <div class="filter-group">
+        <select x-model="attendanceDepartmentFilter" @change="loadDepartmentAttendanceAction()" class="filter-select">
+          <option value="">-- Chọn khoa/phòng --</option>
+          <template x-for="d in departments" :key="d.DepartmentID">
+            <option :value="d.DepartmentID" x-text="d.DepartmentName"></option>
+          </template>
+        </select>
+      </div>
+      <div class="toolbar-spacer"></div>
+      <button x-show="isSuperAdmin || isTcHc" @click="openLockAttendanceModal()" class="btn btn-secondary btn-sm">Chốt công theo khoảng ngày</button>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Ngày</th><th>Nhân viên</th><th>Ca</th><th>Giờ vào</th><th>Giờ ra</th><th>Loại nghỉ</th><th>Trạng thái</th></tr></thead>
+          <tbody>
+            <template x-for="a in departmentAttendance" :key="a.AttendanceID">
+              <tr>
+                <td x-text="a.WorkDate"></td>
+                <td x-text="employeeNameById(a.EmployeeID)"></td>
+                <td x-text="a.ShiftType"></td>
+                <td x-text="a.CheckIn"></td>
+                <td x-text="a.CheckOut"></td>
+                <td x-text="a.LeaveType"></td>
+                <td><span class="badge" :class="a.Status === 'LOCKED' ? 'badge-gray' : 'badge-green'" x-text="a.Status === 'LOCKED' ? 'Đã chốt' : 'Chưa chốt'"></span></td>
+              </tr>
+            </template>
+            <template x-if="attendanceDepartmentFilter && departmentAttendance.length === 0">
+              <tr><td colspan="7" class="text-xs holo-text-dim py-4">Khoa/phòng này chưa có dữ liệu chấm công.</td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Điều chỉnh công -->
+  <div x-show="attendanceTab === 'adjustments'" class="space-y-4">
+    <div class="card">
+      <div class="card-header"><h3>Cần bạn xử lý</h3></div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Người đề nghị</th><th>Lý do</th><th>Trạng thái</th><th></th></tr></thead>
+          <tbody>
+            <template x-for="adj in pendingAttendanceAdjustmentConfirmations" :key="adj.AdjustmentID">
+              <tr>
+                <td x-text="userEmailById(adj.RequestedByUserID)"></td>
+                <td x-text="adj.Reason"></td>
+                <td><span class="badge badge-orange" x-text="adj.Status === 'REQUESTED' ? 'Chờ trưởng khoa xác nhận' : 'Chờ Phòng TC-HC duyệt'"></span></td>
+                <td class="flex gap-2">
+                  <button x-show="adj.Status === 'REQUESTED'" @click="confirmAttendanceAdjustmentAction(adj)" class="btn-link">Xác nhận</button>
+                  <button x-show="adj.Status === 'DEPT_HEAD_CONFIRMED'" @click="approveAttendanceAdjustmentAction(adj)" class="btn-link">Duyệt</button>
+                  <button @click="rejectAttendanceAdjustmentAction(adj)" class="btn-link">Từ chối</button>
+                </td>
+              </tr>
+            </template>
+            <template x-if="pendingAttendanceAdjustmentConfirmations.length === 0">
+              <tr><td colspan="4" class="text-xs holo-text-dim py-4">Không có yêu cầu nào cần xử lý.</td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3>Yêu cầu của tôi</h3></div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Ngày đề nghị</th><th>Lý do</th><th>Trạng thái</th></tr></thead>
+          <tbody>
+            <template x-for="adj in myAttendanceAdjustments" :key="adj.AdjustmentID">
+              <tr>
+                <td x-text="adj.RequestedAt"></td>
+                <td x-text="adj.Reason"></td>
+                <td><span class="badge" :class="adj.Status === 'APPROVED' ? 'badge-green' : (adj.Status === 'REJECTED' ? 'badge-red' : 'badge-orange')" x-text="adj.Status"></span></td>
+              </tr>
+            </template>
+            <template x-if="myAttendanceAdjustments.length === 0">
+              <tr><td colspan="3" class="text-xs holo-text-dim py-4">Bạn chưa gửi yêu cầu điều chỉnh nào.</td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Ghi nhận công -->
+  <div x-show="modalOpen === 'addAttendance'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Ghi nhận công</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="required">Khoa/Phòng</label>
+          <select x-model="newAttendanceForm.departmentId" @change="newAttendanceForm.employeeId = ''" class="form-control">
+            <option value="">-- Chọn khoa/phòng --</option>
+            <template x-for="d in departments.filter(d => can(d.DepartmentID, 'CanCreate'))" :key="d.DepartmentID">
+              <option :value="d.DepartmentID" x-text="d.DepartmentName"></option>
+            </template>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="required">Nhân viên</label>
+          <select x-model="newAttendanceForm.employeeId" class="form-control">
+            <option value="">-- Chọn nhân viên --</option>
+            <template x-for="e in employeesByDepartment(newAttendanceForm.departmentId)" :key="e.EmployeeID">
+              <option :value="e.EmployeeID" x-text="e.FullName"></option>
+            </template>
+          </select>
+        </div>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="required">Ngày</label>
+            <input type="date" x-model="newAttendanceForm.workDate" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Ca</label>
+            <input type="text" x-model="newAttendanceForm.shiftType" class="form-control" placeholder="Hành chính, Ca sáng...">
+          </div>
+          <div class="form-group">
+            <label>Giờ vào</label>
+            <input type="time" x-model="newAttendanceForm.checkIn" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Giờ ra</label>
+            <input type="time" x-model="newAttendanceForm.checkOut" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Loại nghỉ (bỏ trống nếu đi làm)</label>
+            <select x-model="newAttendanceForm.leaveType" class="form-control">
+              <option value="">-- Đi làm --</option>
+              <option value="Nghỉ phép">Nghỉ phép</option>
+              <option value="Nghỉ lễ">Nghỉ lễ</option>
+              <option value="Nghỉ ốm">Nghỉ ốm</option>
+              <option value="Nghỉ không lương">Nghỉ không lương</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Số công</label>
+            <input type="number" step="0.5" x-model.number="newAttendanceForm.workUnits" class="form-control">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="recordAttendanceAction()" :disabled="creatingAttendance || !newAttendanceForm.departmentId || !newAttendanceForm.employeeId || !newAttendanceForm.workDate" class="btn btn-primary">
+          <span x-text="creatingAttendance ? 'Đang lưu...' : 'Lưu'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Đề nghị điều chỉnh công -->
+  <div x-show="modalOpen === 'requestAttendanceAdjustment'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Đề nghị điều chỉnh công</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body" x-show="requestAdjustmentForm.attendance">
+        <p class="text-sm holo-text-dim" x-text="requestAdjustmentForm.attendance && requestAdjustmentForm.attendance.WorkDate"></p>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label>Giờ vào đề nghị</label>
+            <input type="time" x-model="requestAdjustmentForm.requestedCheckIn" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Giờ ra đề nghị</label>
+            <input type="time" x-model="requestAdjustmentForm.requestedCheckOut" class="form-control">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="required">Lý do</label>
+          <textarea x-model="requestAdjustmentForm.reason" class="form-control" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="requestAttendanceAdjustmentAction()" :disabled="requestingAdjustment || !requestAdjustmentForm.reason" class="btn btn-primary">
+          <span x-text="requestingAdjustment ? 'Đang gửi...' : 'Gửi đề nghị'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Chốt công theo khoảng ngày -->
+  <div x-show="modalOpen === 'lockAttendance'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Chốt công</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="text-xs holo-text-dim mb-3">Sau khi chốt, mọi thay đổi phải qua chức năng Điều chỉnh công.</p>
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="required">Từ ngày</label>
+            <input type="date" x-model="lockRangeForm.dateFrom" class="form-control">
+          </div>
+          <div class="form-group">
+            <label class="required">Đến ngày</label>
+            <input type="date" x-model="lockRangeForm.dateTo" class="form-control">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="lockAttendanceRangeAction()" :disabled="lockingAttendance || !attendanceDepartmentFilter || !lockRangeForm.dateFrom || !lockRangeForm.dateTo" class="btn btn-primary">
+          <span x-text="lockingAttendance ? 'Đang chốt...' : 'Chốt công'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

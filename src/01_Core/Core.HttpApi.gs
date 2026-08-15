@@ -100,5 +100,26 @@ const GATEWAY_ACTIONS_ = {
   'swap.reject': function (user, params) { return rejectSwap(user, params.swapRequestId, params.reason); },
   'swap.listMine': function (user) { return listMySwapRequests(user); },
   'swap.listPendingConfirmations': function (user) { return listPendingSwapConfirmations(user); },
-  'swap.listHistory': function (user, params) { return listSwapHistoryForShift(params.originalShiftId); }
+  'swap.listHistory': function (user, params) { return listSwapHistoryForShift(params.originalShiftId); },
+
+  'attendance.record': function (user, params) { return recordAttendance(user, params); },
+  'attendance.update': function (user, params) { return updateAttendance(user, params.attendanceId, params.patch); },
+  'attendance.lockRange': function (user, params) { return lockAttendanceRange(user, params.departmentId, params.dateFrom, params.dateTo); },
+  'attendance.listMine': function (user, params) { return listMyAttendance(user, params.dateFrom, params.dateTo); },
+  'attendance.listByDepartment': function (user, params) { return listAttendanceByDepartment(user, params.departmentId, params.dateFrom, params.dateTo); },
+  'attendance.requestAdjustment': function (user, params) { return requestAttendanceAdjustment(user, params); },
+  'attendance.confirmAdjustmentByDeptHead': function (user, params) { return confirmAttendanceAdjustmentByDeptHead(user, params.adjustmentId); },
+  'attendance.approveAdjustment': function (user, params) { return approveAttendanceAdjustment(user, params.adjustmentId); },
+  'attendance.rejectAdjustment': function (user, params) { return rejectAttendanceAdjustment(user, params.adjustmentId, params.reason); },
+  'attendance.listMyAdjustments': function (user) { return listMyAttendanceAdjustments(user); },
+  'attendance.listPendingAdjustmentConfirmations': function (user) { return listPendingAttendanceAdjustmentConfirmations(user); },
+
+  'overtime.request': function (user, params) { return requestOvertime(user, params); },
+  'overtime.approve': function (user, params) { return approveOvertime(user, params.overtimeId); },
+  'overtime.reject': function (user, params) { return rejectOvertime(user, params.overtimeId, params.reason); },
+  'overtime.listMine': function (user, params) { return listMyOvertime(user, params.dateFrom, params.dateTo); },
+  'overtime.listByDepartment': function (user, params) { return listOvertimeByDepartment(user, params.departmentId, params.dateFrom, params.dateTo); },
+
+  'payroll.dutySummary': function (user, params) { return getDutySummaryForMonth(user, params.departmentId, params.yearMonth); },
+  'payroll.aggregation': function (user, params) { return getPayrollAggregationForMonth(user, params.departmentId, params.yearMonth); }
 };

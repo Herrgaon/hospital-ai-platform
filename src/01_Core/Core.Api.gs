@@ -332,6 +332,107 @@ function api_listSwapHistoryForShift(token, originalShiftId) {
   return listSwapHistoryForShift(originalShiftId);
 }
 
+// --- Chấm công (Attendance) ---
+
+function api_recordAttendance(token, input) {
+  const user = getCurrentUserFromToken_(token);
+  return recordAttendance(user, input);
+}
+
+function api_updateAttendance(token, attendanceId, patch) {
+  const user = getCurrentUserFromToken_(token);
+  return updateAttendance(user, attendanceId, patch);
+}
+
+function api_lockAttendanceRange(token, departmentId, dateFrom, dateTo) {
+  const user = getCurrentUserFromToken_(token);
+  return lockAttendanceRange(user, departmentId, dateFrom, dateTo);
+}
+
+function api_listMyAttendance(token, dateFrom, dateTo) {
+  const user = getCurrentUserFromToken_(token);
+  return listMyAttendance(user, dateFrom, dateTo);
+}
+
+function api_listAttendanceByDepartment(token, departmentId, dateFrom, dateTo) {
+  const user = getCurrentUserFromToken_(token);
+  return listAttendanceByDepartment(user, departmentId, dateFrom, dateTo);
+}
+
+function api_requestAttendanceAdjustment(token, input) {
+  const user = getCurrentUserFromToken_(token);
+  return requestAttendanceAdjustment(user, input);
+}
+
+function api_confirmAttendanceAdjustmentByDeptHead(token, adjustmentId) {
+  const user = getCurrentUserFromToken_(token);
+  return confirmAttendanceAdjustmentByDeptHead(user, adjustmentId);
+}
+
+function api_approveAttendanceAdjustment(token, adjustmentId) {
+  const user = getCurrentUserFromToken_(token);
+  return approveAttendanceAdjustment(user, adjustmentId);
+}
+
+function api_rejectAttendanceAdjustment(token, adjustmentId, reason) {
+  const user = getCurrentUserFromToken_(token);
+  return rejectAttendanceAdjustment(user, adjustmentId, reason);
+}
+
+function api_listMyAttendanceAdjustments(token) {
+  const user = getCurrentUserFromToken_(token);
+  return listMyAttendanceAdjustments(user);
+}
+
+function api_listPendingAttendanceAdjustmentConfirmations(token) {
+  const user = getCurrentUserFromToken_(token);
+  return listPendingAttendanceAdjustmentConfirmations(user);
+}
+
+// --- Làm thêm giờ / Làm ngoài giờ (Overtime) ---
+
+function api_requestOvertime(token, input) {
+  const user = getCurrentUserFromToken_(token);
+  return requestOvertime(user, input);
+}
+
+function api_approveOvertime(token, overtimeId) {
+  const user = getCurrentUserFromToken_(token);
+  return approveOvertime(user, overtimeId);
+}
+
+function api_rejectOvertime(token, overtimeId, reason) {
+  const user = getCurrentUserFromToken_(token);
+  return rejectOvertime(user, overtimeId, reason);
+}
+
+function api_listMyOvertime(token, dateFrom, dateTo) {
+  const user = getCurrentUserFromToken_(token);
+  return listMyOvertime(user, dateFrom, dateTo);
+}
+
+function api_listOvertimeByDepartment(token, departmentId, dateFrom, dateTo) {
+  const user = getCurrentUserFromToken_(token);
+  return listOvertimeByDepartment(user, departmentId, dateFrom, dateTo);
+}
+
+// --- Tổng hợp trực / Tổng hợp kế toán (Payroll Aggregation) ---
+
+function api_getDutySummaryForMonth(token, departmentId, yearMonth) {
+  const user = getCurrentUserFromToken_(token);
+  return getDutySummaryForMonth(user, departmentId, yearMonth);
+}
+
+function api_getPayrollAggregationForMonth(token, departmentId, yearMonth) {
+  const user = getCurrentUserFromToken_(token);
+  return getPayrollAggregationForMonth(user, departmentId, yearMonth);
+}
+
+function api_exportPayrollAggregationToExcel(token, departmentId, yearMonth) {
+  const user = getCurrentUserFromToken_(token);
+  return exportPayrollAggregationToExcel(user, departmentId, yearMonth);
+}
+
 // --- Admin / AI / Audit Log ---
 
 function api_listAIProviders(token) {
