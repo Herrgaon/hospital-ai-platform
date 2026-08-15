@@ -20,6 +20,7 @@ function recordInsuranceAudit(actingUser, input) {
     ExplanationStatus: 'PENDING',
     ExplanationResult: '',
     AcceptedAmountAfterExplanation: '',
+    AffectsKpi: false, LinkedKpiResultID: '',
     EnteredByUserID: actingUser.UserID,
     CreatedAt: nowIso(), UpdatedAt: nowIso()
   });
@@ -39,6 +40,29 @@ function updateInsuranceAuditExplanation(actingUser, auditId, input) {
     UpdatedAt: nowIso()
   });
   logAudit(actingUser.UserID, 'INSURANCE_AUDIT_EXPLANATION_UPDATED', 'InsuranceAudit', auditId, input.explanationStatus || '');
+  return updated;
+}
+
+// §7: chỉ liên kết được SAU KHI đã có kết luận giải trình (ACCEPTED/REJECTED, không phải PENDING) —
+// đúng luồng "Xuất toán -> Phân loại nguyên nhân -> Xác định bộ phận liên quan -> Xác minh -> Xác định
+// trách nhiệm -> Xác định mức độ -> Tác động KPI NẾU ĐỦ CĂN CỨ". affectsKpi/kpiResultId đều do người
+// có thẩm quyền quyết định thủ công, không có đường tự động nào từ WriteOffAmount tới điểm KPI.
+function linkInsuranceAuditToKpi(actingUser, auditId, kpiResultId, affectsKpi) {
+  const audit = getSheetRepository(SHEETS.INSURANCE_AUDITS).findById('AuditID', auditId);
+  if (!audit) throw new Error('Không tìm thấy dữ liệu xuất toán.');
+  requirePermission(actingUser, audit.DepartmentID, 'CanApprove');
+  if (audit.ExplanationStatus === 'PENDING') {
+    throw new Error('Chỉ liên kết KPI sau khi đã có kết luận giải trình (Đã chấp nhận/Không chấp nhận).');
+  }
+  if (affectsKpi) {
+    const kpiResult = getSheetRepository(SHEETS.KPI_RESULTS).findById('ResultID', kpiResultId);
+    if (!kpiResult) throw new Error('Không tìm thấy kết quả KPI.');
+  }
+
+  const updated = getSheetRepository(SHEETS.INSURANCE_AUDITS).updateById('AuditID', auditId, {
+    AffectsKpi: !!affectsKpi, LinkedKpiResultID: affectsKpi ? kpiResultId : '', UpdatedAt: nowIso()
+  });
+  logAudit(actingUser.UserID, 'INSURANCE_AUDIT_LINKED_TO_KPI', 'InsuranceAudit', auditId, affectsKpi ? kpiResultId : 'Bỏ liên kết');
   return updated;
 }
 

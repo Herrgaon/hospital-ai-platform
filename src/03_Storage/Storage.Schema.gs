@@ -22,8 +22,12 @@ const SHEETS = {
   OVERTIME_LIST_ITEMS: 'OvertimeListItems',
   MONTHLY_CLINICAL_STATS: 'MonthlyClinicalStats',
   INSURANCE_AUDITS: 'InsuranceAudits',
+  TASK_PARTICIPANTS: 'TaskParticipants',
+  KPI_CRITERION_GROUPS: 'KpiCriterionGroups',
   KPI_RULES: 'KpiRules',
   KPI_RESULTS: 'KpiResults',
+  KPI_BONUS_POINTS: 'KpiBonusPoints',
+  INCIDENTS: 'Incidents',
   AI_PROVIDERS: 'AIProviders',
   AI_PROVIDER_CONFIG: 'AIProviderConfig',
   AI_PROVIDER_KEY_HISTORY: 'AIProviderKeyHistory',
@@ -67,14 +71,34 @@ const SCHEMA = {
   ],
 
   // Quản lý công việc (khối hành chính) — TaskAssignment/TaskResult gộp vào 1 dòng, không tách sheet
-  // riêng (không có yêu cầu nhiều người nhận 1 việc ở Giai đoạn 1 — YAGNI).
-  // Status: ASSIGNED | IN_PROGRESS | SUBMITTED | EVALUATED.
+  // riêng. Status: ASSIGNED | IN_PROGRESS | SUBMITTED | EVALUATED.
+  // Bổ sung theo đặc tả KPI + Quản lý Trực V1 §8-11 (2026-08-15):
+  // - ParentTaskID: rỗng = task cha (có thể là KPI Task); có giá trị = Subtask — KHÔNG BAO GIỜ tính
+  //   KPI riêng (đúng §10 "không được tính trùng task"), dù IsKpiTask có được bật hay không.
+  // - IsKpiTask: đánh dấu THỦ CÔNG bởi người giao/đánh giá — chỉ Task được đánh dấu rõ ràng mới tạo
+  //   giá trị KPI (đúng §10/§15 "chỉ sản phẩm/task được xác định là KPI Task mới tạo giá trị KPI"),
+  //   không tự động suy ra từ việc có Subtask hay không.
+  // - BaseValue: "Giá trị cơ sở" (§8) — người giao gán khi giao việc, đơn vị do bệnh viện tự quy ước.
+  // - ComplexityScoresJson/ComplexityP/ComplexityLevel: "Độ phức tạp nhiệm vụ" (§9) — người đánh giá
+  //   chấm 6 tiêu chí 1-5 điểm khi đánh giá (evaluateTask), hệ thống tự tính P + phân loại, KHÔNG cho
+  //   người thực hiện tự chấm (đúng nguyên tắc "không để nhân viên tự ý điều chỉnh điểm").
+  // - QualityCoefficient: "Hệ số chất lượng" (§8) — người đánh giá gán, mặc định 1 nếu bỏ trống.
   [SHEETS.TASKS]: [
     'TaskID', 'Title', 'Description', 'DepartmentID',
     'AssignerEmployeeID', 'AssigneeEmployeeID', 'AssignedDate', 'DueDate',
     'Priority', 'Progress', 'Status', 'Result', 'AttachmentFolderDriveID',
     'EvaluatorEmployeeID', 'EvaluationScore', 'EvaluationComment', 'EvaluatedAt',
+    'ParentTaskID', 'IsKpiTask', 'BaseValue',
+    'ComplexityScoresJson', 'ComplexityP', 'ComplexityLevel', 'QualityCoefficient',
     'CreatedAt', 'UpdatedAt'
+  ],
+
+  // §11 "Nhiều người cùng làm" — CHỈ dùng khi 1 task có từ 2 người trở lên; task 1-người-1-việc như
+  // trước đây (Giai đoạn 1) không cần tạo dòng nào ở đây, AssigneeEmployeeID trên Tasks vẫn coi là
+  // 100% giá trị (xem Kpi.Engine.gs#getTaskParticipantShares_). Tổng ValuePercent của các dòng cùng
+  // TaskID phải = 100 (kiểm tra ở Task.Service.gs#addTaskParticipant).
+  [SHEETS.TASK_PARTICIPANTS]: [
+    'TaskParticipantID', 'TaskID', 'EmployeeID', 'RoleInTask', 'ValuePercent', 'CreatedAt'
   ],
 
   // Phân công khối lâm sàng (khám/điều trị/hội chẩn/phẫu thuật/thủ thuật) — cố tình tối giản, KHÁC
@@ -184,13 +208,27 @@ const SCHEMA = {
     'Source', 'EnteredByUserID', 'Notes', 'CreatedAt', 'UpdatedAt'
   ],
 
-  // BHYT/Xuất toán theo tháng, theo khoa/phòng — KHÔNG có cột "điểm KPI bị trừ" (đúng nguyên tắc
-  // "không tự động quy đổi 1 ca xuất toán thành điểm trừ KPI" — muốn dùng làm căn cứ đánh giá phải qua
-  // KpiResults thủ công, có phân loại nguyên nhân/trách nhiệm trước).
+  // BHYT/Xuất toán theo tháng, theo khoa/phòng — KHÔNG tự động quy đổi 1 ca xuất toán thành điểm trừ
+  // KPI (đúng §7). AffectsKpi/LinkedKpiResultID: chỉ điền SAU KHI ExplanationStatus đã có kết luận
+  // (giải trình xong), do người có thẩm quyền quyết định THỦ CÔNG có đưa vào KPI hay không — xem
+  // InsuranceAudit.Service.gs#linkInsuranceAuditToKpi.
   [SHEETS.INSURANCE_AUDITS]: [
     'AuditID', 'DepartmentID', 'YearMonth', 'TotalRecords', 'WriteOffCount', 'WriteOffAmount',
     'Reason', 'RelatedDepartmentID', 'RelatedEmployeeID', 'ExplanationStatus', 'ExplanationResult',
-    'AcceptedAmountAfterExplanation', 'EnteredByUserID', 'CreatedAt', 'UpdatedAt'
+    'AcceptedAmountAfterExplanation', 'AffectsKpi', 'LinkedKpiResultID',
+    'EnteredByUserID', 'CreatedAt', 'UpdatedAt'
+  ],
+
+  // Sự cố/an toàn — đúng §6: KHÔNG tự động trừ KPI khi phát sinh sự cố, phải xác minh nguyên nhân
+  // trước. Status: REPORTED -> VERIFYING -> CONCLUDED. RootCauseCategory chỉ điền khi CONCLUDED, theo
+  // đúng 6 phân loại đặc tả nêu ví dụ (không do cá nhân/do hệ thống/do quy trình/do nhiều nguyên nhân/
+  // do cá nhân/chưa xác định — xem Incident.Service.gs#INCIDENT_ROOT_CAUSE_CATEGORIES). AffectsKpi:
+  // quyết định THỦ CÔNG của người kết luận, không tự động suy ra từ RootCauseCategory.
+  [SHEETS.INCIDENTS]: [
+    'IncidentID', 'DepartmentID', 'RelatedEmployeeID', 'IncidentType', 'Description',
+    'ReportedByUserID', 'ReportedAt', 'Status',
+    'RootCauseCategory', 'ConclusionNote', 'ConcludedByUserID', 'ConcludedAt',
+    'AffectsKpi', 'LinkedKpiResultID', 'CreatedAt', 'UpdatedAt'
   ],
 
   // KPI là lớp đánh giá, không phải nơi nhân viên tự nhập số liệu — chỉ tiêu/trọng số/cách quy đổi
@@ -201,8 +239,32 @@ const SCHEMA = {
   // CHUNG TOÀN BỆNH VIỆN (AIDET/5S/Thái độ/Trách nhiệm/Kỷ luật/Phối hợp/Phản ánh sau xác minh — áp dụng
   // MỌI nhân viên, không phân biệt chức danh) và TIÊU CHÍ ĐẶC THÙ THEO CHỨC DANH (ObjectGroup thật,
   // VD "Bác sĩ"). true = tiêu chí chung, ObjectGroup lúc đó bị ép về '*' (xem createKpiRule).
+  // Nhóm chỉ tiêu KPI (§13) — "KPI cơ bản = Σ(điểm nhóm × trọng số nhóm)". Weight tính theo %, TỔNG
+  // các nhóm Active nên = 100 (kiểm tra mềm ở UI, không chặn cứng — cho phép cấu hình tạm thời trong
+  // lúc thiết lập). Chưa có nhóm nào tương ứng = KpiRule đó không đóng góp vào KPI tổng cuối kỳ, chỉ
+  // dùng để lưu tham khảo — GroupID trên KpiRules để trống là hợp lệ.
+  [SHEETS.KPI_CRITERION_GROUPS]: ['GroupID', 'GroupName', 'Weight', 'Status', 'CreatedAt', 'UpdatedAt'],
+
+  // KPI là lớp đánh giá, không phải nơi nhân viên tự nhập số liệu — chỉ tiêu/trọng số/cách quy đổi
+  // điểm đều cấu hình được qua đây, KHÔNG hard-code công thức trong code. ScoringMethod lưu JSON mô tả
+  // cách quy đổi (VD {"type":"LINEAR","target":100,"maxScore":10} hoặc {"type":"THRESHOLD",
+  // "thresholds":[...]})  — xem Kpi.Engine.gs.
+  // IsCommonCriterion: đúng §3-4 đặc tả KPI + Quản lý Trực V1 — "KPI cá nhân" tách 2 nhánh, TIÊU CHÍ
+  // CHUNG TOÀN BỆNH VIỆN (AIDET/5S/Thái độ/Trách nhiệm/Kỷ luật/Phối hợp/Phản ánh sau xác minh — áp dụng
+  // MỌI nhân viên, không phân biệt chức danh) và TIÊU CHÍ ĐẶC THÙ THEO CHỨC DANH (ObjectGroup thật,
+  // VD "Bác sĩ"). true = tiêu chí chung, ObjectGroup lúc đó bị ép về '*' (xem createKpiRule).
+  // GroupID: thuộc nhóm chỉ tiêu nào (KpiCriterionGroups) — quyết định trọng số khi gộp vào KPI tổng.
+  // ScopeType: INDIVIDUAL (mặc định, đánh giá cá nhân) | DEPARTMENT (đúng §12 "KPI quản lý = KPI cá
+  // nhân + KPI đơn vị/lĩnh vực phụ trách" — kết quả vẫn ghi nhận trên EmployeeID của người quản lý,
+  // ScopeType chỉ là nhãn phân loại để UI hiển thị đúng ngữ cảnh, KHÔNG đổi cách tính điểm).
+  // DataSourceType/DataSourceKey: gợi ý tự tính ActualValue từ dữ liệu thật đã có (§14 "dữ liệu KPI
+  // phải có nguồn") thay vì bắt nhập tay — MANUAL (mặc định, nhập tay), TASK_COMPLETION (tự tính từ
+  // % hoàn thành giá trị Task đã giao, xem Kpi.Engine.gs#computeTaskCompletionPercentForPeriod_),
+  // CLINICAL_STAT (tự tính từ MonthlyClinicalStats.StatType = DataSourceKey). Tự tính chỉ để ĐIỀN SẴN
+  // gợi ý — người lập KPI vẫn có thể sửa tay trước khi gửi, không bỏ qua bước con người xác nhận.
   [SHEETS.KPI_RULES]: [
-    'RuleID', 'ObjectGroup', 'IsCommonCriterion', 'Criterion', 'Weight', 'ScoringMethodJson',
+    'RuleID', 'ObjectGroup', 'IsCommonCriterion', 'GroupID', 'ScopeType',
+    'DataSourceType', 'DataSourceKey', 'Criterion', 'Weight', 'ScoringMethodJson',
     'EffectiveFrom', 'EffectiveTo', 'Version', 'Status', 'CreatedAt', 'UpdatedAt'
   ],
 
@@ -211,6 +273,10 @@ const SCHEMA = {
     'ActualValue', 'Score', 'ManagerComment', 'Status',
     'EvaluatedByUserID', 'EvaluatedAt', 'CreatedAt', 'UpdatedAt'
   ],
+
+  // "Điểm cộng" tuỳ chọn khi tổng hợp KPI cuối kỳ (§13: "KPI cuối = min(100, KPI cơ bản + điểm cộng)")
+  // — cấp thủ công bởi người có thẩm quyền (KH-NV/SUPER_ADMIN), có lý do, không tự động phát sinh.
+  [SHEETS.KPI_BONUS_POINTS]: ['BonusID', 'EmployeeID', 'Period', 'Points', 'Reason', 'GrantedByUserID', 'GrantedAt', 'CreatedAt'],
 
   [SHEETS.AI_PROVIDERS]: ['ProviderID', 'ProviderName', 'BaseURL', 'IsActive'],
   [SHEETS.AI_PROVIDER_CONFIG]: ['ConfigID', 'ProviderID', 'ModelName', 'ApiKeySecretRef', 'Temperature', 'MaxTokens', 'Timeout', 'IsDefault', 'UpdatedByUserID', 'UpdatedAt'],
@@ -261,6 +327,12 @@ const PLAIN_TEXT_COLUMNS = {
   [SHEETS.MONTHLY_CLINICAL_STATS]: ['YearMonth'],
   [SHEETS.INSURANCE_AUDITS]: ['YearMonth'],
   [SHEETS.KPI_RULES]: ['EffectiveFrom', 'EffectiveTo'],
+  // KPI_RESULTS.Period: lỗ hổng có sẵn từ trước phiên này (dạng "YYYY-MM" giống YearMonth ở
+  // MONTHLY_CLINICAL_STATS/INSURANCE_AUDITS nhưng bị bỏ sót khỏi danh sách này) — vá luôn khi phát
+  // hiện lúc mở rộng KPI Engine, dùng cùng logic apply-format-trước-khi-ghi đã áp dụng cho các cột
+  // khác trong toàn hệ thống.
+  [SHEETS.KPI_RESULTS]: ['Period'],
+  [SHEETS.KPI_BONUS_POINTS]: ['Period'],
   [SHEETS.KPI_RESULTS]: ['Period']
 };
 

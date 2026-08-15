@@ -9,6 +9,9 @@ function requireKpiRuleManager_(actingUser) {
   }
 }
 
+const KPI_SCOPE_TYPES_ = { INDIVIDUAL: 'INDIVIDUAL', DEPARTMENT: 'DEPARTMENT' };
+const KPI_DATA_SOURCE_TYPES_ = { MANUAL: 'MANUAL', TASK_COMPLETION: 'TASK_COMPLETION', CLINICAL_STAT: 'CLINICAL_STAT' };
+
 function createKpiRule(actingUser, input) {
   requireKpiRuleManager_(actingUser);
   const isCommon = !!input.isCommonCriterion;
@@ -21,6 +24,16 @@ function createKpiRule(actingUser, input) {
   if (!isValidScoringMethodJson_(input.scoringMethodJson)) {
     throw new Error('Cách quy đổi điểm không hợp lệ — kiểm tra lại định dạng JSON.');
   }
+  const scopeType = input.scopeType || KPI_SCOPE_TYPES_.INDIVIDUAL;
+  if (!KPI_SCOPE_TYPES_[scopeType]) throw new Error('Phạm vi áp dụng không hợp lệ.');
+  const dataSourceType = input.dataSourceType || KPI_DATA_SOURCE_TYPES_.MANUAL;
+  if (!KPI_DATA_SOURCE_TYPES_[dataSourceType]) throw new Error('Nguồn dữ liệu không hợp lệ.');
+  if (dataSourceType === KPI_DATA_SOURCE_TYPES_.CLINICAL_STAT && isBlank(input.dataSourceKey)) {
+    throw new Error('Nguồn CLINICAL_STAT cần chọn đúng StatType tương ứng.');
+  }
+  if (!isBlank(input.groupId) && !getSheetRepository(SHEETS.KPI_CRITERION_GROUPS).findById('GroupID', input.groupId)) {
+    throw new Error('Không tìm thấy nhóm chỉ tiêu KPI.');
+  }
 
   // Tiêu chí chung áp dụng mọi chức danh — ObjectGroup không còn ý nghĩa lọc, ép về '*' để
   // listActiveKpiRules/danh sách chọn không hiển thị nhầm giá trị chức danh cụ thể không liên quan.
@@ -30,6 +43,10 @@ function createKpiRule(actingUser, input) {
     RuleID: generateId('KPIR'),
     ObjectGroup: objectGroup,
     IsCommonCriterion: isCommon,
+    GroupID: input.groupId || '',
+    ScopeType: scopeType,
+    DataSourceType: dataSourceType,
+    DataSourceKey: input.dataSourceKey || '',
     Criterion: input.criterion,
     Weight: input.weight || 1,
     ScoringMethodJson: input.scoringMethodJson,
@@ -41,6 +58,34 @@ function createKpiRule(actingUser, input) {
   });
   logAudit(actingUser.UserID, 'KPI_RULE_CREATED', 'KpiRule', rule.RuleID, objectGroup + ' / ' + input.criterion);
   return rule;
+}
+
+// --- Nhóm chỉ tiêu KPI (§13) ---
+
+function createKpiCriterionGroup(actingUser, input) {
+  requireKpiRuleManager_(actingUser);
+  if (isBlank(input.groupName)) throw new Error('Thiếu tên nhóm chỉ tiêu.');
+  const weight = Number(input.weight);
+  if (!(weight > 0 && weight <= 100)) throw new Error('Trọng số nhóm phải trong khoảng 0-100.');
+
+  const group = getSheetRepository(SHEETS.KPI_CRITERION_GROUPS).append({
+    GroupID: generateId('KPIG'), GroupName: input.groupName, Weight: weight, Status: 'Active',
+    CreatedAt: nowIso(), UpdatedAt: nowIso()
+  });
+  logAudit(actingUser.UserID, 'KPI_CRITERION_GROUP_CREATED', 'KpiCriterionGroup', group.GroupID, input.groupName + ' (' + weight + '%)');
+  return group;
+}
+
+function deactivateKpiCriterionGroup(actingUser, groupId) {
+  requireKpiRuleManager_(actingUser);
+  const updated = getSheetRepository(SHEETS.KPI_CRITERION_GROUPS).updateById('GroupID', groupId, { Status: 'Inactive', UpdatedAt: nowIso() });
+  if (!updated) throw new Error('Không tìm thấy nhóm chỉ tiêu KPI.');
+  logAudit(actingUser.UserID, 'KPI_CRITERION_GROUP_DEACTIVATED', 'KpiCriterionGroup', groupId, '');
+  return updated;
+}
+
+function listActiveKpiCriterionGroups() {
+  return getSheetRepository(SHEETS.KPI_CRITERION_GROUPS).findAll().filter(function (g) { return g.Status === 'Active'; });
 }
 
 function deactivateKpiRule(actingUser, ruleId) {
@@ -69,6 +114,15 @@ function listApplicableKpiRulesForEmployee(employeeId) {
   const employee = getEmployeeById(employeeId);
   if (!employee) return [];
   return listActiveKpiRules(employee.EmployeeType);
+}
+
+// §14: gợi ý ActualValue tự tính từ dữ liệu thật nếu chỉ tiêu có cấu hình DataSourceType — người lập
+// KPI vẫn phải bấm gửi, không tự động nộp thay. null = không tự tính được (MANUAL hoặc thiếu dữ liệu),
+// UI phải để trống cho người dùng tự nhập.
+function getSuggestedKpiActualValue(user, ruleId, employeeId, period) {
+  const rule = getSheetRepository(SHEETS.KPI_RULES).findById('RuleID', ruleId);
+  if (!rule) throw new Error('Không tìm thấy chỉ tiêu KPI.');
+  return computeSuggestedActualValue_(rule, employeeId, period);
 }
 
 // Lập kết quả KPI ở trạng thái DRAFT — điểm tự tính từ ActualValue qua đúng chỉ tiêu đã cấu hình, quản
@@ -123,4 +177,49 @@ function listKpiResultsByDepartment(user, departmentId, period) {
   return getSheetRepository(SHEETS.KPI_RESULTS).findAll().filter(function (r) {
     return r.DepartmentID === departmentId && (!period || r.Period === period);
   });
+}
+
+// --- Điểm cộng (§13) ---
+
+function grantKpiBonusPoints(actingUser, input) {
+  requireKpiRuleManager_(actingUser);
+  if (isBlank(input.employeeId) || isBlank(input.period) || isBlank(input.reason)) {
+    throw new Error('Thiếu nhân viên, kỳ hoặc lý do cộng điểm.');
+  }
+  if (!(Number(input.points) > 0)) throw new Error('Điểm cộng phải lớn hơn 0.');
+
+  const bonus = getSheetRepository(SHEETS.KPI_BONUS_POINTS).append({
+    BonusID: generateId('KPIB'), EmployeeID: input.employeeId, Period: input.period,
+    Points: Number(input.points), Reason: input.reason, GrantedByUserID: actingUser.UserID,
+    GrantedAt: nowIso(), CreatedAt: nowIso()
+  });
+  logAudit(actingUser.UserID, 'KPI_BONUS_GRANTED', 'KpiBonusPoints', bonus.BonusID, input.employeeId + ' / ' + input.period + ': +' + input.points);
+  return bonus;
+}
+
+function listKpiBonusPointsForEmployee(user, employeeId, period) {
+  return getSheetRepository(SHEETS.KPI_BONUS_POINTS).findAll().filter(function (b) {
+    return b.EmployeeID === employeeId && (!period || b.Period === period);
+  });
+}
+
+// --- KPI tổng hợp cuối kỳ (§13) ---
+
+function getFinalKpiForEmployeePeriod(user, employeeId, period) {
+  const employee = getEmployeeById(employeeId);
+  if (!employee) throw new Error('Không tìm thấy nhân viên.');
+  const requestingEmployee = getEmployeeByUserId_(user.UserID);
+  const isSelf = requestingEmployee && requestingEmployee.EmployeeID === employeeId;
+  if (!isSelf) requirePermission(user, employee.DepartmentID, 'CanView');
+  return computeFinalKpiForEmployeePeriod_(employeeId, period);
+}
+
+function listFinalKpiForDepartmentPeriod(user, departmentId, period) {
+  requirePermission(user, departmentId, 'CanView');
+  return listEmployeesByDepartment(departmentId)
+    .filter(function (e) { return e.Status === 'Active'; })
+    .map(function (e) {
+      const final = computeFinalKpiForEmployeePeriod_(e.EmployeeID, period);
+      return Object.assign({ employeeId: e.EmployeeID, fullName: e.FullName }, final);
+    });
 }

@@ -27,7 +27,7 @@
   <div class="card">
     <div class="table-wrap">
       <table class="data-table">
-        <thead><tr><th>Khoa/Phòng</th><th>Tổng hồ sơ</th><th>Số ca xuất toán</th><th>Số tiền</th><th>Nguyên nhân</th><th>Giải trình</th><th></th></tr></thead>
+        <thead><tr><th>Khoa/Phòng</th><th>Tổng hồ sơ</th><th>Số ca xuất toán</th><th>Số tiền</th><th>Nguyên nhân</th><th>Giải trình</th><th>Ảnh hưởng KPI</th><th></th></tr></thead>
         <tbody>
           <template x-for="a in insuranceAudits" :key="a.AuditID">
             <tr>
@@ -37,11 +37,15 @@
               <td x-text="a.WriteOffAmount"></td>
               <td x-text="a.Reason"></td>
               <td><span class="badge" :class="a.ExplanationStatus === 'ACCEPTED' ? 'badge-green' : (a.ExplanationStatus === 'REJECTED' ? 'badge-red' : 'badge-orange')" x-text="a.ExplanationStatus"></span></td>
-              <td x-show="can(a.DepartmentID, 'CanEdit')"><button @click="openExplainInsuranceAuditModal(a)" class="btn-link">Giải trình</button></td>
+              <td><span class="badge" :class="a.AffectsKpi ? 'badge-purple' : 'badge-gray'" x-text="a.AffectsKpi ? 'Có' : 'Không'"></span></td>
+              <td class="flex gap-2" x-show="can(a.DepartmentID, 'CanEdit')">
+                <button @click="openExplainInsuranceAuditModal(a)" class="btn-link">Giải trình</button>
+                <button x-show="a.ExplanationStatus !== 'PENDING' && can(a.DepartmentID, 'CanApprove')" @click="linkInsuranceAuditToKpiAction(a)" class="btn-link">Liên kết KPI</button>
+              </td>
             </tr>
           </template>
           <template x-if="insuranceYearMonth && insuranceAudits.length === 0">
-            <tr><td colspan="7" class="text-xs holo-text-dim py-4">Chưa có dữ liệu cho tháng này.</td></tr>
+            <tr><td colspan="8" class="text-xs holo-text-dim py-4">Chưa có dữ liệu cho tháng này.</td></tr>
           </template>
         </tbody>
       </table>

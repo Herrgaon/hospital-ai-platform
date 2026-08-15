@@ -1,0 +1,176 @@
+<div x-show="currentView === 'incident'" x-init="if (currentView === 'incident') loadMyReportedIncidentsAction();" class="max-w-5xl mx-auto">
+  <div class="page-header">
+    <div class="page-header-left">
+      <div class="page-header-icon">⚠</div>
+      <div>
+        <h1 class="page-title-text">SỰ CỐ / AN TOÀN</h1>
+        <p class="page-subtitle">Không tự động trừ KPI khi phát sinh sự cố — phải xác minh nguyên nhân trước (§6)</p>
+      </div>
+    </div>
+    <div class="page-header-actions">
+      <button @click="openReportIncidentModal()" class="btn btn-primary">+ Báo cáo sự cố</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button @click="incidentTab = 'mine'" class="tab" :class="incidentTab === 'mine' ? 'active' : ''">Đã báo cáo</button>
+    <button @click="incidentTab = 'department'" class="tab" :class="incidentTab === 'department' ? 'active' : ''">Theo khoa/phòng</button>
+  </div>
+
+  <div x-show="incidentTab === 'mine'">
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Ngày báo cáo</th><th>Khoa/Phòng</th><th>Mô tả</th><th>Trạng thái</th><th></th></tr></thead>
+          <tbody>
+            <template x-for="i in myReportedIncidents" :key="i.IncidentID">
+              <tr>
+                <td x-text="i.ReportedAt"></td>
+                <td x-text="departmentNameById(i.DepartmentID)"></td>
+                <td x-text="i.Description"></td>
+                <td><span class="badge" :class="incidentStatusBadgeClass(i.Status)" x-text="incidentStatusLabel(i.Status)"></span></td>
+                <td><button @click="openIncidentDetail(i)" class="btn-link">Chi tiết</button></td>
+              </tr>
+            </template>
+            <template x-if="myReportedIncidents.length === 0">
+              <tr><td colspan="5" class="text-xs holo-text-dim py-4">Bạn chưa báo cáo sự cố nào.</td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div x-show="incidentTab === 'department'">
+    <div class="toolbar">
+      <div class="filter-group">
+        <select x-model="incidentDepartmentFilter" @change="loadDepartmentIncidentsAction()" class="filter-select">
+          <option value="">-- Chọn khoa/phòng --</option>
+          <template x-for="d in departments" :key="d.DepartmentID">
+            <option :value="d.DepartmentID" x-text="d.DepartmentName"></option>
+          </template>
+        </select>
+      </div>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Ngày báo cáo</th><th>Mô tả</th><th>Nguyên nhân</th><th>Trạng thái</th><th></th></tr></thead>
+          <tbody>
+            <template x-for="i in departmentIncidents" :key="i.IncidentID">
+              <tr>
+                <td x-text="i.ReportedAt"></td>
+                <td x-text="i.Description"></td>
+                <td x-text="i.RootCauseCategory ? incidentRootCauseLabel(i.RootCauseCategory) : '—'"></td>
+                <td><span class="badge" :class="incidentStatusBadgeClass(i.Status)" x-text="incidentStatusLabel(i.Status)"></span></td>
+                <td><button @click="openIncidentDetail(i)" class="btn-link">Chi tiết</button></td>
+              </tr>
+            </template>
+            <template x-if="incidentDepartmentFilter && departmentIncidents.length === 0">
+              <tr><td colspan="5" class="text-xs holo-text-dim py-4">Khoa/phòng này chưa có sự cố nào được báo cáo.</td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Báo cáo sự cố -->
+  <div x-show="modalOpen === 'reportIncident'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Báo cáo sự cố</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="required">Khoa/Phòng</label>
+          <select x-model="reportIncidentForm.departmentId" class="form-control">
+            <option value="">-- Chọn khoa/phòng --</option>
+            <template x-for="d in departments" :key="d.DepartmentID">
+              <option :value="d.DepartmentID" x-text="d.DepartmentName"></option>
+            </template>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Loại sự cố</label>
+          <input type="text" x-model="reportIncidentForm.incidentType" class="form-control" placeholder="VD: Sai sót thuốc, Sai sót thực hiện y lệnh...">
+        </div>
+        <div class="form-group">
+          <label>Nhân viên liên quan (nếu có)</label>
+          <select x-model="reportIncidentForm.relatedEmployeeId" class="form-control">
+            <option value="">-- Không xác định --</option>
+            <template x-for="e in employeesByDepartment(reportIncidentForm.departmentId)" :key="e.EmployeeID">
+              <option :value="e.EmployeeID" x-text="e.FullName"></option>
+            </template>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="required">Mô tả sự cố</label>
+          <textarea x-model="reportIncidentForm.description" class="form-control" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="reportIncidentAction()" :disabled="reportingIncident || !reportIncidentForm.departmentId || !reportIncidentForm.description" class="btn btn-primary">
+          <span x-text="reportingIncident ? 'Đang gửi...' : 'Gửi báo cáo'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Chi tiết sự cố -->
+  <div x-show="modalOpen === 'incidentDetail'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal" x-show="currentIncident">
+      <div class="modal-header">
+        <h2>Chi tiết sự cố</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body space-y-3" x-show="currentIncident">
+        <span class="badge" :class="currentIncident && incidentStatusBadgeClass(currentIncident.Status)" x-text="currentIncident && incidentStatusLabel(currentIncident.Status)"></span>
+        <p class="text-sm" x-text="currentIncident && currentIncident.Description"></p>
+        <div class="text-xs holo-text-dim">
+          <div>Khoa/Phòng: <strong x-text="currentIncident && departmentNameById(currentIncident.DepartmentID)"></strong></div>
+          <div x-show="currentIncident && currentIncident.RelatedEmployeeID">Nhân viên liên quan: <strong x-text="currentIncident && employeeNameById(currentIncident.RelatedEmployeeID)"></strong></div>
+          <div>Người báo cáo: <strong x-text="currentIncident && userEmailById(currentIncident.ReportedByUserID)"></strong></div>
+        </div>
+
+        <template x-if="currentIncident && currentIncident.Status === 'REPORTED' && can(currentIncident.DepartmentID, 'CanApprove')">
+          <button @click="startIncidentVerificationAction()" class="btn btn-secondary btn-sm">Bắt đầu xác minh</button>
+        </template>
+
+        <template x-if="currentIncident && currentIncident.Status === 'VERIFYING' && can(currentIncident.DepartmentID, 'CanApprove')">
+          <div class="space-y-2 border-t pt-3" style="border-color: var(--holo-border);">
+            <p class="holo-label">Kết luận</p>
+            <div class="form-group">
+              <label class="required">Phân loại nguyên nhân</label>
+              <select x-model="concludeIncidentForm.rootCauseCategory" class="form-control">
+                <option value="">-- Chọn --</option>
+                <template x-for="(label, key) in incidentRootCauseCategories" :key="key">
+                  <option :value="key" x-text="label"></option>
+                </template>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Ghi chú kết luận</label>
+              <textarea x-model="concludeIncidentForm.conclusionNote" class="form-control" rows="2"></textarea>
+            </div>
+            <label class="form-check-label">
+              <input type="checkbox" x-model="concludeIncidentForm.affectsKpi">
+              Sự cố này có ảnh hưởng đến đánh giá KPI (quyết định thủ công, không tự động)
+            </label>
+            <button @click="concludeIncidentAction()" :disabled="!concludeIncidentForm.rootCauseCategory" class="btn btn-primary btn-sm">Lưu kết luận</button>
+          </div>
+        </template>
+
+        <template x-if="currentIncident && currentIncident.Status === 'CONCLUDED'">
+          <div class="border-t pt-3 text-sm" style="border-color: var(--holo-border);">
+            <div>Nguyên nhân: <strong x-text="incidentRootCauseLabel(currentIncident.RootCauseCategory)"></strong></div>
+            <div x-show="currentIncident.ConclusionNote">Ghi chú: <span x-text="currentIncident.ConclusionNote"></span></div>
+            <div>Ảnh hưởng KPI: <strong x-text="currentIncident.AffectsKpi ? 'Có' : 'Không'"></strong></div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+</div>

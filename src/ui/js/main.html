@@ -7,7 +7,10 @@
   function appShell() {
     return {
       // --- Đăng nhập (mã nhân viên + mật khẩu qua Gateway — KHÔNG còn dựa vào phiên Google, xem
-      // Auth.Session.gs). Token lưu ở localStorage để giữ đăng nhập qua các lần tải lại trang; mỗi lệnh
+      // Auth.Session.gs). Token lưu ở sessionStorage (KHÔNG dùng localStorage) — CỐ Ý theo yêu cầu Product
+      // Owner: đóng trình duyệt/tab (sau này đóng Desktop App) phải tự động đăng xuất, không giữ đăng
+      // nhập qua lần mở lại. Vẫn giữ được đăng nhập qua các lần TẢI LẠI trang trong cùng phiên trình
+      // duyệt vì sessionStorage sống hết vòng đời tab, chỉ mất khi tab/trình duyệt đóng hẳn. Mỗi lệnh
       // gọi google.script.run...api_xxx() đều truyền this.authToken làm tham số đầu tiên. ---
       authToken: '',
       loginForm: { username: '', password: '' },
@@ -62,7 +65,11 @@
           .withFailureHandler(() => {})
           .api_isAiEnabled();
 
-        const savedToken = localStorage.getItem('bvds_auth_token');
+        // Dọn token cũ còn sót lại từ bản trước khi đổi sang sessionStorage — KHÔNG dùng để tự đăng
+        // nhập lại (đúng yêu cầu tự đăng xuất khi đóng trình duyệt), chỉ xoá cho sạch.
+        if (localStorage.getItem('bvds_auth_token')) localStorage.removeItem('bvds_auth_token');
+
+        const savedToken = sessionStorage.getItem('bvds_auth_token');
         if (savedToken) {
           this.authToken = savedToken;
           this.loadCurrentUserAndAppData_();
@@ -83,7 +90,7 @@
           .withFailureHandler(() => {
             // Token hết hạn/không hợp lệ — quay lại màn hình đăng nhập, không hiện lỗi ồn ào.
             this.authToken = '';
-            localStorage.removeItem('bvds_auth_token');
+            sessionStorage.removeItem('bvds_auth_token');
           })
           .api_getCurrentUser(this.authToken);
       },
@@ -136,7 +143,7 @@
           .withSuccessHandler((result) => {
             this.loggingIn = false;
             this.authToken = result.token;
-            localStorage.setItem('bvds_auth_token', result.token);
+            sessionStorage.setItem('bvds_auth_token', result.token);
             this.currentUser = result.user;
             this.userEmail = result.user.Email;
             this.profileForm.fullName = result.user.FullName;
@@ -154,7 +161,7 @@
         const token = this.authToken;
         this.authToken = '';
         this.currentUser = {};
-        localStorage.removeItem('bvds_auth_token');
+        sessionStorage.removeItem('bvds_auth_token');
         this.currentView = 'dashboard';
         google.script.run.withFailureHandler(() => {}).api_logout(token);
       },
@@ -443,22 +450,33 @@
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_listTasksByDepartment(this.authToken, this.taskDepartmentFilter);
       },
-      assignTaskForm: { departmentId: '', assigneeEmployeeId: '', title: '', description: '', dueDate: '', priority: 'NORMAL' },
+      assignTaskForm: { departmentId: '', assigneeEmployeeId: '', title: '', description: '', dueDate: '', priority: 'NORMAL', parentTaskId: '', isKpiTask: false, baseValue: null },
+      assignTaskParentTitle: '',
       assigningTask: false,
       openAssignTaskModal() {
-        this.assignTaskForm = { departmentId: '', assigneeEmployeeId: '', title: '', description: '', dueDate: '', priority: 'NORMAL' };
+        this.assignTaskForm = { departmentId: '', assigneeEmployeeId: '', title: '', description: '', dueDate: '', priority: 'NORMAL', parentTaskId: '', isKpiTask: false, baseValue: null };
+        this.assignTaskParentTitle = '';
+        this.openModal('assignTask');
+      },
+      // §10: việc con luôn thuộc đúng khoa/phòng của việc cha, người giao là chính người đang giao việc
+      // cha — mở modal Giao việc mới đã có sẵn, chỉ khác chỗ khoá departmentId + gắn parentTaskId.
+      openAddSubtaskModal() {
+        this.assignTaskForm = { departmentId: this.currentTask.DepartmentID, assigneeEmployeeId: '', title: '', description: '', dueDate: '', priority: 'NORMAL', parentTaskId: this.currentTask.TaskID, isKpiTask: false, baseValue: null };
+        this.assignTaskParentTitle = this.currentTask.Title;
         this.openModal('assignTask');
       },
       onAssignTaskDepartmentChange() { this.assignTaskForm.assigneeEmployeeId = ''; },
       assignTaskAction() {
         this.assigningTask = true;
+        const wasSubtask = !!this.assignTaskForm.parentTaskId;
         google.script.run
           .withSuccessHandler(() => {
             this.assigningTask = false;
             this.closeModal();
-            this.toast('success', 'Đã giao việc.');
+            this.toast('success', wasSubtask ? 'Đã thêm việc con.' : 'Đã giao việc.');
             this.loadMyTasksAction();
             if (this.taskDepartmentFilter) this.loadDepartmentTasksAction();
+            if (wasSubtask) this.loadCurrentTaskSubtasks_();
           })
           .withFailureHandler((e) => {
             this.assigningTask = false;
@@ -467,15 +485,64 @@
           .api_assignTask(this.authToken, this.assignTaskForm);
       },
       currentTask: null,
+      currentTaskParticipants: [],
+      currentTaskSubtasks: [],
       taskProgressInput: 0,
       taskResultInput: '',
-      taskEvaluationForm: { score: null, comment: '' },
+      taskEvaluationForm: { score: null, comment: '', complexityScores: { chuyenMon: null, quyMo: null, phoiHop: null, tuChu: null, trachNhiem: null, dacThu: null }, qualityCoefficient: null },
+      taskParticipantRoleLabel(role) {
+        const map = { CHU_TRI: 'Chủ trì', PHOI_HOP: 'Phối hợp', KIEM_TRA: 'Kiểm tra', PHE_DUYET: 'Người phê duyệt' };
+        return map[role] || role;
+      },
       openTaskDetail(t) {
         this.currentTask = t;
         this.taskProgressInput = t.Progress || 0;
         this.taskResultInput = '';
-        this.taskEvaluationForm = { score: null, comment: '' };
+        this.taskEvaluationForm = { score: null, comment: '', complexityScores: { chuyenMon: null, quyMo: null, phoiHop: null, tuChu: null, trachNhiem: null, dacThu: null }, qualityCoefficient: null };
+        this.loadCurrentTaskParticipants_();
+        this.loadCurrentTaskSubtasks_();
         this.openModal('taskDetail');
+      },
+      loadCurrentTaskParticipants_() {
+        google.script.run
+          .withSuccessHandler((rows) => { this.currentTaskParticipants = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listTaskParticipants(this.authToken, this.currentTask.TaskID);
+      },
+      loadCurrentTaskSubtasks_() {
+        if (this.currentTask.ParentTaskID) { this.currentTaskSubtasks = []; return; }
+        google.script.run
+          .withSuccessHandler((rows) => { this.currentTaskSubtasks = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listSubtasks(this.authToken, this.currentTask.TaskID);
+      },
+      addTaskParticipantForm: { employeeId: '', roleInTask: 'PHOI_HOP', valuePercent: null },
+      addingTaskParticipant: false,
+      openAddTaskParticipantModal() {
+        this.addTaskParticipantForm = { employeeId: '', roleInTask: 'PHOI_HOP', valuePercent: null };
+        this.openModal('addTaskParticipant');
+      },
+      addTaskParticipantAction() {
+        this.addingTaskParticipant = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.addingTaskParticipant = false;
+            this.closeModal();
+            this.loadCurrentTaskParticipants_();
+            this.openModal('taskDetail');
+          })
+          .withFailureHandler((e) => {
+            this.addingTaskParticipant = false;
+            this.errorMessage = e.message;
+          })
+          .api_addTaskParticipant(this.authToken, this.currentTask.TaskID, this.addTaskParticipantForm);
+      },
+      removeTaskParticipantAction(p) {
+        if (!confirm('Xoá ' + this.employeeNameById(p.EmployeeID) + ' khỏi danh sách tham gia?')) return;
+        google.script.run
+          .withSuccessHandler(() => { this.loadCurrentTaskParticipants_(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_removeTaskParticipant(this.authToken, p.TaskParticipantID);
       },
       refreshCurrentTask_(updated) {
         this.currentTask = updated;
@@ -494,11 +561,22 @@
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_submitTaskResult(this.authToken, this.currentTask.TaskID, this.taskResultInput);
       },
+      // §9: chỉ gửi complexityScores nếu ĐỦ cả 6 tiêu chí (tránh gửi object thiếu key khiến
+      // computeTaskComplexity_ báo lỗi validate) — Task không phải KPI Task thì không gửi gì cả.
       evaluateTaskAction() {
+        const payload = { score: this.taskEvaluationForm.score, comment: this.taskEvaluationForm.comment };
+        if (this.currentTask.IsKpiTask) {
+          const c = this.taskEvaluationForm.complexityScores;
+          const allSet = Object.values(c).every((v) => v != null && v !== '');
+          if (allSet) payload.complexityScores = c;
+          if (this.taskEvaluationForm.qualityCoefficient != null && this.taskEvaluationForm.qualityCoefficient !== '') {
+            payload.qualityCoefficient = this.taskEvaluationForm.qualityCoefficient;
+          }
+        }
         google.script.run
           .withSuccessHandler((updated) => { this.refreshCurrentTask_(updated); this.toast('success', 'Đã lưu đánh giá.'); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_evaluateTask(this.authToken, this.currentTask.TaskID, this.taskEvaluationForm);
+          .api_evaluateTask(this.authToken, this.currentTask.TaskID, payload);
       },
 
       // --- Phân công khối lâm sàng ---
@@ -1314,6 +1392,98 @@
           })
           .api_updateInsuranceAuditExplanation(this.authToken, this.explainInsuranceAuditForm.auditId, this.explainInsuranceAuditForm);
       },
+      // §7: chỉ liên kết được sau khi đã có kết luận giải trình — nhập thẳng KpiResultID (đơn giản,
+      // không xây picker riêng) vì đây là thao tác hiếm, KH-NV tra cứu ResultID từ tab KPI trước.
+      linkInsuranceAuditToKpiAction(a) {
+        if (a.ExplanationStatus === 'PENDING') { this.errorMessage = 'Chỉ liên kết KPI sau khi đã có kết luận giải trình.'; return; }
+        const affectsKpi = confirm('Xuất toán này CÓ ảnh hưởng đến KPI? (OK = Có, Cancel = Không/Bỏ liên kết)');
+        let kpiResultId = a.LinkedKpiResultID || '';
+        if (affectsKpi) {
+          kpiResultId = prompt('Nhập Mã kết quả KPI (ResultID) đã lập để liên kết:', kpiResultId) || '';
+          if (!kpiResultId) return;
+        }
+        google.script.run
+          .withSuccessHandler(() => { this.toast('success', 'Đã cập nhật liên kết KPI.'); this.loadInsuranceAuditsAction(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_linkInsuranceAuditToKpi(this.authToken, a.AuditID, kpiResultId, affectsKpi);
+      },
+
+      // --- Sự cố / An toàn (Incident — §6) ---
+      incidentTab: 'mine',
+      incidentDepartmentFilter: '',
+      myReportedIncidents: [],
+      departmentIncidents: [],
+      currentIncident: null,
+      incidentRootCauseCategories: {
+        KHONG_DO_CA_NHAN: 'Không do cá nhân', DO_HE_THONG: 'Do hệ thống', DO_QUY_TRINH: 'Do quy trình',
+        DO_NHIEU_NGUYEN_NHAN: 'Do nhiều nguyên nhân', DO_CA_NHAN: 'Do cá nhân', CHUA_XAC_DINH: 'Chưa xác định'
+      },
+      incidentRootCauseLabel(key) { return this.incidentRootCauseCategories[key] || key; },
+      incidentStatusLabel(status) {
+        const map = { REPORTED: 'Mới báo cáo', VERIFYING: 'Đang xác minh', CONCLUDED: 'Đã kết luận' };
+        return map[status] || status;
+      },
+      incidentStatusBadgeClass(status) {
+        const map = { REPORTED: 'badge-orange', VERIFYING: 'badge-cyan', CONCLUDED: 'badge-green' };
+        return map[status] || 'badge-gray';
+      },
+      loadMyReportedIncidentsAction() {
+        google.script.run
+          .withSuccessHandler((rows) => { this.myReportedIncidents = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listMyReportedIncidents(this.authToken);
+      },
+      loadDepartmentIncidentsAction() {
+        if (!this.incidentDepartmentFilter) { this.departmentIncidents = []; return; }
+        google.script.run
+          .withSuccessHandler((rows) => { this.departmentIncidents = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listIncidentsByDepartment(this.authToken, this.incidentDepartmentFilter);
+      },
+      reportIncidentForm: { departmentId: '', incidentType: '', relatedEmployeeId: '', description: '' },
+      reportingIncident: false,
+      openReportIncidentModal() {
+        this.reportIncidentForm = { departmentId: '', incidentType: '', relatedEmployeeId: '', description: '' };
+        this.openModal('reportIncident');
+      },
+      reportIncidentAction() {
+        this.reportingIncident = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.reportingIncident = false;
+            this.closeModal();
+            this.toast('success', 'Đã gửi báo cáo sự cố.');
+            this.loadMyReportedIncidentsAction();
+          })
+          .withFailureHandler((e) => {
+            this.reportingIncident = false;
+            this.errorMessage = e.message;
+          })
+          .api_reportIncident(this.authToken, this.reportIncidentForm);
+      },
+      concludeIncidentForm: { rootCauseCategory: '', conclusionNote: '', affectsKpi: false },
+      openIncidentDetail(i) {
+        this.currentIncident = i;
+        this.concludeIncidentForm = { rootCauseCategory: '', conclusionNote: '', affectsKpi: false };
+        this.openModal('incidentDetail');
+      },
+      refreshCurrentIncident_(updated) {
+        this.currentIncident = updated;
+        this.myReportedIncidents = this.myReportedIncidents.map((i) => i.IncidentID === updated.IncidentID ? updated : i);
+        this.departmentIncidents = this.departmentIncidents.map((i) => i.IncidentID === updated.IncidentID ? updated : i);
+      },
+      startIncidentVerificationAction() {
+        google.script.run
+          .withSuccessHandler((updated) => { this.refreshCurrentIncident_(updated); this.toast('success', 'Đã bắt đầu xác minh.'); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_startIncidentVerification(this.authToken, this.currentIncident.IncidentID);
+      },
+      concludeIncidentAction() {
+        google.script.run
+          .withSuccessHandler((updated) => { this.refreshCurrentIncident_(updated); this.toast('success', 'Đã lưu kết luận.'); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_concludeIncident(this.authToken, this.currentIncident.IncidentID, this.concludeIncidentForm);
+      },
 
       // --- KPI ---
       kpiTab: 'mine',
@@ -1322,6 +1492,14 @@
       myKpiResults: [],
       departmentKpiResults: [],
       activeKpiRules: [],
+      activeKpiCriterionGroups: [],
+      get totalActiveKpiGroupWeight() {
+        return this.activeKpiCriterionGroups.reduce((sum, g) => sum + (Number(g.Weight) || 0), 0);
+      },
+      kpiGroupNameById(groupId) {
+        const g = this.activeKpiCriterionGroups.find((x) => x.GroupID === groupId);
+        return g ? g.GroupName : '';
+      },
       loadMyKpiResultsAction() {
         google.script.run
           .withSuccessHandler((rows) => { this.myKpiResults = rows; })
@@ -1341,10 +1519,16 @@
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_listActiveKpiRules(this.authToken, null);
       },
-      newKpiRuleForm: { objectGroup: 'Bác sĩ', isCommonCriterion: false, criterion: '', weight: 1, scoringMethodJson: '' },
+      loadActiveKpiCriterionGroupsAction() {
+        google.script.run
+          .withSuccessHandler((rows) => { this.activeKpiCriterionGroups = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listActiveKpiCriterionGroups(this.authToken);
+      },
+      newKpiRuleForm: { objectGroup: 'Bác sĩ', isCommonCriterion: false, groupId: '', scopeType: 'INDIVIDUAL', dataSourceType: 'MANUAL', dataSourceKey: '', criterion: '', weight: 1, scoringMethodJson: '' },
       savingKpiRule: false,
       openAddKpiRuleModal() {
-        this.newKpiRuleForm = { objectGroup: 'Bác sĩ', isCommonCriterion: false, criterion: '', weight: 1, scoringMethodJson: '' };
+        this.newKpiRuleForm = { objectGroup: 'Bác sĩ', isCommonCriterion: false, groupId: '', scopeType: 'INDIVIDUAL', dataSourceType: 'MANUAL', dataSourceKey: '', criterion: '', weight: 1, scoringMethodJson: '' };
         this.openModal('addKpiRule');
       },
       createKpiRuleAction() {
@@ -1362,23 +1546,64 @@
           })
           .api_createKpiRule(this.authToken, this.newKpiRuleForm);
       },
-      submitKpiResultForm: { employeeId: '', ruleId: '', actualValue: null },
+      newKpiCriterionGroupForm: { groupName: '', weight: null },
+      savingKpiCriterionGroup: false,
+      openAddKpiCriterionGroupModal() {
+        this.newKpiCriterionGroupForm = { groupName: '', weight: null };
+        this.openModal('addKpiCriterionGroup');
+      },
+      createKpiCriterionGroupAction() {
+        this.savingKpiCriterionGroup = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.savingKpiCriterionGroup = false;
+            this.closeModal();
+            this.toast('success', 'Đã thêm nhóm chỉ tiêu KPI.');
+            this.loadActiveKpiCriterionGroupsAction();
+          })
+          .withFailureHandler((e) => {
+            this.savingKpiCriterionGroup = false;
+            this.errorMessage = e.message;
+          })
+          .api_createKpiCriterionGroup(this.authToken, this.newKpiCriterionGroupForm);
+      },
+      deactivateKpiCriterionGroupAction(g) {
+        if (!confirm('Ngừng dùng nhóm "' + g.GroupName + '"?')) return;
+        google.script.run
+          .withSuccessHandler(() => { this.loadActiveKpiCriterionGroupsAction(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_deactivateKpiCriterionGroup(this.authToken, g.GroupID);
+      },
+      submitKpiResultForm: { employeeId: '', ruleId: '', period: '', actualValue: null },
       applicableKpiRulesForSelectedEmployee: [],
+      suggestedActualValueHint: null,
       savingKpiResult: false,
       openSubmitKpiResultModal() {
-        this.submitKpiResultForm = { employeeId: '', ruleId: '', actualValue: null };
+        this.submitKpiResultForm = { employeeId: '', ruleId: '', period: this.kpiPeriod || new Date().toISOString().slice(0, 7), actualValue: null };
         this.applicableKpiRulesForSelectedEmployee = [];
+        this.suggestedActualValueHint = null;
         this.openModal('submitKpiResult');
       },
       // Chỉ hiện đúng chỉ tiêu áp dụng cho chức danh của nhân viên đã chọn (tiêu chí chung + đặc thù
       // đúng chức danh) — đúng §3 đặc tả, thay vì bắt người lập chọn lẫn lộn trong toàn bộ danh mục.
       onSubmitKpiResultEmployeeChange() {
         this.submitKpiResultForm.ruleId = '';
+        this.suggestedActualValueHint = null;
         if (!this.submitKpiResultForm.employeeId) { this.applicableKpiRulesForSelectedEmployee = []; return; }
         google.script.run
           .withSuccessHandler((rows) => { this.applicableKpiRulesForSelectedEmployee = rows; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_listApplicableKpiRulesForEmployee(this.authToken, this.submitKpiResultForm.employeeId);
+      },
+      // §14: gợi ý tự tính ActualValue nếu chỉ tiêu có cấu hình nguồn dữ liệu — chỉ điền sẵn, người
+      // lập vẫn phải bấm "dùng giá trị này" hoặc tự nhập, không tự động nộp thay.
+      onSubmitKpiResultRuleChange() {
+        this.suggestedActualValueHint = null;
+        if (!this.submitKpiResultForm.ruleId || !this.submitKpiResultForm.period) return;
+        google.script.run
+          .withSuccessHandler((value) => { this.suggestedActualValueHint = value; })
+          .withFailureHandler(() => {})
+          .api_getSuggestedKpiActualValue(this.authToken, this.submitKpiResultForm.ruleId, this.submitKpiResultForm.employeeId, this.submitKpiResultForm.period);
       },
       submitKpiResultAction() {
         this.savingKpiResult = true;
@@ -1395,7 +1620,7 @@
           })
           .api_submitKpiResult(this.authToken, {
             employeeId: this.submitKpiResultForm.employeeId, departmentId: this.kpiDepartmentFilter,
-            period: this.kpiPeriod || new Date().toISOString().slice(0, 7), ruleId: this.submitKpiResultForm.ruleId,
+            period: this.submitKpiResultForm.period || new Date().toISOString().slice(0, 7), ruleId: this.submitKpiResultForm.ruleId,
             actualValue: this.submitKpiResultForm.actualValue
           });
       },
@@ -1405,6 +1630,47 @@
           .withSuccessHandler(() => { this.toast('success', 'Đã duyệt KPI.'); this.loadDepartmentKpiResultsAction(); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_approveKpiResult(this.authToken, r.ResultID, comment);
+      },
+
+      // §13: tổng hợp KPI cuối kỳ theo khoa/phòng.
+      finalKpiSummary: [],
+      currentFinalKpiDetail: null,
+      loadFinalKpiSummaryAction() {
+        if (!this.kpiDepartmentFilter || !this.kpiPeriod) { this.finalKpiSummary = []; return; }
+        google.script.run
+          .withSuccessHandler((rows) => { this.finalKpiSummary = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listFinalKpiForDepartmentPeriod(this.authToken, this.kpiDepartmentFilter, this.kpiPeriod);
+      },
+      openFinalKpiDetail(row) {
+        this.currentFinalKpiDetail = row;
+        this.openModal('finalKpiDetail');
+      },
+      grantKpiBonusForm: { points: null, reason: '' },
+      grantKpiBonusTargetEmployeeId: '',
+      savingKpiBonus: false,
+      openGrantBonusModal(row) {
+        this.grantKpiBonusTargetEmployeeId = row.employeeId;
+        this.grantKpiBonusForm = { points: null, reason: '' };
+        this.openModal('grantKpiBonus');
+      },
+      grantKpiBonusAction() {
+        this.savingKpiBonus = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.savingKpiBonus = false;
+            this.closeModal();
+            this.toast('success', 'Đã cấp điểm cộng.');
+            this.loadFinalKpiSummaryAction();
+          })
+          .withFailureHandler((e) => {
+            this.savingKpiBonus = false;
+            this.errorMessage = e.message;
+          })
+          .api_grantKpiBonusPoints(this.authToken, {
+            employeeId: this.grantKpiBonusTargetEmployeeId, period: this.kpiPeriod,
+            points: this.grantKpiBonusForm.points, reason: this.grantKpiBonusForm.reason
+          });
       },
 
       // --- Quản trị ---

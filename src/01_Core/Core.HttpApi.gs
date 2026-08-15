@@ -72,6 +72,17 @@ const GATEWAY_ACTIONS_ = {
   'task.evaluate': function (user, params) { return evaluateTask(user, params.taskId, params); },
   'task.uploadAttachment': function (user, params) { return uploadTaskAttachment(user, params.taskId, params.fileName, params.mimeType, params.base64Data); },
   'task.listAttachments': function (user, params) { return listTaskAttachments(params.taskId); },
+  'task.addParticipant': function (user, params) { return addTaskParticipant(user, params.taskId, params); },
+  'task.removeParticipant': function (user, params) { return removeTaskParticipant(user, params.taskParticipantId); },
+  'task.listParticipants': function (user, params) { return listTaskParticipants(params.taskId); },
+  'task.listSubtasks': function (user, params) { return listSubtasks(params.taskId); },
+
+  'incident.report': function (user, params) { return reportIncident(user, params); },
+  'incident.startVerification': function (user, params) { return startIncidentVerification(user, params.incidentId); },
+  'incident.conclude': function (user, params) { return concludeIncident(user, params.incidentId, params); },
+  'incident.linkToKpi': function (user, params) { return linkIncidentToKpiResult(user, params.incidentId, params.kpiResultId); },
+  'incident.listByDepartment': function (user, params) { return listIncidentsByDepartment(user, params.departmentId); },
+  'incident.listMine': function (user) { return listMyReportedIncidents(user); },
 
   'clinical.listMine': function (user, params) { return listMyClinicalAssignments(user, params.dateFrom, params.dateTo); },
   'clinical.listByDepartment': function (user, params) { return listClinicalAssignmentsByDepartment(user, params.departmentId, params.dateFrom, params.dateTo); },
@@ -157,6 +168,7 @@ const GATEWAY_ACTIONS_ = {
   'insuranceAudit.updateExplanation': function (user, params) { return updateInsuranceAuditExplanation(user, params.auditId, params); },
   'insuranceAudit.listByDepartment': function (user, params) { return listInsuranceAuditsByDepartment(user, params.departmentId, params.yearMonth); },
   'insuranceAudit.listHospitalWide': function (user, params) { return listInsuranceAuditsHospitalWide(user, params.yearMonth); },
+  'insuranceAudit.linkToKpi': function (user, params) { return linkInsuranceAuditToKpi(user, params.auditId, params.kpiResultId, params.affectsKpi); },
 
   'kpi.createRule': function (user, params) { return createKpiRule(user, params); },
   'kpi.deactivateRule': function (user, params) { return deactivateKpiRule(user, params.ruleId); },
@@ -165,5 +177,13 @@ const GATEWAY_ACTIONS_ = {
   'kpi.submitResult': function (user, params) { return submitKpiResult(user, params); },
   'kpi.approveResult': function (user, params) { return approveKpiResult(user, params.resultId, params.managerComment); },
   'kpi.listMyResults': function (user, params) { return listMyKpiResults(user, params.period); },
-  'kpi.listResultsByDepartment': function (user, params) { return listKpiResultsByDepartment(user, params.departmentId, params.period); }
+  'kpi.listResultsByDepartment': function (user, params) { return listKpiResultsByDepartment(user, params.departmentId, params.period); },
+  'kpi.createCriterionGroup': function (user, params) { return createKpiCriterionGroup(user, params); },
+  'kpi.deactivateCriterionGroup': function (user, params) { return deactivateKpiCriterionGroup(user, params.groupId); },
+  'kpi.listActiveCriterionGroups': function () { return listActiveKpiCriterionGroups(); },
+  'kpi.getSuggestedActualValue': function (user, params) { return getSuggestedKpiActualValue(user, params.ruleId, params.employeeId, params.period); },
+  'kpi.grantBonusPoints': function (user, params) { return grantKpiBonusPoints(user, params); },
+  'kpi.listBonusPointsForEmployee': function (user, params) { return listKpiBonusPointsForEmployee(user, params.employeeId, params.period); },
+  'kpi.getFinalForEmployeePeriod': function (user, params) { return getFinalKpiForEmployeePeriod(user, params.employeeId, params.period); },
+  'kpi.listFinalForDepartmentPeriod': function (user, params) { return listFinalKpiForDepartmentPeriod(user, params.departmentId, params.period); }
 };

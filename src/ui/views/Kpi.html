@@ -1,4 +1,4 @@
-<div x-show="currentView === 'kpi'" x-init="if (currentView === 'kpi') { loadMyKpiResultsAction(); loadActiveKpiRulesAction(); }" class="max-w-5xl mx-auto">
+<div x-show="currentView === 'kpi'" x-init="if (currentView === 'kpi') { loadMyKpiResultsAction(); loadActiveKpiRulesAction(); loadActiveKpiCriterionGroupsAction(); }" class="max-w-5xl mx-auto">
   <div class="page-header">
     <div class="page-header-left">
       <div class="page-header-icon">🎯</div>
@@ -15,7 +15,9 @@
   <div class="tabs">
     <button @click="kpiTab = 'mine'" class="tab" :class="kpiTab === 'mine' ? 'active' : ''">Của tôi</button>
     <button @click="kpiTab = 'department'" class="tab" :class="kpiTab === 'department' ? 'active' : ''">Theo khoa/phòng</button>
+    <button @click="kpiTab = 'summary'" class="tab" :class="kpiTab === 'summary' ? 'active' : ''">Tổng hợp cuối kỳ</button>
     <button @click="kpiTab = 'rules'" class="tab" :class="kpiTab === 'rules' ? 'active' : ''">Chỉ tiêu</button>
+    <button x-show="isSuperAdmin || isKhNv" @click="kpiTab = 'groups'" class="tab" :class="kpiTab === 'groups' ? 'active' : ''">Nhóm chỉ tiêu</button>
   </div>
 
   <div x-show="kpiTab === 'mine'">
@@ -85,25 +87,97 @@
     </div>
   </div>
 
+  <!-- §13: KPI cơ bản = Σ(điểm nhóm × trọng số nhóm), KPI cuối = min(100, KPI cơ bản + điểm cộng) -->
+  <div x-show="kpiTab === 'summary'">
+    <div class="toolbar">
+      <div class="filter-group">
+        <select x-model="kpiDepartmentFilter" @change="loadFinalKpiSummaryAction()" class="filter-select">
+          <option value="">-- Chọn khoa/phòng --</option>
+          <template x-for="d in departments" :key="d.DepartmentID">
+            <option :value="d.DepartmentID" x-text="d.DepartmentName"></option>
+          </template>
+        </select>
+        <input type="month" x-model="kpiPeriod" @change="loadFinalKpiSummaryAction()" class="filter-input">
+      </div>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Nhân viên</th><th>KPI cơ bản</th><th>Điểm cộng</th><th>KPI cuối</th><th></th></tr></thead>
+          <tbody>
+            <template x-for="row in finalKpiSummary" :key="row.employeeId">
+              <tr>
+                <td x-text="row.fullName"></td>
+                <td x-text="row.baseKpi"></td>
+                <td x-text="row.bonusPoints"></td>
+                <td><strong x-text="row.finalKpi ?? '—'"></strong></td>
+                <td>
+                  <button @click="openFinalKpiDetail(row)" class="btn-link">Chi tiết</button>
+                  <button x-show="isSuperAdmin || isKhNv" @click="openGrantBonusModal(row)" class="btn-link">+ Điểm cộng</button>
+                </td>
+              </tr>
+            </template>
+            <template x-if="kpiDepartmentFilter && finalKpiSummary.length === 0">
+              <tr><td colspan="5" class="text-xs holo-text-dim py-4">Khoa/phòng này chưa có dữ liệu KPI kỳ đã chọn.</td></tr>
+            </template>
+            <template x-if="!kpiDepartmentFilter">
+              <tr><td colspan="5" class="text-xs holo-text-dim py-4">Chọn khoa/phòng và kỳ để xem tổng hợp.</td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <div x-show="kpiTab === 'rules'">
     <div class="card">
       <div class="table-wrap">
         <table class="data-table">
-          <thead><tr><th>Nhóm đối tượng</th><th>Chỉ tiêu</th><th>Trọng số</th><th>Cách quy đổi điểm</th></tr></thead>
+          <thead><tr><th>Nhóm đối tượng</th><th>Nhóm chỉ tiêu</th><th>Chỉ tiêu</th><th>Trọng số</th><th>Nguồn dữ liệu</th><th>Cách quy đổi điểm</th></tr></thead>
           <tbody>
             <template x-for="r in activeKpiRules" :key="r.RuleID">
               <tr>
                 <td>
                   <span x-show="r.IsCommonCriterion" class="badge badge-purple">Chung toàn viện</span>
                   <span x-show="!r.IsCommonCriterion" x-text="r.ObjectGroup"></span>
+                  <span class="badge badge-gray" x-show="r.ScopeType === 'DEPARTMENT'">Đơn vị phụ trách</span>
                 </td>
+                <td x-text="kpiGroupNameById(r.GroupID) || '—'"></td>
                 <td x-text="r.Criterion"></td>
                 <td x-text="r.Weight"></td>
+                <td x-text="r.DataSourceType === 'MANUAL' ? 'Nhập tay' : (r.DataSourceType === 'TASK_COMPLETION' ? 'Tự tính từ Công việc' : 'Tự tính từ Số liệu: ' + r.DataSourceKey)"></td>
                 <td><code class="text-xs" x-text="r.ScoringMethodJson"></code></td>
               </tr>
             </template>
             <template x-if="activeKpiRules.length === 0">
-              <tr><td colspan="4" class="text-xs holo-text-dim py-4">Chưa có chỉ tiêu KPI nào được cấu hình.</td></tr>
+              <tr><td colspan="6" class="text-xs holo-text-dim py-4">Chưa có chỉ tiêu KPI nào được cấu hình.</td></tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div x-show="kpiTab === 'groups'">
+    <div class="card">
+      <div class="card-header">
+        <h3>Nhóm chỉ tiêu KPI</h3>
+        <button @click="openAddKpiCriterionGroupModal()" class="btn btn-primary btn-sm">+ Thêm nhóm</button>
+      </div>
+      <p class="text-xs holo-text-dim px-4 pb-2">Tổng trọng số các nhóm đang hoạt động nên = 100% để KPI cơ bản phản ánh đúng tỉ lệ (§13). Hiện tại: <strong x-text="totalActiveKpiGroupWeight"></strong>%.</p>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Tên nhóm</th><th>Trọng số</th><th></th></tr></thead>
+          <tbody>
+            <template x-for="g in activeKpiCriterionGroups" :key="g.GroupID">
+              <tr>
+                <td x-text="g.GroupName"></td>
+                <td x-text="g.Weight + '%'"></td>
+                <td><button @click="deactivateKpiCriterionGroupAction(g)" class="btn-link">Ngừng dùng</button></td>
+              </tr>
+            </template>
+            <template x-if="activeKpiCriterionGroups.length === 0">
+              <tr><td colspan="3" class="text-xs holo-text-dim py-4">Chưa có nhóm chỉ tiêu nào — KPI tổng cuối kỳ sẽ luôn = 0 cho tới khi có ít nhất 1 nhóm.</td></tr>
             </template>
           </tbody>
         </table>
@@ -128,6 +202,7 @@
           <select x-model="newKpiRuleForm.objectGroup" class="form-control">
             <option value="Bác sĩ">Bác sĩ</option>
             <option value="Điều dưỡng">Điều dưỡng</option>
+            <option value="Dược sĩ">Dược sĩ</option>
             <option value="Kỹ thuật viên">Kỹ thuật viên</option>
             <option value="Hành chính">Hành chính</option>
             <option value="Kế toán">Kế toán</option>
@@ -138,20 +213,76 @@
           <label class="required">Chỉ tiêu</label>
           <input type="text" x-model="newKpiRuleForm.criterion" class="form-control" placeholder="VD: Số lượt khám ngoại trú/tháng">
         </div>
-        <div class="form-group">
-          <label>Trọng số</label>
-          <input type="number" step="0.1" x-model.number="newKpiRuleForm.weight" class="form-control">
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label>Nhóm chỉ tiêu (để tính KPI tổng)</label>
+            <select x-model="newKpiRuleForm.groupId" class="form-control">
+              <option value="">-- Không thuộc nhóm nào --</option>
+              <template x-for="g in activeKpiCriterionGroups" :key="g.GroupID">
+                <option :value="g.GroupID" x-text="g.GroupName"></option>
+              </template>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Trọng số (trong nhóm)</label>
+            <input type="number" step="0.1" x-model.number="newKpiRuleForm.weight" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Phạm vi áp dụng</label>
+            <select x-model="newKpiRuleForm.scopeType" class="form-control">
+              <option value="INDIVIDUAL">Cá nhân</option>
+              <option value="DEPARTMENT">Đơn vị/lĩnh vực phụ trách (§12 KPI quản lý)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Nguồn dữ liệu</label>
+            <select x-model="newKpiRuleForm.dataSourceType" class="form-control">
+              <option value="MANUAL">Nhập tay</option>
+              <option value="TASK_COMPLETION">Tự tính từ % hoàn thành Công việc</option>
+              <option value="CLINICAL_STAT">Tự tính từ Số liệu chuyên môn</option>
+            </select>
+          </div>
+          <div class="form-group" x-show="newKpiRuleForm.dataSourceType === 'CLINICAL_STAT'" style="grid-column: 1 / -1;">
+            <label class="required">Loại số liệu (StatType đúng như đã nhập ở Số liệu chuyên môn)</label>
+            <input type="text" x-model="newKpiRuleForm.dataSourceKey" class="form-control" placeholder="VD: Lượt khám">
+          </div>
         </div>
         <div class="form-group">
           <label class="required">Cách quy đổi điểm (JSON)</label>
           <textarea x-model="newKpiRuleForm.scoringMethodJson" class="form-control" rows="3" placeholder='{"type":"LINEAR","target":100,"maxScore":10}'></textarea>
-          <p class="form-hint">LINEAR: điểm tỷ lệ theo target. THRESHOLD: {"type":"THRESHOLD","thresholds":[{"min":90,"score":10},{"min":75,"score":7}]}</p>
+          <p class="form-hint">LINEAR: điểm tỷ lệ theo target. THRESHOLD: {"type":"THRESHOLD","thresholds":[{"min":90,"score":10},{"min":75,"score":7}]}. Để KPI tổng đúng tỉ lệ, nên đặt maxScore/thresholds trên thang 0-100.</p>
         </div>
       </div>
       <div class="modal-footer">
         <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
         <button @click="createKpiRuleAction()" :disabled="savingKpiRule || !newKpiRuleForm.criterion || !newKpiRuleForm.scoringMethodJson" class="btn btn-primary">
           <span x-text="savingKpiRule ? 'Đang lưu...' : 'Lưu chỉ tiêu'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Thêm nhóm chỉ tiêu KPI -->
+  <div x-show="modalOpen === 'addKpiCriterionGroup'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Thêm nhóm chỉ tiêu KPI</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="required">Tên nhóm</label>
+          <input type="text" x-model="newKpiCriterionGroupForm.groupName" class="form-control" placeholder="VD: Chuyên môn, Chất lượng, An toàn/Tuân thủ, Thái độ/Kỷ luật...">
+        </div>
+        <div class="form-group">
+          <label class="required">Trọng số (%)</label>
+          <input type="number" step="1" min="1" max="100" x-model.number="newKpiCriterionGroupForm.weight" class="form-control">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="createKpiCriterionGroupAction()" :disabled="savingKpiCriterionGroup || !newKpiCriterionGroupForm.groupName || !newKpiCriterionGroupForm.weight" class="btn btn-primary">
+          <span x-text="savingKpiCriterionGroup ? 'Đang lưu...' : 'Lưu nhóm'"></span>
         </button>
       </div>
     </div>
@@ -176,7 +307,7 @@
         </div>
         <div class="form-group">
           <label class="required">Chỉ tiêu</label>
-          <select x-model="submitKpiResultForm.ruleId" :disabled="!submitKpiResultForm.employeeId" class="form-control">
+          <select x-model="submitKpiResultForm.ruleId" @change="onSubmitKpiResultRuleChange()" :disabled="!submitKpiResultForm.employeeId" class="form-control">
             <option value="">-- Chọn chỉ tiêu --</option>
             <template x-for="r in applicableKpiRulesForSelectedEmployee" :key="r.RuleID">
               <option :value="r.RuleID" x-text="(r.IsCommonCriterion ? 'Chung toàn viện' : r.ObjectGroup) + ' — ' + r.Criterion"></option>
@@ -185,14 +316,80 @@
           <p class="form-hint" x-show="submitKpiResultForm.employeeId && applicableKpiRulesForSelectedEmployee.length === 0">Chưa có chỉ tiêu KPI nào áp dụng cho chức danh của nhân viên này.</p>
         </div>
         <div class="form-group">
+          <label class="required">Kỳ</label>
+          <input type="month" x-model="submitKpiResultForm.period" class="form-control">
+        </div>
+        <div class="form-group">
           <label class="required">Giá trị thực tế</label>
           <input type="number" x-model.number="submitKpiResultForm.actualValue" class="form-control">
+          <p class="form-hint" x-show="suggestedActualValueHint !== null">Gợi ý tự tính từ dữ liệu thật: <strong x-text="suggestedActualValueHint"></strong> — <button type="button" @click="submitKpiResultForm.actualValue = suggestedActualValueHint" class="btn-link">dùng giá trị này</button></p>
         </div>
       </div>
       <div class="modal-footer">
         <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
         <button @click="submitKpiResultAction()" :disabled="savingKpiResult || !submitKpiResultForm.employeeId || !submitKpiResultForm.ruleId || submitKpiResultForm.actualValue === null" class="btn btn-primary">
           <span x-text="savingKpiResult ? 'Đang lưu...' : 'Lưu kết quả'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Chi tiết KPI cuối kỳ -->
+  <div x-show="modalOpen === 'finalKpiDetail'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal" x-show="currentFinalKpiDetail">
+      <div class="modal-header">
+        <h2 x-text="currentFinalKpiDetail && (currentFinalKpiDetail.fullName + ' — KPI kỳ ' + kpiPeriod)"></h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body" x-show="currentFinalKpiDetail">
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Nhóm chỉ tiêu</th><th>Trọng số</th><th>Điểm nhóm</th><th>Đóng góp</th></tr></thead>
+            <tbody>
+              <template x-for="g in (currentFinalKpiDetail ? currentFinalKpiDetail.groupBreakdown : [])" :key="g.groupId">
+                <tr>
+                  <td x-text="g.groupName"></td>
+                  <td x-text="g.weight + '%'"></td>
+                  <td x-text="g.resultCount > 0 ? g.score : '— (chưa có kết quả)'"></td>
+                  <td x-text="Math.round(g.score * g.weight) / 100"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+        <div class="flex justify-between mt-3 text-sm">
+          <span>KPI cơ bản: <strong x-text="currentFinalKpiDetail && currentFinalKpiDetail.baseKpi"></strong></span>
+          <span>Điểm cộng: <strong x-text="currentFinalKpiDetail && currentFinalKpiDetail.bonusPoints"></strong></span>
+          <span>KPI cuối: <strong x-text="currentFinalKpiDetail && currentFinalKpiDetail.finalKpi"></strong></span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Cấp điểm cộng -->
+  <div x-show="modalOpen === 'grantKpiBonus'" x-cloak class="modal-overlay" @click.self="closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Cấp điểm cộng KPI</h2>
+        <button @click="closeModal()" class="modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="required">Số điểm</label>
+          <input type="number" step="0.1" min="0.1" x-model.number="grantKpiBonusForm.points" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="required">Lý do</label>
+          <textarea x-model="grantKpiBonusForm.reason" class="form-control" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button @click="closeModal()" class="btn btn-secondary">Huỷ</button>
+        <button @click="grantKpiBonusAction()" :disabled="savingKpiBonus || !grantKpiBonusForm.points || !grantKpiBonusForm.reason" class="btn btn-primary">
+          <span x-text="savingKpiBonus ? 'Đang lưu...' : 'Cấp điểm cộng'"></span>
         </button>
       </div>
     </div>

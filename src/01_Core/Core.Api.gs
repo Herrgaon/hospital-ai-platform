@@ -199,6 +199,58 @@ function api_listTaskAttachments(token, taskId) {
   return listTaskAttachments(taskId);
 }
 
+function api_addTaskParticipant(token, taskId, input) {
+  const user = getCurrentUserFromToken_(token);
+  return addTaskParticipant(user, taskId, input);
+}
+
+function api_removeTaskParticipant(token, taskParticipantId) {
+  const user = getCurrentUserFromToken_(token);
+  return removeTaskParticipant(user, taskParticipantId);
+}
+
+function api_listTaskParticipants(token, taskId) {
+  getCurrentUserFromToken_(token);
+  return listTaskParticipants(taskId);
+}
+
+function api_listSubtasks(token, taskId) {
+  getCurrentUserFromToken_(token);
+  return listSubtasks(taskId);
+}
+
+// --- Sự cố / An toàn (Incident) ---
+
+function api_reportIncident(token, input) {
+  const user = getCurrentUserFromToken_(token);
+  return reportIncident(user, input);
+}
+
+function api_startIncidentVerification(token, incidentId) {
+  const user = getCurrentUserFromToken_(token);
+  return startIncidentVerification(user, incidentId);
+}
+
+function api_concludeIncident(token, incidentId, input) {
+  const user = getCurrentUserFromToken_(token);
+  return concludeIncident(user, incidentId, input);
+}
+
+function api_linkIncidentToKpiResult(token, incidentId, kpiResultId) {
+  const user = getCurrentUserFromToken_(token);
+  return linkIncidentToKpiResult(user, incidentId, kpiResultId);
+}
+
+function api_listIncidentsByDepartment(token, departmentId) {
+  const user = getCurrentUserFromToken_(token);
+  return listIncidentsByDepartment(user, departmentId);
+}
+
+function api_listMyReportedIncidents(token) {
+  const user = getCurrentUserFromToken_(token);
+  return listMyReportedIncidents(user);
+}
+
 // --- Clinical Assignment (Phân công khối lâm sàng) ---
 
 function api_listMyClinicalAssignments(token, dateFrom, dateTo) {
@@ -599,6 +651,11 @@ function api_listInsuranceAuditsHospitalWide(token, yearMonth) {
   return listInsuranceAuditsHospitalWide(user, yearMonth);
 }
 
+function api_linkInsuranceAuditToKpi(token, auditId, kpiResultId, affectsKpi) {
+  const user = getCurrentUserFromToken_(token);
+  return linkInsuranceAuditToKpi(user, auditId, kpiResultId, affectsKpi);
+}
+
 // --- KPI ---
 
 function api_createKpiRule(token, input) {
@@ -639,6 +696,46 @@ function api_listMyKpiResults(token, period) {
 function api_listKpiResultsByDepartment(token, departmentId, period) {
   const user = getCurrentUserFromToken_(token);
   return listKpiResultsByDepartment(user, departmentId, period);
+}
+
+function api_createKpiCriterionGroup(token, input) {
+  const user = getCurrentUserFromToken_(token);
+  return createKpiCriterionGroup(user, input);
+}
+
+function api_deactivateKpiCriterionGroup(token, groupId) {
+  const user = getCurrentUserFromToken_(token);
+  return deactivateKpiCriterionGroup(user, groupId);
+}
+
+function api_listActiveKpiCriterionGroups(token) {
+  getCurrentUserFromToken_(token);
+  return listActiveKpiCriterionGroups();
+}
+
+function api_getSuggestedKpiActualValue(token, ruleId, employeeId, period) {
+  const user = getCurrentUserFromToken_(token);
+  return getSuggestedKpiActualValue(user, ruleId, employeeId, period);
+}
+
+function api_grantKpiBonusPoints(token, input) {
+  const user = getCurrentUserFromToken_(token);
+  return grantKpiBonusPoints(user, input);
+}
+
+function api_listKpiBonusPointsForEmployee(token, employeeId, period) {
+  const user = getCurrentUserFromToken_(token);
+  return listKpiBonusPointsForEmployee(user, employeeId, period);
+}
+
+function api_getFinalKpiForEmployeePeriod(token, employeeId, period) {
+  const user = getCurrentUserFromToken_(token);
+  return getFinalKpiForEmployeePeriod(user, employeeId, period);
+}
+
+function api_listFinalKpiForDepartmentPeriod(token, departmentId, period) {
+  const user = getCurrentUserFromToken_(token);
+  return listFinalKpiForDepartmentPeriod(user, departmentId, period);
 }
 
 // --- Admin / AI / Audit Log ---
