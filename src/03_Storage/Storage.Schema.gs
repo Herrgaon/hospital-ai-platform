@@ -52,12 +52,26 @@ const SCHEMA = {
   [SHEETS.ROLES]: ['RoleID', 'RoleName', 'Description'],
 
   // DepartmentID='*' = phạm vi toàn viện (role-global). 10 cờ hành động đúng theo đặc tả:
-  // Xem/Tạo/Sửa/Xóa/GửiDuyệt/Duyệt/TừChối/CôngBố/Chốt/XuấtDữLiệu. Không còn CanManage (phân quyền
-  // uỷ quyền phi tập trung bị bỏ ở Giai đoạn 1 — xem quyết định trong kế hoạch triển khai).
+  // Xem/Tạo/Sửa/Xóa/GửiDuyệt/Duyệt/TừChối/CôngBố/Chốt/XuấtDữLiệu — ĐÃ LÀ "kho quyền dùng chung toàn
+  // hệ thống" theo đúng Đặc tả Cơ chế Phân quyền V1 §1 (không có cột nào gắn cứng theo tên khoa/phòng
+  // cụ thể; DepartmentID chỉ là PHẠM VI, tách biệt khỏi QUYỀN — đúng §1 "Quyền = được làm gì, Phạm vi =
+  // được làm ở đâu"). Bổ sung theo đặc tả đó (2026-08-16):
+  // - Status: Active | Revoked — thu hồi KHÔNG xoá dòng (giữ lịch sử + cho phép khôi phục, đúng §10).
+  //   Dòng cũ trước khi có cột này coi là Active (rỗng = Active, xem hasPermission/getMyPermissionMap).
+  // - EffectiveFrom/EffectiveTo: cấp quyền có thời hạn (đúng §19 "hết thời hạn → quyền tự động hết hiệu
+  //   lực"). Rỗng = không giới hạn thời gian.
+  // - CanDelegate: "Cho phép phân quyền" (đúng §12) — ÁP DỤNG CHO CẢ DÒNG (toàn bộ 10 hành động của 1
+  //   lượt cấp theo khoa/phòng), KHÔNG tách riêng từng hành động — đơn giản hoá có chủ đích so với đặc
+  //   tả (đặc tả ngụ ý theo từng "quyền" riêng lẻ) vì Permissions hiện lưu 1 dòng/người/khoa-phòng gộp
+  //   cả 10 hành động, tách theo từng hành động sẽ cần viết lại toàn bộ mô hình dữ liệu — xem
+  //   Auth.Permission.gs#hasDelegatablePermission_.
+  // - GrantedByUserID/GrantedAt: nguồn cấp quyền (đúng §9/§19) — dùng cùng logAudit để dựng "Nhật ký
+  //   phân quyền" (đúng §18), không lưu trùng lịch sử ở 2 nơi.
   [SHEETS.PERMISSIONS]: [
     'PermissionID', 'RoleID', 'UserID', 'DepartmentID',
     'CanView', 'CanCreate', 'CanEdit', 'CanDelete',
-    'CanSubmit', 'CanApprove', 'CanReject', 'CanPublish', 'CanLock', 'CanExport'
+    'CanSubmit', 'CanApprove', 'CanReject', 'CanPublish', 'CanLock', 'CanExport',
+    'Status', 'EffectiveFrom', 'EffectiveTo', 'CanDelegate', 'GrantedByUserID', 'GrantedAt'
   ],
 
   // Repurposed từ Libraries — vừa là đơn vị tổ chức (khoa/phòng) vừa là phạm vi phân quyền.
@@ -412,6 +426,7 @@ const PLAIN_TEXT_COLUMNS = {
   [SHEETS.EMPLOYEES]: ['StartDate', 'DateOfBirth', 'IdIssueDate'],
   [SHEETS.TASKS]: ['DueDate', 'Period'],
   [SHEETS.RECURRING_TASK_TEMPLATES]: ['EffectiveFrom', 'EffectiveTo'],
+  [SHEETS.PERMISSIONS]: ['EffectiveFrom', 'EffectiveTo', 'GrantedAt'],
   [SHEETS.EMPLOYMENT_HISTORY]: ['StartDate', 'EndDate'],
   [SHEETS.QUALIFICATIONS]: ['IssueDate', 'ExpiryDate'],
   [SHEETS.EMPLOYEE_ASSIGNMENTS]: ['StartDate', 'EndDate'],

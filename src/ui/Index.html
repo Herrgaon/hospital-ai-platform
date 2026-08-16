@@ -23,12 +23,6 @@
       <nav class="app-sidebar-menu">
         <a href="#dashboard" @click.prevent="go('dashboard')" class="app-nav-item" :class="active('dashboard')"><span class="app-nav-icon">🏠</span> Trang chủ</a>
 
-        <a href="#personnel" @click.prevent="goToPersonnelTab('list')" class="app-nav-item" :class="active('personnel')"><span class="app-nav-icon">👥</span> Nhân sự</a>
-
-        <template x-if="isSuperAdmin">
-          <a href="#admin" @click.prevent="go('admin')" class="app-nav-item" :class="active('admin')"><span class="app-nav-icon">⚙</span> Quản trị hệ thống</a>
-        </template>
-
         <button type="button" @click="toggleNavGroup('work')" class="app-nav-group-label" :class="isNavGroupCollapsed('work') ? 'collapsed' : ''">
           <span>📋 Công việc &amp; Lịch trực</span><span class="app-nav-group-chevron">▾</span>
         </button>
@@ -59,6 +53,13 @@
           <a href="#kpi" @click.prevent="go('kpi')" class="app-nav-item" :class="active('kpi')"><span class="app-nav-icon">🎯</span> KPI</a>
         </div>
 
+        <div class="app-sidebar-spacer"></div>
+
+        <a href="#personnel" @click.prevent="goToPersonnelTab('list')" class="app-nav-item" :class="active('personnel')"><span class="app-nav-icon">👥</span> Nhân sự</a>
+
+        <template x-if="isSuperAdmin">
+          <a href="#admin" @click.prevent="go('admin')" class="app-nav-item" :class="active('admin')"><span class="app-nav-icon">⚙</span> Quản trị hệ thống</a>
+        </template>
       </nav>
       <div class="app-sidebar-footer">● STATUS: ONLINE</div>
     </aside>

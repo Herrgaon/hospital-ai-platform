@@ -2362,9 +2362,13 @@
       auditLogs: [],
       exportingAuditLog: false,
       auditExportResult: null,
-      permissionDepartmentFilter: '',
-      departmentPermissions: [],
-      newPermissionUserId: '',
+      permissionMgmtSearch: '',
+      permissionMgmtDeptFilter: '',
+      permissionMgmtRoleFilter: '',
+      selectedPermissionUserId: '',
+      selectedPermissionUserGrants: [],
+      newPermissionScopeDepartmentId: '',
+      permissionHistory: [],
 
       // Chỉ còn cấu hình AI — quản lý Người dùng/Vai trò đã chuyển sang loadUsersAndRoles() (trang
       // Nhân sự) sau khi gộp trang theo yêu cầu Product Owner.
@@ -2404,39 +2408,89 @@
           .api_createUser(this.authToken, this.newUserForm.email, this.newUserForm.username, this.newUserForm.fullName, this.newUserForm.role, '');
       },
 
-      loadDepartmentPermissionsAction() {
-        if (!this.permissionDepartmentFilter) { this.departmentPermissions = []; return; }
-        google.script.run
-          .withSuccessHandler((perms) => { this.departmentPermissions = perms; })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listPermissionsForDepartment(this.authToken, this.permissionDepartmentFilter);
-      },
-
-      addPermissionRowAction() {
-        if (!this.newPermissionUserId) return;
-        if (this.departmentPermissions.some((p) => p.UserID === this.newPermissionUserId)) {
-          this.newPermissionUserId = '';
-          return;
-        }
-        this.departmentPermissions.push({
-          PermissionID: 'NEW_' + this.newPermissionUserId,
-          UserID: this.newPermissionUserId,
-          DepartmentID: this.permissionDepartmentFilter,
-          CanView: true, CanCreate: false, CanEdit: false, CanDelete: false,
-          CanSubmit: false, CanApprove: false, CanReject: false, CanPublish: false, CanLock: false, CanExport: false
+      // --- Quản lý phân quyền tập trung (Đặc tả Cơ chế Phân quyền V1) ---
+      get permissionMgmtUsersFiltered() {
+        const q = this.permissionMgmtSearch.trim().toLowerCase();
+        return this.allUsers.filter((u) => {
+          if (q && !(u.FullName || '').toLowerCase().includes(q) && !(u.Email || '').toLowerCase().includes(q)) return false;
+          if (this.permissionMgmtRoleFilter && u.Role !== this.permissionMgmtRoleFilter) return false;
+          if (this.permissionMgmtDeptFilter) {
+            const emp = this.employees.find((e) => e.UserID === u.UserID);
+            if (!emp || emp.DepartmentID !== this.permissionMgmtDeptFilter) return false;
+          }
+          return true;
         });
-        this.newPermissionUserId = '';
       },
-
-      savePermissionRowAction(perm) {
+      get selectedPermissionUser() {
+        return this.allUsers.find((u) => u.UserID === this.selectedPermissionUserId) || null;
+      },
+      employeeDepartmentNameByUserId(userId) {
+        const emp = this.employees.find((e) => e.UserID === userId);
+        return emp ? this.departmentNameById(emp.DepartmentID) : '—';
+      },
+      permissionActionLabel(action) {
+        const map = {
+          CanView: 'Xem', CanCreate: 'Tạo', CanEdit: 'Sửa', CanDelete: 'Xoá', CanSubmit: 'Gửi duyệt',
+          CanApprove: 'Duyệt', CanReject: 'Từ chối', CanPublish: 'Công bố', CanLock: 'Chốt', CanExport: 'Xuất DL'
+        };
+        return map[action] || action;
+      },
+      permissionAuditActionLabel(action) {
+        const map = { PERMISSION_GRANTED: 'Cấp quyền', PERMISSION_REVOKED: 'Thu hồi', PERMISSION_RESTORED: 'Khôi phục' };
+        return map[action] || action;
+      },
+      openPermissionDetail(u) {
+        this.selectedPermissionUserId = u.UserID;
+        this.newPermissionScopeDepartmentId = '';
+        this.permissionHistory = [];
+        this.loadPermissionDetail_();
+      },
+      loadPermissionDetail_() {
         google.script.run
-          .withSuccessHandler(() => { this.loadDepartmentPermissionsAction(); })
+          .withSuccessHandler((grants) => { this.selectedPermissionUserGrants = grants; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_setEmployeePermissionOverride(this.authToken, perm.UserID, this.permissionDepartmentFilter, {
-            CanView: perm.CanView, CanCreate: perm.CanCreate, CanEdit: perm.CanEdit, CanDelete: perm.CanDelete,
-            CanSubmit: perm.CanSubmit, CanApprove: perm.CanApprove, CanReject: perm.CanReject,
-            CanPublish: perm.CanPublish, CanLock: perm.CanLock, CanExport: perm.CanExport
-          });
+          .api_listPermissionsForUser(this.authToken, this.selectedPermissionUserId);
+      },
+      saveGrantAction(p) {
+        google.script.run
+          .withSuccessHandler(() => { this.toast('success', 'Đã lưu phân quyền.'); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; this.loadPermissionDetail_(); })
+          .api_grantUserPermission(this.authToken, p.UserID, p.DepartmentID, {
+            CanView: p.CanView, CanCreate: p.CanCreate, CanEdit: p.CanEdit, CanDelete: p.CanDelete,
+            CanSubmit: p.CanSubmit, CanApprove: p.CanApprove, CanReject: p.CanReject,
+            CanPublish: p.CanPublish, CanLock: p.CanLock, CanExport: p.CanExport
+          }, { effectiveFrom: p.EffectiveFrom, effectiveTo: p.EffectiveTo, canDelegate: p.CanDelegate });
+      },
+      addPermissionScopeAction() {
+        if (!this.newPermissionScopeDepartmentId) return;
+        const departmentId = this.newPermissionScopeDepartmentId;
+        this.newPermissionScopeDepartmentId = '';
+        google.script.run
+          .withSuccessHandler(() => { this.loadPermissionDetail_(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_grantUserPermission(this.authToken, this.selectedPermissionUserId, departmentId, {
+            CanView: false, CanCreate: false, CanEdit: false, CanDelete: false, CanSubmit: false,
+            CanApprove: false, CanReject: false, CanPublish: false, CanLock: false, CanExport: false
+          }, {});
+      },
+      revokeGrantAction(p) {
+        if (!confirm('Thu hồi phân quyền phạm vi "' + (p.DepartmentID === '*' ? 'Toàn viện' : this.departmentNameById(p.DepartmentID)) + '"?')) return;
+        google.script.run
+          .withSuccessHandler(() => { this.loadPermissionDetail_(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_revokePermissionGrant(this.authToken, p.PermissionID);
+      },
+      restoreGrantAction(p) {
+        google.script.run
+          .withSuccessHandler(() => { this.loadPermissionDetail_(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_restorePermissionGrant(this.authToken, p.PermissionID);
+      },
+      loadPermissionHistoryAction() {
+        google.script.run
+          .withSuccessHandler((logs) => { this.permissionHistory = logs; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listPermissionChangeHistory(this.authToken, this.selectedPermissionUserId);
       },
 
       toggleAi() {

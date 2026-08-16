@@ -83,14 +83,29 @@ function api_assignRole(token, targetUserId, newRole) {
   return assignRole(user, targetUserId, newRole);
 }
 
-function api_setEmployeePermissionOverride(token, targetUserId, departmentId, permissionPatch) {
+function api_listPermissionsForUser(token, targetUserId) {
   const user = getCurrentUserFromToken_(token);
-  return setEmployeePermissionOverride(user, targetUserId, departmentId, permissionPatch);
+  return listPermissionsForUser(user, targetUserId);
 }
 
-function api_listPermissionsForDepartment(token, departmentId) {
+function api_grantUserPermission(token, targetUserId, departmentId, patch, options) {
   const user = getCurrentUserFromToken_(token);
-  return listPermissionsForDepartment(user, departmentId);
+  return grantUserPermission(user, targetUserId, departmentId, patch, options);
+}
+
+function api_revokePermissionGrant(token, permissionId) {
+  const user = getCurrentUserFromToken_(token);
+  return revokePermissionGrant(user, permissionId);
+}
+
+function api_restorePermissionGrant(token, permissionId) {
+  const user = getCurrentUserFromToken_(token);
+  return restorePermissionGrant(user, permissionId);
+}
+
+function api_listPermissionChangeHistory(token, targetUserId) {
+  const user = getCurrentUserFromToken_(token);
+  return listPermissionChangeHistory(user, targetUserId);
 }
 
 function api_listUserDirectory(token) {

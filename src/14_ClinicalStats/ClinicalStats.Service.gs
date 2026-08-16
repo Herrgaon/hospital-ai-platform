@@ -1,7 +1,7 @@
 // Số liệu hoạt động chuyên môn theo tháng — Giai đoạn 3. CHỈ số liệu tổng hợp theo nhân viên/tháng
 // (VD "BS001, 08/2026, Khám ngoại trú, 426") — KHÔNG có trường nào chứa dữ liệu bệnh nhân, đúng
 // nguyên tắc "không kết nối HIS" xuyên suốt hệ thống. Người nhập: NGUOI_NHAP_SO_LIEU được uỷ quyền
-// theo khoa/phòng (qua setEmployeePermissionOverride, giống mô hình NGUOI_LAP_LICH_TRUC), hoặc
+// theo khoa/phòng (qua grantUserPermission, giống mô hình NGUOI_LAP_LICH_TRUC), hoặc
 // Trưởng khoa/phòng.
 
 function recordMonthlyClinicalStat(actingUser, input) {

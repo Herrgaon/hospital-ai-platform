@@ -12,13 +12,17 @@ function requireDepartmentManager_(actingUser) {
 // đúng cách Knowledge.Library.gs#createLibrary từng seed cho managerUserId (mô hình cũ), chuyển
 // tiếp sang mô hình mới. Quyền của Trưởng khoa: Xem/Tạo/Sửa/GửiDuyệt/Duyệt/TừChối/XuấtDữLiệu = true,
 // Xóa/CôngBố/Chốt = false (chỉ Phòng KH-NV mới Công bố lịch trực chính thức toàn viện).
+// CanDelegate: true — quyền quản lý mặc định của Trưởng khoa/phòng ĐƯỢC PHÉP uỷ quyền lại cho thành
+// viên trong đúng khoa/phòng đó (đúng Đặc tả Cơ chế Phân quyền V1 §16 "Trưởng khoa có thể phân quyền
+// cho thành viên" — chuẩn bị sẵn dữ liệu, dù UI tự phân quyền cho Trưởng khoa vẫn CHƯA mở ở V1 này).
 function seedHeadPermission_(departmentId, headUserId) {
   if (isBlank(headUserId)) return;
   const permissionsRepo = getSheetRepository(SHEETS.PERMISSIONS);
   const existing = permissionsRepo.findAll().find(function (p) { return p.UserID === headUserId && p.DepartmentID === departmentId; });
   const grant = {
     CanView: true, CanCreate: true, CanEdit: true, CanDelete: false,
-    CanSubmit: true, CanApprove: true, CanReject: true, CanPublish: false, CanLock: false, CanExport: true
+    CanSubmit: true, CanApprove: true, CanReject: true, CanPublish: false, CanLock: false, CanExport: true,
+    Status: 'Active', CanDelegate: true
   };
   if (existing) {
     permissionsRepo.updateById('PermissionID', existing.PermissionID, grant);
