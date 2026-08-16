@@ -77,8 +77,8 @@
   </div>
 
   <!-- Tab: Quản lý phân quyền -->
-  <div x-show="adminTab === 'permissions'">
-    <p class="text-xs holo-text-dim mb-3">Quyền = được làm gì (Xem/Tạo/Sửa/Xoá/Gửi duyệt/Duyệt/Từ chối/Công bố/Chốt/Xuất dữ liệu), dùng chung cho mọi khoa/phòng. Phạm vi = được làm ở đâu (1 khoa/phòng, nhiều khoa/phòng, hoặc Toàn viện). Quyền của Trưởng khoa/phòng được tự động cấp khi gán ở Nhân sự &gt; Cơ cấu tổ chức — dùng màn này để cấp/điều chỉnh/thu hồi quyền trực tiếp cho từng người, không cần đổi Vai trò hệ thống của họ.</p>
+  <div x-show="adminTab === 'permissions'" x-init="if (adminTab === 'permissions' && permissionModules.length === 0) loadPermissionModulesAction();">
+    <p class="text-xs holo-text-dim mb-3">Quyền = được làm gì, tách riêng theo từng nhóm chức năng (Lịch trực/Công việc/Chấm công/...) — "Xem lịch trực" và "Xem công việc" là 2 quyền độc lập, không dùng chung 1 cờ. Phạm vi = được làm ở khoa/phòng nào hoặc Toàn viện. Quyền của Trưởng khoa/phòng được tự động cấp khi gán ở Nhân sự &gt; Cơ cấu tổ chức — dùng màn này để cấp/điều chỉnh/thu hồi quyền trực tiếp cho từng người, không cần đổi Vai trò hệ thống của họ.</p>
 
     <div class="flex gap-4 items-start">
       <!-- Danh sách người dùng -->
@@ -100,82 +100,123 @@
         </div>
         <div class="table-wrap">
           <table class="data-table">
-            <thead><tr><th>Người dùng</th><th>Đơn vị</th><th>Vai trò</th><th></th></tr></thead>
+            <thead><tr><th>Người dùng</th><th>Đơn vị</th><th>Chức vụ</th><th>Vai trò</th><th></th></tr></thead>
             <tbody>
-              <template x-for="u in permissionMgmtUsersFiltered" :key="u.UserID">
+              <template x-for="u in permissionMgmtUsersPage" :key="u.UserID">
                 <tr :class="selectedPermissionUserId === u.UserID ? 'holo-text-accent' : ''">
                   <td x-text="u.FullName || u.Email"></td>
                   <td x-text="employeeDepartmentNameByUserId(u.UserID)"></td>
+                  <td x-text="employeeJobTitleByUserId(u.UserID)"></td>
                   <td><span class="badge badge-gray" x-text="u.Role"></span></td>
                   <td><button @click="openPermissionDetail(u)" class="btn-link">Phân quyền</button></td>
                 </tr>
               </template>
               <template x-if="permissionMgmtUsersFiltered.length === 0">
-                <tr><td colspan="4" class="text-xs holo-text-dim py-4">Không có người dùng nào khớp bộ lọc.</td></tr>
+                <tr><td colspan="5" class="text-xs holo-text-dim py-4">Không có người dùng nào khớp bộ lọc.</td></tr>
               </template>
             </tbody>
           </table>
         </div>
+        <div class="flex items-center justify-between text-xs holo-text-dim mt-2" x-show="permissionMgmtUsersFiltered.length > 0">
+          <span x-text="'Hiển thị ' + permissionMgmtPageStart + '–' + permissionMgmtPageEnd + ' trên ' + permissionMgmtUsersFiltered.length + ' người dùng'"></span>
+          <div class="flex gap-2">
+            <button @click="permissionMgmtPage--" :disabled="permissionMgmtPage <= 1" class="btn-link">‹ Trước</button>
+            <button @click="permissionMgmtPage++" :disabled="permissionMgmtPage >= permissionMgmtPageCount" class="btn-link">Sau ›</button>
+          </div>
+        </div>
       </div>
 
       <!-- Chi tiết phân quyền -->
-      <div class="card p-4 flex-1 min-w-0" x-show="selectedPermissionUserId">
+      <div class="card p-4 flex-1 min-w-0" x-show="selectedPermissionUserId" style="max-width: 640px;">
         <template x-if="selectedPermissionUser">
           <div class="space-y-4">
-            <div>
-              <h3 class="font-semibold text-base" x-text="selectedPermissionUser.FullName || selectedPermissionUser.Email"></h3>
-              <p class="text-xs holo-text-dim" x-text="selectedPermissionUser.Role + ' — ' + employeeDepartmentNameByUserId(selectedPermissionUser.UserID)"></p>
+            <div class="flex items-start justify-between">
+              <div>
+                <h3 class="font-semibold text-base" x-text="'Phân quyền cho: ' + (selectedPermissionUser.FullName || selectedPermissionUser.Email)"></h3>
+                <p class="text-xs holo-text-dim" x-text="employeeJobTitleByUserId(selectedPermissionUser.UserID) + ' — ' + employeeDepartmentNameByUserId(selectedPermissionUser.UserID)"></p>
+              </div>
             </div>
 
-            <template x-for="p in selectedPermissionUserGrants" :key="p.PermissionID">
-              <div class="p-3 rounded space-y-2" style="border: 1px solid var(--holo-border);">
-                <div class="flex items-center justify-between">
-                  <strong class="text-sm" x-text="p.DepartmentID === '*' ? 'Toàn viện' : departmentNameById(p.DepartmentID)"></strong>
-                  <div class="flex items-center gap-2">
-                    <span class="badge" :class="p.Status === 'Revoked' ? 'badge-gray' : 'badge-green'" x-text="p.Status === 'Revoked' ? 'Đã thu hồi' : 'Đang hiệu lực'"></span>
-                    <button x-show="p.Status !== 'Revoked'" @click="revokeGrantAction(p)" class="btn-link">Thu hồi</button>
-                    <button x-show="p.Status === 'Revoked'" @click="restoreGrantAction(p)" class="btn-link">Khôi phục</button>
+            <div class="tabs">
+              <button @click="permissionDetailTab = 'functional'" class="tab" :class="permissionDetailTab === 'functional' ? 'active' : ''">Quyền chức năng</button>
+              <button @click="permissionDetailTab = 'history'; loadPermissionHistoryAction();" class="tab" :class="permissionDetailTab === 'history' ? 'active' : ''">Lịch sử phân quyền</button>
+            </div>
+
+            <!-- Tab: Quyền chức năng -->
+            <div x-show="permissionDetailTab === 'functional'" class="space-y-3">
+              <div class="notice notice-info">
+                <span class="notice-icon">🛈</span>
+                <span class="text-xs">Chọn khoa/phòng để thiết lập phạm vi quản lý phù hợp cho từng nhóm quyền. Bật "Cho phép phân quyền" nếu muốn người này tiếp tục cấp lại đúng những quyền đang bật trong nhóm cho người khác.</span>
+              </div>
+
+              <template x-for="mod in permissionModules" :key="mod.key">
+                <div class="rounded" style="border: 1px solid var(--holo-border);">
+                  <button type="button" @click="togglePermissionModuleCollapsed(mod.key)" class="w-full flex items-center justify-between p-2 text-left" style="background: var(--holo-panel-alt);">
+                    <strong class="text-sm" x-text="mod.icon + ' ' + mod.label.toUpperCase()"></strong>
+                    <span x-text="isPermissionModuleCollapsed(mod.key) ? '▸' : '▾'"></span>
+                  </button>
+                  <div x-show="!isPermissionModuleCollapsed(mod.key)" class="p-3 space-y-3">
+                    <div class="form-group !mb-0 max-w-xs">
+                      <label>Phạm vi quản lý</label>
+                      <select :value="grantScopeForModule(mod.key)" @change="setModuleScopeAction(mod.key, $event.target.value)" class="form-control form-control-sm">
+                        <option value="">-- Chưa cấp --</option>
+                        <option value="*">Toàn viện</option>
+                        <template x-for="d in departments" :key="d.DepartmentID">
+                          <option :value="d.DepartmentID" x-text="d.DepartmentName"></option>
+                        </template>
+                      </select>
+                    </div>
+
+                    <template x-if="grantForModule(mod.key)">
+                      <div class="space-y-2">
+                        <table class="data-table">
+                          <thead><tr><th>Quyền</th><th>Nguồn</th><th>Cho phép phân quyền</th></tr></thead>
+                          <tbody>
+                            <template x-for="item in mod.actions" :key="item.action">
+                              <tr>
+                                <td>
+                                  <label class="flex items-center gap-2">
+                                    <input type="checkbox" x-model="grantForModule(mod.key)[item.action]" :disabled="grantForModule(mod.key).Status === 'Revoked'" @change="saveGrantAction(grantForModule(mod.key))">
+                                    <span x-text="item.label"></span>
+                                  </label>
+                                </td>
+                                <td class="text-xs" x-text="grantForModule(mod.key)[item.action] ? permissionSourceLabel(grantForModule(mod.key)) : '---'"></td>
+                                <td x-show="item === mod.actions[0]" :rowspan="mod.actions.length">
+                                  <div class="toggle" :class="grantForModule(mod.key).CanDelegate ? 'on' : ''" @click="toggleModuleDelegateAction(mod.key)"></div>
+                                </td>
+                              </tr>
+                            </template>
+                          </tbody>
+                        </table>
+                        <div class="form-grid-2 gap-y-1">
+                          <div class="form-group !mb-0"><label>Hiệu lực từ</label><input type="date" x-model="grantForModule(mod.key).EffectiveFrom" :disabled="grantForModule(mod.key).Status === 'Revoked'" @change="saveGrantAction(grantForModule(mod.key))" class="form-control form-control-sm"></div>
+                          <div class="form-group !mb-0"><label>Hiệu lực đến</label><input type="date" x-model="grantForModule(mod.key).EffectiveTo" :disabled="grantForModule(mod.key).Status === 'Revoked'" @change="saveGrantAction(grantForModule(mod.key))" class="form-control form-control-sm"></div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                          <span class="badge" :class="grantForModule(mod.key).Status === 'Revoked' ? 'badge-gray' : 'badge-green'" x-text="grantForModule(mod.key).Status === 'Revoked' ? 'Đã thu hồi' : 'Đang hiệu lực'"></span>
+                          <button x-show="grantForModule(mod.key).Status !== 'Revoked'" @click="revokeGrantAction(grantForModule(mod.key))" class="btn-link">Thu hồi</button>
+                          <button x-show="grantForModule(mod.key).Status === 'Revoked'" @click="restoreGrantAction(grantForModule(mod.key))" class="btn-link">Khôi phục</button>
+                        </div>
+                      </div>
+                    </template>
                   </div>
                 </div>
-                <div class="grid grid-cols-5 gap-1 text-xs">
-                  <template x-for="action in ['CanView','CanCreate','CanEdit','CanDelete','CanSubmit','CanApprove','CanReject','CanPublish','CanLock','CanExport']" :key="action">
-                    <label class="flex items-center gap-1">
-                      <input type="checkbox" x-model="p[action]" :disabled="p.Status === 'Revoked'" @change="saveGrantAction(p)">
-                      <span x-text="permissionActionLabel(action)"></span>
-                    </label>
-                  </template>
-                </div>
-                <div class="form-grid-2 gap-y-1">
-                  <div class="form-group !mb-0"><label>Hiệu lực từ</label><input type="date" x-model="p.EffectiveFrom" :disabled="p.Status === 'Revoked'" @change="saveGrantAction(p)" class="form-control form-control-sm"></div>
-                  <div class="form-group !mb-0"><label>Hiệu lực đến</label><input type="date" x-model="p.EffectiveTo" :disabled="p.Status === 'Revoked'" @change="saveGrantAction(p)" class="form-control form-control-sm"></div>
-                </div>
-                <label class="form-check-label">
-                  <input type="checkbox" x-model="p.CanDelegate" :disabled="p.Status === 'Revoked'" @change="saveGrantAction(p)">
-                  Cho phép người này phân quyền lại (uỷ quyền) trong đúng phạm vi này
-                </label>
-                <p class="text-xs holo-text-dim" x-show="p.GrantedByUserID">Nguồn: Admin cấp trực tiếp bởi <span x-text="userEmailById(p.GrantedByUserID)"></span> lúc <span x-text="p.GrantedAt"></span></p>
-              </div>
-            </template>
-            <template x-if="selectedPermissionUserGrants.length === 0">
-              <p class="text-xs holo-text-dim">Chưa có phân quyền trực tiếp nào — người này chỉ dùng quyền mặc định theo Vai trò.</p>
-            </template>
+              </template>
 
-            <div class="form-group max-w-xs">
-              <label>+ Thêm phạm vi mới</label>
-              <select x-model="newPermissionScopeDepartmentId" @change="addPermissionScopeAction()" class="form-control form-control-sm">
-                <option value="">-- Chọn khoa/phòng --</option>
-                <option value="*">Toàn viện</option>
-                <template x-for="d in departments" :key="d.DepartmentID">
-                  <option :value="d.DepartmentID" x-text="d.DepartmentName"></option>
-                </template>
-              </select>
+              <div class="form-group">
+                <label>Ghi chú</label>
+                <input type="text" x-model="permissionGrantNote" @change="saveAllModuleNotesAction()" placeholder="Nhập ghi chú (nếu có)..." class="form-control">
+              </div>
+
+              <div class="text-xs holo-text-dim">
+                Nguồn cấp quyền: <span style="color:#22c55e">🟢 Theo chức vụ</span> ·
+                <span style="color:#3b82f6">🔵 Admin cấp trực tiếp</span> ·
+                <span style="color:#eab308">🟡 Được uỷ quyền</span>
+              </div>
             </div>
 
-            <div>
-              <div class="flex items-center justify-between mb-1">
-                <p class="holo-label">Nhật ký phân quyền</p>
-                <button @click="loadPermissionHistoryAction()" class="btn-link">Tải nhật ký</button>
-              </div>
+            <!-- Tab: Lịch sử phân quyền -->
+            <div x-show="permissionDetailTab === 'history'">
               <div class="table-wrap">
                 <table class="data-table">
                   <thead><tr><th>Thời gian</th><th>Người thực hiện</th><th>Thao tác</th><th>Chi tiết</th></tr></thead>
@@ -189,7 +230,7 @@
                       </tr>
                     </template>
                     <template x-if="permissionHistory.length === 0">
-                      <tr><td colspan="4" class="text-xs holo-text-dim py-2">Chưa tải nhật ký.</td></tr>
+                      <tr><td colspan="4" class="text-xs holo-text-dim py-2">Chưa có thay đổi nào.</td></tr>
                     </template>
                   </tbody>
                 </table>

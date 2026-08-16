@@ -128,7 +128,7 @@ function getSuggestedKpiActualValue(user, ruleId, employeeId, period) {
 // Lập kết quả KPI ở trạng thái DRAFT — điểm tự tính từ ActualValue qua đúng chỉ tiêu đã cấu hình, quản
 // lý có thể xem lại/nhận xét trước khi duyệt chính thức (approveKpiResult).
 function submitKpiResult(actingUser, input) {
-  requirePermission(actingUser, input.departmentId, 'CanCreate');
+  requirePermission(actingUser, input.departmentId, 'CanCreate', 'KPI');
   const rule = getSheetRepository(SHEETS.KPI_RULES).findById('RuleID', input.ruleId);
   if (!rule || rule.Status !== 'Active') throw new Error('Chỉ tiêu KPI không tồn tại hoặc đã ngừng áp dụng.');
 
@@ -154,7 +154,7 @@ function submitKpiResult(actingUser, input) {
 function approveKpiResult(actingUser, resultId, managerComment) {
   const result = getSheetRepository(SHEETS.KPI_RESULTS).findById('ResultID', resultId);
   if (!result) throw new Error('Không tìm thấy kết quả KPI.');
-  requirePermission(actingUser, result.DepartmentID, 'CanApprove');
+  requirePermission(actingUser, result.DepartmentID, 'CanApprove', 'KPI');
   if (result.Status !== 'DRAFT') throw new Error('Kết quả KPI không ở trạng thái chờ duyệt.');
 
   const updated = getSheetRepository(SHEETS.KPI_RESULTS).updateById('ResultID', resultId, {
@@ -173,7 +173,7 @@ function listMyKpiResults(user, period) {
 }
 
 function listKpiResultsByDepartment(user, departmentId, period) {
-  requirePermission(user, departmentId, 'CanView');
+  requirePermission(user, departmentId, 'CanView', 'KPI');
   return getSheetRepository(SHEETS.KPI_RESULTS).findAll().filter(function (r) {
     return r.DepartmentID === departmentId && (!period || r.Period === period);
   });
@@ -210,12 +210,12 @@ function getFinalKpiForEmployeePeriod(user, employeeId, period) {
   if (!employee) throw new Error('Không tìm thấy nhân viên.');
   const requestingEmployee = getEmployeeByUserId_(user.UserID);
   const isSelf = requestingEmployee && requestingEmployee.EmployeeID === employeeId;
-  if (!isSelf) requirePermission(user, employee.DepartmentID, 'CanView');
+  if (!isSelf) requirePermission(user, employee.DepartmentID, 'CanView', 'KPI');
   return computeFinalKpiForEmployeePeriod_(employeeId, period);
 }
 
 function listFinalKpiForDepartmentPeriod(user, departmentId, period) {
-  requirePermission(user, departmentId, 'CanView');
+  requirePermission(user, departmentId, 'CanView', 'KPI');
   return listEmployeesByDepartment(departmentId)
     .filter(function (e) { return e.Status === 'Active'; })
     .map(function (e) {

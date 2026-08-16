@@ -2365,10 +2365,15 @@
       permissionMgmtSearch: '',
       permissionMgmtDeptFilter: '',
       permissionMgmtRoleFilter: '',
+      permissionMgmtPage: 1,
+      permissionMgmtPageSize: 10,
       selectedPermissionUserId: '',
       selectedPermissionUserGrants: [],
-      newPermissionScopeDepartmentId: '',
       permissionHistory: [],
+      permissionModules: [],
+      permissionDetailTab: 'functional',
+      permissionCollapsedModules: {},
+      permissionGrantNote: '',
 
       // Chỉ còn cấu hình AI — quản lý Người dùng/Vai trò đã chuyển sang loadUsersAndRoles() (trang
       // Nhân sự) sau khi gộp trang theo yêu cầu Product Owner.
@@ -2421,12 +2426,30 @@
           return true;
         });
       },
+      get permissionMgmtPageCount() {
+        return Math.max(1, Math.ceil(this.permissionMgmtUsersFiltered.length / this.permissionMgmtPageSize));
+      },
+      get permissionMgmtPageStart() {
+        return this.permissionMgmtUsersFiltered.length === 0 ? 0 : (this.permissionMgmtPage - 1) * this.permissionMgmtPageSize + 1;
+      },
+      get permissionMgmtPageEnd() {
+        return Math.min(this.permissionMgmtPage * this.permissionMgmtPageSize, this.permissionMgmtUsersFiltered.length);
+      },
+      get permissionMgmtUsersPage() {
+        if (this.permissionMgmtPage > this.permissionMgmtPageCount) this.permissionMgmtPage = this.permissionMgmtPageCount;
+        const start = (this.permissionMgmtPage - 1) * this.permissionMgmtPageSize;
+        return this.permissionMgmtUsersFiltered.slice(start, start + this.permissionMgmtPageSize);
+      },
       get selectedPermissionUser() {
         return this.allUsers.find((u) => u.UserID === this.selectedPermissionUserId) || null;
       },
       employeeDepartmentNameByUserId(userId) {
         const emp = this.employees.find((e) => e.UserID === userId);
         return emp ? this.departmentNameById(emp.DepartmentID) : '—';
+      },
+      employeeJobTitleByUserId(userId) {
+        const emp = this.employees.find((e) => e.UserID === userId);
+        return (emp && emp.JobTitle) || (emp && emp.Position) || '—';
       },
       permissionActionLabel(action) {
         const map = {
@@ -2439,10 +2462,40 @@
         const map = { PERMISSION_GRANTED: 'Cấp quyền', PERMISSION_REVOKED: 'Thu hồi', PERMISSION_RESTORED: 'Khôi phục' };
         return map[action] || action;
       },
+      // Nguồn cấp quyền hiển thị theo Vai trò của người đã cấp (đúng đặc tả §9: Theo chức vụ/Admin cấp
+      // trực tiếp/Được uỷ quyền) — mọi dòng ở màn này đều là cấp CÁ NHÂN (UserID cụ thể), khác quyền mặc
+      // định theo Vai trò (không sửa được ở đây) nên không có nhãn "Theo chức vụ" ở đây.
+      permissionSourceLabel(p) {
+        if (!p || !p.GrantedByUserID) return '---';
+        const granter = this.allUsers.find((u) => u.UserID === p.GrantedByUserID);
+        if (granter && granter.Role === 'SUPER_ADMIN') return 'Admin cấp trực tiếp';
+        return 'Được uỷ quyền';
+      },
+      loadPermissionModulesAction() {
+        google.script.run
+          .withSuccessHandler((modules) => { this.permissionModules = modules; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listPermissionModules(this.authToken);
+      },
+      togglePermissionModuleCollapsed(key) {
+        this.permissionCollapsedModules[key] = !this.permissionCollapsedModules[key];
+      },
+      isPermissionModuleCollapsed(key) {
+        return !!this.permissionCollapsedModules[key];
+      },
+      grantForModule(moduleKey) {
+        return this.selectedPermissionUserGrants.find((p) => (p.Module || '') === moduleKey) || null;
+      },
+      grantScopeForModule(moduleKey) {
+        const g = this.grantForModule(moduleKey);
+        return g ? g.DepartmentID : '';
+      },
       openPermissionDetail(u) {
         this.selectedPermissionUserId = u.UserID;
-        this.newPermissionScopeDepartmentId = '';
         this.permissionHistory = [];
+        this.permissionDetailTab = 'functional';
+        this.permissionGrantNote = '';
+        if (this.permissionModules.length === 0) this.loadPermissionModulesAction();
         this.loadPermissionDetail_();
       },
       loadPermissionDetail_() {
@@ -2455,23 +2508,29 @@
         google.script.run
           .withSuccessHandler(() => { this.toast('success', 'Đã lưu phân quyền.'); })
           .withFailureHandler((e) => { this.errorMessage = e.message; this.loadPermissionDetail_(); })
-          .api_grantUserPermission(this.authToken, p.UserID, p.DepartmentID, {
+          .api_grantUserPermission(this.authToken, p.UserID, p.DepartmentID, p.Module || '', {
             CanView: p.CanView, CanCreate: p.CanCreate, CanEdit: p.CanEdit, CanDelete: p.CanDelete,
             CanSubmit: p.CanSubmit, CanApprove: p.CanApprove, CanReject: p.CanReject,
             CanPublish: p.CanPublish, CanLock: p.CanLock, CanExport: p.CanExport
-          }, { effectiveFrom: p.EffectiveFrom, effectiveTo: p.EffectiveTo, canDelegate: p.CanDelegate });
+          }, { effectiveFrom: p.EffectiveFrom, effectiveTo: p.EffectiveTo, canDelegate: p.CanDelegate, note: p.Note });
       },
-      addPermissionScopeAction() {
-        if (!this.newPermissionScopeDepartmentId) return;
-        const departmentId = this.newPermissionScopeDepartmentId;
-        this.newPermissionScopeDepartmentId = '';
+      toggleModuleDelegateAction(moduleKey) {
+        const g = this.grantForModule(moduleKey);
+        if (!g || g.Status === 'Revoked') return;
+        g.CanDelegate = !g.CanDelegate;
+        this.saveGrantAction(g);
+      },
+      setModuleScopeAction(moduleKey, departmentId) {
+        if (!departmentId) return;
+        const actions = ['CanView', 'CanCreate', 'CanEdit', 'CanDelete', 'CanSubmit', 'CanApprove', 'CanReject', 'CanPublish', 'CanLock', 'CanExport'];
+        const patch = actions.reduce((a, act) => { a[act] = false; return a; }, {});
         google.script.run
           .withSuccessHandler(() => { this.loadPermissionDetail_(); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_grantUserPermission(this.authToken, this.selectedPermissionUserId, departmentId, {
-            CanView: false, CanCreate: false, CanEdit: false, CanDelete: false, CanSubmit: false,
-            CanApprove: false, CanReject: false, CanPublish: false, CanLock: false, CanExport: false
-          }, {});
+          .api_grantUserPermission(this.authToken, this.selectedPermissionUserId, departmentId, moduleKey, patch, {});
+      },
+      saveAllModuleNotesAction() {
+        this.selectedPermissionUserGrants.forEach((p) => { p.Note = this.permissionGrantNote; this.saveGrantAction(p); });
       },
       revokeGrantAction(p) {
         if (!confirm('Thu hồi phân quyền phạm vi "' + (p.DepartmentID === '*' ? 'Toàn viện' : this.departmentNameById(p.DepartmentID)) + '"?')) return;

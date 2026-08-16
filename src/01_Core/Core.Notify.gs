@@ -3,14 +3,14 @@
 // Mọi lỗi gửi mail đều bị NUỐT có chủ đích (try/catch) — một thông báo gửi lỗi không được phép làm
 // hỏng hành động nghiệp vụ chính (submit/duyệt/từ chối vẫn phải thành công dù mail gửi thất bại).
 
-function findApproversForDepartment(departmentId) {
+function findApproversForDepartment(departmentId, module) {
   return getSheetRepository(SHEETS.USERS).findAll()
     .filter(function (u) { return u.Status === 'Active'; })
-    .filter(function (u) { return hasPermission(u, departmentId, 'CanApprove'); });
+    .filter(function (u) { return hasPermission(u, departmentId, 'CanApprove', module); });
 }
 
-function notifyApprovers(actingUser, departmentId, subject, body) {
-  const approvers = findApproversForDepartment(departmentId);
+function notifyApprovers(actingUser, departmentId, subject, body, module) {
+  const approvers = findApproversForDepartment(departmentId, module);
   const emails = approvers
     .map(function (u) { return u.Email; })
     .filter(function (email) { return email && email.toLowerCase() !== actingUser.Email.toLowerCase(); });

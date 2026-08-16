@@ -50,7 +50,8 @@ const GATEWAY_ACTIONS_ = {
   'auth.changePassword': function (user, params) { return changeMyPassword(user, params.oldPassword, params.newPassword); },
 
   'permission.listForUser': function (user, params) { return listPermissionsForUser(user, params.targetUserId); },
-  'permission.grant': function (user, params) { return grantUserPermission(user, params.targetUserId, params.departmentId, params.patch, params.options); },
+  'permission.modules': function () { return listPermissionModules(); },
+  'permission.grant': function (user, params) { return grantUserPermission(user, params.targetUserId, params.departmentId, params.module, params.patch, params.options); },
   'permission.revoke': function (user, params) { return revokePermissionGrant(user, params.permissionId); },
   'permission.restore': function (user, params) { return restorePermissionGrant(user, params.permissionId); },
   'permission.history': function (user, params) { return listPermissionChangeHistory(user, params.targetUserId); },

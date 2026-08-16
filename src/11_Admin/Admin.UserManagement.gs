@@ -93,19 +93,22 @@ function listPermissionsForUser(actingUser, targetUserId) {
   return getSheetRepository(SHEETS.PERMISSIONS).findAll().filter(function (p) { return p.UserID === targetUserId; });
 }
 
-// Cấp/điều chỉnh quyền cho 1 người tại 1 phạm vi (Khoa/Phòng hoặc '*' = Toàn viện) — đúng §3 "Quyền +
-// Phạm vi", §6 "cấp trực tiếp không cần đổi chức vụ", §19 "cho phép có thời hạn". actingPatch chỉ gồm
-// các hành động ĐANG ĐƯỢC BẬT (true) trong lượt cấp này — dùng để kiểm tra uỷ quyền, không phải toàn
-// bộ 10 hành động của dòng kết quả.
-function grantUserPermission(actingUser, targetUserId, departmentId, patch, options) {
+// Cấp/điều chỉnh quyền cho 1 người tại 1 phạm vi + 1 MODULE (Khoa/Phòng hoặc '*' = Toàn viện) — đúng
+// §3 "Quyền + Phạm vi", §6 "cấp trực tiếp không cần đổi chức vụ", §19 "cho phép có thời hạn". Mỗi
+// module là 1 dòng RIÊNG (đúng key UserID+DepartmentID+Module) — "Xem lịch trực" (module DUTY_SCHEDULE)
+// và "Xem công việc" (module TASK) không còn chung 1 cờ, dù cùng 1 người + cùng khoa/phòng. patch chỉ
+// gồm các hành động ĐANG ĐƯỢC BẬT (true) trong lượt cấp này — dùng để kiểm tra uỷ quyền, không phải
+// toàn bộ 10 hành động của dòng kết quả.
+function grantUserPermission(actingUser, targetUserId, departmentId, module, patch, options) {
+  var mod = module || '';
   if (actingUser.Role !== ROLE_NAMES.SUPER_ADMIN) {
     // Đúng §13-14: không được cấp quyền mình không có, và quyền đó phải Cho phép phân quyền = Có.
     var grantedActions = Object.keys(patch).filter(function (a) { return patch[a] === true; });
     grantedActions.forEach(function (action) {
-      if (!hasPermission(actingUser, departmentId, action)) {
+      if (!hasPermission(actingUser, departmentId, action, mod)) {
         throw new Error('Bạn không có quyền "' + action + '" ở phạm vi này nên không thể cấp lại cho người khác.');
       }
-      if (!hasDelegatablePermission_(actingUser, departmentId, action)) {
+      if (!hasDelegatablePermission_(actingUser, departmentId, action, mod)) {
         throw new Error('Quyền "' + action + '" của bạn không được phép uỷ quyền lại cho người khác.');
       }
     });
@@ -114,7 +117,7 @@ function grantUserPermission(actingUser, targetUserId, departmentId, patch, opti
   var opts = options || {};
   var permissionsRepo = getSheetRepository(SHEETS.PERMISSIONS);
   var existing = permissionsRepo.findAll().find(function (p) {
-    return p.UserID === targetUserId && p.DepartmentID === departmentId;
+    return p.UserID === targetUserId && p.DepartmentID === departmentId && (p.Module || '') === mod;
   });
 
   var writePatch = Object.assign({}, patch, {
@@ -123,7 +126,8 @@ function grantUserPermission(actingUser, targetUserId, departmentId, patch, opti
     EffectiveTo: opts.effectiveTo || '',
     CanDelegate: !!opts.canDelegate,
     GrantedByUserID: actingUser.UserID,
-    GrantedAt: nowIso()
+    GrantedAt: nowIso(),
+    Note: opts.note || ''
   });
 
   var result;
@@ -131,11 +135,11 @@ function grantUserPermission(actingUser, targetUserId, departmentId, patch, opti
     result = permissionsRepo.updateById('PermissionID', existing.PermissionID, writePatch);
   } else {
     result = permissionsRepo.append(Object.assign({
-      PermissionID: generateId('PERM'), RoleID: '', UserID: targetUserId, DepartmentID: departmentId
+      PermissionID: generateId('PERM'), RoleID: '', UserID: targetUserId, DepartmentID: departmentId, Module: mod
     }, writePatch));
   }
   logAudit(actingUser.UserID, 'PERMISSION_GRANTED', 'User', targetUserId,
-    'Phạm vi: ' + departmentId + ' — ' + JSON.stringify(patch) +
+    'Nhóm quyền: ' + getPermissionModuleLabel_(mod) + ' — Phạm vi: ' + (departmentId === '*' ? 'Toàn viện' : departmentId) + ' — ' + JSON.stringify(patch) +
     (opts.effectiveTo ? ' (có thời hạn đến ' + opts.effectiveTo + ')' : ''));
   return result;
 }

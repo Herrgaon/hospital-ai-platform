@@ -88,9 +88,14 @@ function api_listPermissionsForUser(token, targetUserId) {
   return listPermissionsForUser(user, targetUserId);
 }
 
-function api_grantUserPermission(token, targetUserId, departmentId, patch, options) {
+function api_grantUserPermission(token, targetUserId, departmentId, module, patch, options) {
   const user = getCurrentUserFromToken_(token);
-  return grantUserPermission(user, targetUserId, departmentId, patch, options);
+  return grantUserPermission(user, targetUserId, departmentId, module, patch, options);
+}
+
+function api_listPermissionModules(token) {
+  getCurrentUserFromToken_(token);
+  return listPermissionModules();
 }
 
 function api_revokePermissionGrant(token, permissionId) {

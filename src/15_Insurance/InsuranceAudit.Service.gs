@@ -4,7 +4,7 @@
 // (đúng nguyên tắc trong đặc tả).
 
 function recordInsuranceAudit(actingUser, input) {
-  requirePermission(actingUser, input.departmentId, 'CanCreate');
+  requirePermission(actingUser, input.departmentId, 'CanCreate', 'INSURANCE_AUDIT');
   if (isBlank(input.yearMonth)) throw new Error('Thiếu tháng.');
 
   const audit = getSheetRepository(SHEETS.INSURANCE_AUDITS).append({
@@ -31,7 +31,7 @@ function recordInsuranceAudit(actingUser, input) {
 function updateInsuranceAuditExplanation(actingUser, auditId, input) {
   const audit = getSheetRepository(SHEETS.INSURANCE_AUDITS).findById('AuditID', auditId);
   if (!audit) throw new Error('Không tìm thấy dữ liệu xuất toán.');
-  requirePermission(actingUser, audit.DepartmentID, 'CanEdit');
+  requirePermission(actingUser, audit.DepartmentID, 'CanEdit', 'INSURANCE_AUDIT');
 
   const updated = getSheetRepository(SHEETS.INSURANCE_AUDITS).updateById('AuditID', auditId, {
     ExplanationStatus: input.explanationStatus || audit.ExplanationStatus,
@@ -50,7 +50,7 @@ function updateInsuranceAuditExplanation(actingUser, auditId, input) {
 function linkInsuranceAuditToKpi(actingUser, auditId, kpiResultId, affectsKpi) {
   const audit = getSheetRepository(SHEETS.INSURANCE_AUDITS).findById('AuditID', auditId);
   if (!audit) throw new Error('Không tìm thấy dữ liệu xuất toán.');
-  requirePermission(actingUser, audit.DepartmentID, 'CanApprove');
+  requirePermission(actingUser, audit.DepartmentID, 'CanApprove', 'INSURANCE_AUDIT');
   if (audit.ExplanationStatus === 'PENDING') {
     throw new Error('Chỉ liên kết KPI sau khi đã có kết luận giải trình (Đã chấp nhận/Không chấp nhận).');
   }
@@ -67,7 +67,7 @@ function linkInsuranceAuditToKpi(actingUser, auditId, kpiResultId, affectsKpi) {
 }
 
 function listInsuranceAuditsByDepartment(user, departmentId, yearMonth) {
-  requirePermission(user, departmentId, 'CanView');
+  requirePermission(user, departmentId, 'CanView', 'INSURANCE_AUDIT');
   return getSheetRepository(SHEETS.INSURANCE_AUDITS).findAll().filter(function (a) {
     return a.DepartmentID === departmentId && (!yearMonth || a.YearMonth === yearMonth);
   });
@@ -75,7 +75,7 @@ function listInsuranceAuditsByDepartment(user, departmentId, yearMonth) {
 
 // Toàn viện — cho Ban Giám đốc/Phòng KH-NV/Phòng TC-KT (quyền CanView phạm vi '*').
 function listInsuranceAuditsHospitalWide(user, yearMonth) {
-  requirePermission(user, '*', 'CanView');
+  requirePermission(user, '*', 'CanView', 'INSURANCE_AUDIT');
   return getSheetRepository(SHEETS.INSURANCE_AUDITS).findAll().filter(function (a) {
     return !yearMonth || a.YearMonth === yearMonth;
   });

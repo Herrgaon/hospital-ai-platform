@@ -5,7 +5,7 @@
 const OVERTIME_TYPES_ = { LAM_THEM_GIO: 'LAM_THEM_GIO', LAM_NGOAI_GIO: 'LAM_NGOAI_GIO' };
 
 function requestOvertime(actingUser, input) {
-  requirePermission(actingUser, input.departmentId, 'CanCreate');
+  requirePermission(actingUser, input.departmentId, 'CanCreate', 'OVERTIME');
   if (isBlank(input.employeeId) || isBlank(input.workDate) || isBlank(input.overtimeType)) {
     throw new Error('Thiếu nhân viên, ngày làm thêm hoặc loại làm thêm.');
   }
@@ -33,7 +33,7 @@ function requestOvertime(actingUser, input) {
 function approveOvertime(actingUser, overtimeId) {
   const overtime = getSheetRepository(SHEETS.OVERTIME).findById('OvertimeID', overtimeId);
   if (!overtime) throw new Error('Không tìm thấy đề nghị làm thêm.');
-  requirePermission(actingUser, overtime.DepartmentID, 'CanApprove');
+  requirePermission(actingUser, overtime.DepartmentID, 'CanApprove', 'OVERTIME');
   if (overtime.Status !== 'PENDING') throw new Error('Đề nghị làm thêm không ở trạng thái chờ duyệt.');
 
   const updated = getSheetRepository(SHEETS.OVERTIME).updateById('OvertimeID', overtimeId, {
@@ -46,7 +46,7 @@ function approveOvertime(actingUser, overtimeId) {
 function rejectOvertime(actingUser, overtimeId, reason) {
   const overtime = getSheetRepository(SHEETS.OVERTIME).findById('OvertimeID', overtimeId);
   if (!overtime) throw new Error('Không tìm thấy đề nghị làm thêm.');
-  requirePermission(actingUser, overtime.DepartmentID, 'CanReject');
+  requirePermission(actingUser, overtime.DepartmentID, 'CanReject', 'OVERTIME');
   if (overtime.Status !== 'PENDING') throw new Error('Đề nghị làm thêm không ở trạng thái chờ duyệt.');
 
   const updated = getSheetRepository(SHEETS.OVERTIME).updateById('OvertimeID', overtimeId, {
@@ -68,7 +68,7 @@ function listMyOvertime(user, dateFrom, dateTo) {
 }
 
 function listOvertimeByDepartment(user, departmentId, dateFrom, dateTo) {
-  requirePermission(user, departmentId, 'CanView');
+  requirePermission(user, departmentId, 'CanView', 'OVERTIME');
   return getSheetRepository(SHEETS.OVERTIME).findAll().filter(function (o) {
     if (o.DepartmentID !== departmentId) return false;
     if (dateFrom && o.WorkDate < dateFrom) return false;

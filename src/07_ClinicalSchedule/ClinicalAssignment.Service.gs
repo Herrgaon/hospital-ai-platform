@@ -11,7 +11,7 @@ function hasOverlappingAssignment_(employeeId, assignmentDate, shiftStart, shift
 }
 
 function createClinicalAssignment(actingUser, input) {
-  requirePermission(actingUser, input.departmentId, 'CanCreate');
+  requirePermission(actingUser, input.departmentId, 'CanCreate', 'CLINICAL_ASSIGNMENT');
   if (isBlank(input.employeeId) || isBlank(input.assignmentDate) || isBlank(input.workType)) {
     throw new Error('Thiếu nhân viên, ngày phân công hoặc loại công việc.');
   }
@@ -44,7 +44,7 @@ function createClinicalAssignment(actingUser, input) {
 function updateClinicalAssignment(actingUser, assignmentId, patch) {
   const assignment = getSheetRepository(SHEETS.CLINICAL_ASSIGNMENTS).findById('AssignmentID', assignmentId);
   if (!assignment) throw new Error('Không tìm thấy phân công.');
-  requirePermission(actingUser, assignment.DepartmentID, 'CanEdit');
+  requirePermission(actingUser, assignment.DepartmentID, 'CanEdit', 'CLINICAL_ASSIGNMENT');
 
   const updated = getSheetRepository(SHEETS.CLINICAL_ASSIGNMENTS).updateById('AssignmentID', assignmentId, Object.assign({}, patch, { UpdatedAt: nowIso() }));
   logAudit(actingUser.UserID, 'CLINICAL_ASSIGNMENT_UPDATED', 'ClinicalAssignment', assignmentId, JSON.stringify(patch));
@@ -54,7 +54,7 @@ function updateClinicalAssignment(actingUser, assignmentId, patch) {
 function deleteClinicalAssignment(actingUser, assignmentId) {
   const assignment = getSheetRepository(SHEETS.CLINICAL_ASSIGNMENTS).findById('AssignmentID', assignmentId);
   if (!assignment) throw new Error('Không tìm thấy phân công.');
-  requirePermission(actingUser, assignment.DepartmentID, 'CanDelete');
+  requirePermission(actingUser, assignment.DepartmentID, 'CanDelete', 'CLINICAL_ASSIGNMENT');
 
   getSheetRepository(SHEETS.CLINICAL_ASSIGNMENTS).updateById('AssignmentID', assignmentId, { Status: 'DELETED', UpdatedAt: nowIso() });
   logAudit(actingUser.UserID, 'CLINICAL_ASSIGNMENT_DELETED', 'ClinicalAssignment', assignmentId, '');
@@ -62,7 +62,7 @@ function deleteClinicalAssignment(actingUser, assignmentId) {
 }
 
 function listClinicalAssignmentsByDepartment(user, departmentId, dateFrom, dateTo) {
-  requirePermission(user, departmentId, 'CanView');
+  requirePermission(user, departmentId, 'CanView', 'CLINICAL_ASSIGNMENT');
   return getSheetRepository(SHEETS.CLINICAL_ASSIGNMENTS).findAll().filter(function (a) {
     if (a.Status === 'DELETED' || a.DepartmentID !== departmentId) return false;
     if (dateFrom && a.AssignmentDate < dateFrom) return false;

@@ -198,7 +198,7 @@ function getEmployeeProfileBundle(actingUser, employeeId) {
   if (!employee) throw new Error('Không tìm thấy nhân viên.');
   const actingEmployee = getEmployeeByUserId_(actingUser.UserID);
   const isSelf = actingEmployee && actingEmployee.EmployeeID === employeeId;
-  if (!isSelf) requirePermission(actingUser, employee.DepartmentID, 'CanView');
+  if (!isSelf) requirePermission(actingUser, employee.DepartmentID, 'CanView', 'EMPLOYEE');
 
   let canEdit = isSelf;
   if (!canEdit) {

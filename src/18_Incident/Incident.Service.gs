@@ -42,7 +42,7 @@ function reportIncident(actingUser, input) {
 function startIncidentVerification(actingUser, incidentId) {
   const incident = getSheetRepository(SHEETS.INCIDENTS).findById('IncidentID', incidentId);
   if (!incident) throw new Error('Không tìm thấy sự cố.');
-  requirePermission(actingUser, incident.DepartmentID, 'CanApprove');
+  requirePermission(actingUser, incident.DepartmentID, 'CanApprove', 'INCIDENT');
   if (incident.Status !== 'REPORTED') throw new Error('Chỉ có thể bắt đầu xác minh sự cố mới báo cáo.');
 
   const updated = getSheetRepository(SHEETS.INCIDENTS).updateById('IncidentID', incidentId, {
@@ -58,7 +58,7 @@ function startIncidentVerification(actingUser, incidentId) {
 function concludeIncident(actingUser, incidentId, input) {
   const incident = getSheetRepository(SHEETS.INCIDENTS).findById('IncidentID', incidentId);
   if (!incident) throw new Error('Không tìm thấy sự cố.');
-  requirePermission(actingUser, incident.DepartmentID, 'CanApprove');
+  requirePermission(actingUser, incident.DepartmentID, 'CanApprove', 'INCIDENT');
   if (incident.Status !== 'VERIFYING') throw new Error('Chỉ có thể kết luận sự cố đang xác minh.');
   if (!INCIDENT_ROOT_CAUSE_CATEGORIES[input.rootCauseCategory]) throw new Error('Phân loại nguyên nhân không hợp lệ.');
 
@@ -80,7 +80,7 @@ function concludeIncident(actingUser, incidentId, input) {
 function linkIncidentToKpiResult(actingUser, incidentId, kpiResultId) {
   const incident = getSheetRepository(SHEETS.INCIDENTS).findById('IncidentID', incidentId);
   if (!incident) throw new Error('Không tìm thấy sự cố.');
-  requirePermission(actingUser, incident.DepartmentID, 'CanApprove');
+  requirePermission(actingUser, incident.DepartmentID, 'CanApprove', 'INCIDENT');
   if (incident.Status !== 'CONCLUDED' || !incident.AffectsKpi) {
     throw new Error('Chỉ liên kết được sự cố đã kết luận và được đánh dấu có ảnh hưởng KPI.');
   }
@@ -95,7 +95,7 @@ function linkIncidentToKpiResult(actingUser, incidentId, kpiResultId) {
 }
 
 function listIncidentsByDepartment(user, departmentId) {
-  requirePermission(user, departmentId, 'CanView');
+  requirePermission(user, departmentId, 'CanView', 'INCIDENT');
   return getSheetRepository(SHEETS.INCIDENTS).findAll().filter(function (i) { return i.DepartmentID === departmentId; });
 }
 

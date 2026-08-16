@@ -67,11 +67,19 @@ const SCHEMA = {
   //   Auth.Permission.gs#hasDelegatablePermission_.
   // - GrantedByUserID/GrantedAt: nguồn cấp quyền (đúng §9/§19) — dùng cùng logAudit để dựng "Nhật ký
   //   phân quyền" (đúng §18), không lưu trùng lịch sử ở 2 nơi.
+  // - Module: TÁCH quyền theo TỪNG MODULE nghiệp vụ (2026-08-16, sau phản hồi Product Owner "Xem lịch
+  //   trực" và "Xem công việc" không được phép là CÙNG 1 cờ) — xem PERMISSION_MODULES_
+  //   (Auth.PermissionCatalog.gs). Rỗng = quyền "toàn hệ thống" kiểu cũ (tương thích ngược, không mất
+  //   dữ liệu cũ), CHỈ dùng làm phương án dự phòng khi không có dòng theo đúng Module — xem
+  //   Auth.Permission.gs#resolvePermissionRow_. 1 người có thể có NHIỀU dòng cùng DepartmentID, khác
+  //   Module — mỗi module là 1 "nhóm quyền" độc lập, không còn gộp chung 10 hành động cho MỌI module
+  //   trong 1 dòng như trước.
+  // - Note: ghi chú tự do khi cấp quyền (đúng đặc tả trang phân quyền — "Ghi chú (nếu có)").
   [SHEETS.PERMISSIONS]: [
-    'PermissionID', 'RoleID', 'UserID', 'DepartmentID',
+    'PermissionID', 'RoleID', 'UserID', 'DepartmentID', 'Module',
     'CanView', 'CanCreate', 'CanEdit', 'CanDelete',
     'CanSubmit', 'CanApprove', 'CanReject', 'CanPublish', 'CanLock', 'CanExport',
-    'Status', 'EffectiveFrom', 'EffectiveTo', 'CanDelegate', 'GrantedByUserID', 'GrantedAt'
+    'Status', 'EffectiveFrom', 'EffectiveTo', 'CanDelegate', 'GrantedByUserID', 'GrantedAt', 'Note'
   ],
 
   // Repurposed từ Libraries — vừa là đơn vị tổ chức (khoa/phòng) vừa là phạm vi phân quyền.

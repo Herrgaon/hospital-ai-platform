@@ -32,7 +32,7 @@ function decorateTaskWithComputedFields_(task) {
 // isKpiTask: đánh dấu THỦ CÔNG bởi người giao — mặc định false, không tự suy luận.
 // baseValue: "Giá trị cơ sở" (§8) — chỉ có ý nghĩa khi isKpiTask=true, mặc định 0 nếu bỏ trống.
 function assignTask(actingUser, input) {
-  requirePermission(actingUser, input.departmentId, 'CanCreate');
+  requirePermission(actingUser, input.departmentId, 'CanCreate', 'TASK');
   if (isBlank(input.title) || isBlank(input.assigneeEmployeeId)) {
     throw new Error('Thiếu tiêu đề công việc hoặc người thực hiện.');
   }
@@ -123,7 +123,7 @@ function evaluateTask(actingUser, taskId, input) {
   if (!task) throw new Error('Không tìm thấy công việc.');
   const employee = getEmployeeByUserId_(actingUser.UserID);
   const isAssigner = employee && task.AssignerEmployeeID === employee.EmployeeID;
-  if (!isAssigner) requirePermission(actingUser, task.DepartmentID, 'CanApprove');
+  if (!isAssigner) requirePermission(actingUser, task.DepartmentID, 'CanApprove', 'TASK');
 
   const patch = {
     Status: 'EVALUATED',
@@ -197,7 +197,7 @@ function cancelTask(actingUser, taskId, reason) {
   if (!task) throw new Error('Không tìm thấy công việc.');
   const employee = getEmployeeByUserId_(actingUser.UserID);
   const isParty = employee && (task.AssignerEmployeeID === employee.EmployeeID || task.AssigneeEmployeeID === employee.EmployeeID);
-  if (!isParty) requirePermission(actingUser, task.DepartmentID, 'CanEdit');
+  if (!isParty) requirePermission(actingUser, task.DepartmentID, 'CanEdit', 'TASK');
   if (task.Status === 'EVALUATED') throw new Error('Không thể huỷ công việc đã hoàn thành.');
 
   const updated = getSheetRepository(SHEETS.TASKS).updateById('TaskID', taskId, { Status: 'CANCELLED', UpdatedAt: nowIso() });
@@ -213,7 +213,7 @@ function transferTaskToNextPeriod(actingUser, taskId, newDueDate, reason) {
   if (!task) throw new Error('Không tìm thấy công việc.');
   const employee = getEmployeeByUserId_(actingUser.UserID);
   const isParty = employee && (task.AssignerEmployeeID === employee.EmployeeID || task.AssigneeEmployeeID === employee.EmployeeID);
-  if (!isParty) requirePermission(actingUser, task.DepartmentID, 'CanEdit');
+  if (!isParty) requirePermission(actingUser, task.DepartmentID, 'CanEdit', 'TASK');
   if (task.Status === 'EVALUATED' || task.Status === 'CANCELLED') {
     throw new Error('Chỉ chuyển kỳ được công việc chưa hoàn thành.');
   }
@@ -244,7 +244,7 @@ function addTaskParticipant(actingUser, taskId, input) {
   if (!task) throw new Error('Không tìm thấy công việc.');
   const employee = getEmployeeByUserId_(actingUser.UserID);
   const isAssigner = employee && task.AssignerEmployeeID === employee.EmployeeID;
-  if (!isAssigner) requirePermission(actingUser, task.DepartmentID, 'CanEdit');
+  if (!isAssigner) requirePermission(actingUser, task.DepartmentID, 'CanEdit', 'TASK');
 
   const participant = getEmployeeById(input.employeeId);
   if (!participant || participant.Status !== 'Active') {
@@ -290,7 +290,7 @@ function removeTaskParticipant(actingUser, taskParticipantId) {
   const task = getSheetRepository(SHEETS.TASKS).findById('TaskID', participant.TaskID);
   const employee = getEmployeeByUserId_(actingUser.UserID);
   const isAssigner = employee && task && task.AssignerEmployeeID === employee.EmployeeID;
-  if (!isAssigner) requirePermission(actingUser, task.DepartmentID, 'CanEdit');
+  if (!isAssigner) requirePermission(actingUser, task.DepartmentID, 'CanEdit', 'TASK');
 
   const ss = getSystemSpreadsheet_();
   const sheet = ss.getSheetByName(SHEETS.TASK_PARTICIPANTS);
@@ -325,7 +325,7 @@ function listMyTasks(user) {
 }
 
 function listTasksByDepartment(user, departmentId) {
-  requirePermission(user, departmentId, 'CanView');
+  requirePermission(user, departmentId, 'CanView', 'TASK');
   return getSheetRepository(SHEETS.TASKS).findAll().filter(function (t) { return t.DepartmentID === departmentId; }).map(decorateTaskWithComputedFields_);
 }
 
@@ -334,7 +334,7 @@ function uploadTaskAttachment(actingUser, taskId, fileName, mimeType, base64Data
   if (!task) throw new Error('Không tìm thấy công việc.');
   const employee = getEmployeeByUserId_(actingUser.UserID);
   const isParty = employee && (task.AssigneeEmployeeID === employee.EmployeeID || task.AssignerEmployeeID === employee.EmployeeID);
-  if (!isParty) requirePermission(actingUser, task.DepartmentID, 'CanEdit');
+  if (!isParty) requirePermission(actingUser, task.DepartmentID, 'CanEdit', 'TASK');
 
   const folder = getTaskAttachmentsFolder(taskId);
   const decoded = Utilities.base64Decode(base64Data);
@@ -373,7 +373,7 @@ function requireTaskTemplateManager_(actingUser, template) {
   const actingEmployee = getEmployeeByUserId_(actingUser.UserID);
   const isOwner = actingEmployee && actingEmployee.EmployeeID === template.AssigneeEmployeeID;
   const isCreator = actingUser.UserID === template.CreatedByUserID;
-  if (!isOwner && !isCreator) requirePermission(actingUser, template.DepartmentID, 'CanEdit');
+  if (!isOwner && !isCreator) requirePermission(actingUser, template.DepartmentID, 'CanEdit', 'TASK');
 }
 
 function createRecurringTaskTemplate(actingUser, input) {
@@ -388,7 +388,7 @@ function createRecurringTaskTemplate(actingUser, input) {
 
   const actingEmployee = getEmployeeByUserId_(actingUser.UserID);
   const isSelf = actingEmployee && actingEmployee.EmployeeID === input.assigneeEmployeeId;
-  if (!isSelf) requirePermission(actingUser, assigneeEmployee.DepartmentID, 'CanCreate');
+  if (!isSelf) requirePermission(actingUser, assigneeEmployee.DepartmentID, 'CanCreate', 'TASK');
 
   const hasDeadline = !!input.hasDeadline;
   const deadlineType = hasDeadline ? (input.deadlineType || TASK_DEADLINE_TYPES_.NONE) : TASK_DEADLINE_TYPES_.NONE;
@@ -446,7 +446,7 @@ function listMyRecurringTaskTemplates(user) {
 }
 
 function listRecurringTaskTemplatesByDepartment(user, departmentId) {
-  requirePermission(user, departmentId, 'CanView');
+  requirePermission(user, departmentId, 'CanView', 'TASK');
   return getSheetRepository(SHEETS.RECURRING_TASK_TEMPLATES).findAll().filter(function (t) { return t.DepartmentID === departmentId; });
 }
 

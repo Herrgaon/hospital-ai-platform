@@ -19,7 +19,7 @@ function hasOverlappingShift_(employeeId, shiftDate, shiftStart, shiftEnd, exclu
 }
 
 function createDutySchedule(actingUser, departmentId, weekStartDate, weekEndDate) {
-  requirePermission(actingUser, departmentId, 'CanCreate');
+  requirePermission(actingUser, departmentId, 'CanCreate', 'DUTY_SCHEDULE');
   const duplicate = getSheetRepository(SHEETS.DUTY_SCHEDULES).findAll().find(function (s) {
     return s.DepartmentID === departmentId && s.WeekStartDate === weekStartDate;
   });
@@ -43,7 +43,7 @@ function createDutySchedule(actingUser, departmentId, weekStartDate, weekEndDate
 function addDutyShift(actingUser, dutyScheduleId, input) {
   const schedule = getSheetRepository(SHEETS.DUTY_SCHEDULES).findById('DutyScheduleID', dutyScheduleId);
   if (!schedule) throw new Error('Không tìm thấy lịch trực.');
-  requirePermission(actingUser, schedule.DepartmentID, 'CanEdit');
+  requirePermission(actingUser, schedule.DepartmentID, 'CanEdit', 'DUTY_SCHEDULE');
   requireDutyScheduleEditable_(schedule);
 
   const employee = getEmployeeById(input.employeeId);
@@ -78,7 +78,7 @@ function updateDutyShift(actingUser, dutyShiftId, patch) {
   const shift = getSheetRepository(SHEETS.DUTY_SHIFTS).findById('DutyShiftID', dutyShiftId);
   if (!shift) throw new Error('Không tìm thấy ca trực.');
   const schedule = getSheetRepository(SHEETS.DUTY_SCHEDULES).findById('DutyScheduleID', shift.DutyScheduleID);
-  requirePermission(actingUser, shift.DepartmentID, 'CanEdit');
+  requirePermission(actingUser, shift.DepartmentID, 'CanEdit', 'DUTY_SCHEDULE');
   requireDutyScheduleEditable_(schedule);
 
   const updated = getSheetRepository(SHEETS.DUTY_SHIFTS).updateById('DutyShiftID', dutyShiftId, Object.assign({}, patch, { UpdatedAt: nowIso() }));
@@ -90,7 +90,7 @@ function removeDutyShift(actingUser, dutyShiftId) {
   const shift = getSheetRepository(SHEETS.DUTY_SHIFTS).findById('DutyShiftID', dutyShiftId);
   if (!shift) throw new Error('Không tìm thấy ca trực.');
   const schedule = getSheetRepository(SHEETS.DUTY_SCHEDULES).findById('DutyScheduleID', shift.DutyScheduleID);
-  requirePermission(actingUser, shift.DepartmentID, 'CanEdit');
+  requirePermission(actingUser, shift.DepartmentID, 'CanEdit', 'DUTY_SCHEDULE');
   requireDutyScheduleEditable_(schedule);
 
   getSheetRepository(SHEETS.DUTY_SHIFTS).updateById('DutyShiftID', dutyShiftId, { Status: 'CANCELLED', UpdatedAt: nowIso() });
@@ -105,7 +105,7 @@ function listDutyShiftsBySchedule(dutyScheduleId) {
 }
 
 function listDutySchedulesByDepartment(user, departmentId) {
-  requirePermission(user, departmentId, 'CanView');
+  requirePermission(user, departmentId, 'CanView', 'DUTY_SCHEDULE');
   return getSheetRepository(SHEETS.DUTY_SCHEDULES).findAll().filter(function (s) { return s.DepartmentID === departmentId; });
 }
 
@@ -130,7 +130,7 @@ function getDutyScheduleWarnings_(schedule, shifts) {
 function getDutyScheduleDetail(user, dutyScheduleId) {
   const schedule = getSheetRepository(SHEETS.DUTY_SCHEDULES).findById('DutyScheduleID', dutyScheduleId);
   if (!schedule) throw new Error('Không tìm thấy lịch trực.');
-  requirePermission(user, schedule.DepartmentID, 'CanView');
+  requirePermission(user, schedule.DepartmentID, 'CanView', 'DUTY_SCHEDULE');
   const shifts = listDutyShiftsBySchedule(dutyScheduleId);
   return { schedule: schedule, shifts: shifts, warnings: getDutyScheduleWarnings_(schedule, shifts) };
 }
@@ -150,7 +150,7 @@ function listMyDutyShifts(user, dateFrom, dateTo) {
 // đúng cho vai trò toàn viện; người khác gọi hàm này sẽ bị từ chối đúng như thiết kế (chỉ xem được
 // lịch của khoa mình qua listDutySchedulesByDepartment).
 function listHospitalWideDutySchedules(user, weekStartDate) {
-  requirePermission(user, '*', 'CanView');
+  requirePermission(user, '*', 'CanView', 'DUTY_SCHEDULE');
   return getSheetRepository(SHEETS.DUTY_SCHEDULES).findAll().filter(function (s) {
     return !weekStartDate || s.WeekStartDate === weekStartDate;
   });

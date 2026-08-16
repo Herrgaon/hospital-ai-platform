@@ -4,10 +4,13 @@
 // cụ thể — DepartmentID trên mỗi dòng Permissions chỉ là PHẠM VI ('*' = toàn viện). Role không tự động
 // "toàn quyền" (đúng §2) — 1 dòng theo RoleID vẫn phải được cấu hình rõ hành động nào = true, không có
 // logic ngầm định "Trưởng khoa thì được làm X".
+//
+// 2026-08-16: bổ sung MODULE — "Xem lịch trực" và "Xem công việc" giờ là 2 quyền HOÀN TOÀN ĐỘC LẬP
+// (trước đó gộp chung 1 cờ CanView cho mọi module, sai theo phản hồi Product Owner). module='' vẫn
+// được TRUYỀN VÀO ĐƯỢC (mặc định) để không phá vỡ các lời gọi requirePermission() cũ chưa migrate —
+// resolvePermissionRow_ luôn ưu tiên dòng ĐÚNG module trước, sau đó mới rơi về dòng module='' (kiểu cũ)
+// làm phương án dự phòng, đảm bảo KHÔNG mất quyền đã cấp trước khi có cột Module.
 
-// Dòng cấp quyền còn hiệu lực = Status khác 'Revoked' (rỗng coi là Active — dữ liệu cũ trước khi có
-// cột này) VÀ (không có EffectiveFrom hoặc đã tới ngày) VÀ (không có EffectiveTo hoặc chưa quá hạn) —
-// đúng §19 "cho phép cấp quyền có thời hạn, hết hạn tự động hết hiệu lực".
 function isPermissionRowActive_(p) {
   if (p.Status === 'Revoked') return false;
   const todayStr = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');
@@ -16,53 +19,67 @@ function isPermissionRowActive_(p) {
   return true;
 }
 
-function hasPermission(user, departmentId, action) {
+// Tìm dòng cấp quyền áp dụng cho (user, departmentId, module) theo đúng thứ tự ưu tiên: cấp riêng cho
+// USER + đúng module > cấp riêng cho USER + module cũ (rỗng) > theo ROLE + khoa/phòng + đúng module >
+// theo ROLE + khoa/phòng + module cũ > theo ROLE + toàn viện + đúng module > theo ROLE + toàn viện +
+// module cũ.
+function resolvePermissionRow_(permissions, user, departmentId, module) {
+  const m = module || '';
+  const byUserExact = permissions.find(function (p) { return p.UserID === user.UserID && p.DepartmentID === departmentId && p.Module === m; });
+  if (byUserExact) return byUserExact;
+  if (m) {
+    const byUserLegacy = permissions.find(function (p) { return p.UserID === user.UserID && p.DepartmentID === departmentId && !p.Module; });
+    if (byUserLegacy) return byUserLegacy;
+  }
+
+  const byRoleDeptExact = permissions.find(function (p) { return p.RoleID === user.Role && p.DepartmentID === departmentId && p.Module === m; });
+  if (byRoleDeptExact) return byRoleDeptExact;
+  if (m) {
+    const byRoleDeptLegacy = permissions.find(function (p) { return p.RoleID === user.Role && p.DepartmentID === departmentId && !p.Module; });
+    if (byRoleDeptLegacy) return byRoleDeptLegacy;
+  }
+
+  const byRoleGlobalExact = permissions.find(function (p) { return p.RoleID === user.Role && p.DepartmentID === '*' && p.Module === m; });
+  if (byRoleGlobalExact) return byRoleGlobalExact;
+  if (m) {
+    const byRoleGlobalLegacy = permissions.find(function (p) { return p.RoleID === user.Role && p.DepartmentID === '*' && !p.Module; });
+    if (byRoleGlobalLegacy) return byRoleGlobalLegacy;
+  }
+  return null;
+}
+
+// module: tuỳ chọn (đúng key trong PERMISSION_MODULES_, xem Auth.PermissionCatalog.gs) — bỏ trống =
+// hành vi CŨ (1 quyền dùng chung mọi module, dành cho các Service CHƯA migrate sang module riêng).
+function hasPermission(user, departmentId, action, module) {
   if (!user || user.Status !== 'Active') return false;
   if (user.Role === ROLE_NAMES.SUPER_ADMIN) return true;
 
   const permissions = getSheetRepository(SHEETS.PERMISSIONS).findAll().filter(isPermissionRowActive_);
-
-  const userOverride = permissions.find(function (p) {
-    return p.UserID === user.UserID && p.DepartmentID === departmentId;
-  });
-  if (userOverride) return userOverride[action] === true;
-
-  const roleScoped = permissions.find(function (p) {
-    return p.RoleID === user.Role && p.DepartmentID === departmentId;
-  });
-  if (roleScoped) return roleScoped[action] === true;
-
-  const roleGlobal = permissions.find(function (p) {
-    return p.RoleID === user.Role && p.DepartmentID === '*';
-  });
-  if (roleGlobal) return roleGlobal[action] === true;
-
-  return false;
+  const source = resolvePermissionRow_(permissions, user, departmentId, module);
+  return !!(source && source[action] === true);
 }
 
-function requirePermission(user, departmentId, action) {
-  if (!hasPermission(user, departmentId, action)) {
-    throw new Error('Không có quyền thực hiện hành động này: ' + action);
+function requirePermission(user, departmentId, action, module) {
+  if (!hasPermission(user, departmentId, action, module)) {
+    const label = module ? getPermissionModuleLabel_(module) + ' — ' : '';
+    throw new Error('Không có quyền thực hiện hành động này: ' + label + action);
   }
 }
 
 // "Cho phép phân quyền" (đặc tả §12-14) — quyền ĐANG CÓ của user chỉ được uỷ quyền lại cho người khác
 // nếu dòng cấp quyền (đúng dòng đang cho hasPermission() trả về true ở scope này) có CanDelegate=true.
-// Áp dụng CẢ CHO user thường lẫn SUPER_ADMIN gọi thay mặt — nhưng SUPER_ADMIN được bỏ qua ở
-// grantUserPermission (không cần đi qua đường uỷ quyền, luôn có toàn quyền gốc).
-function hasDelegatablePermission_(user, departmentId, action) {
+function hasDelegatablePermission_(user, departmentId, action, module) {
   if (user.Role === ROLE_NAMES.SUPER_ADMIN) return true;
   const permissions = getSheetRepository(SHEETS.PERMISSIONS).findAll().filter(isPermissionRowActive_);
-  const source = permissions.find(function (p) { return p.UserID === user.UserID && p.DepartmentID === departmentId; }) ||
-    permissions.find(function (p) { return p.RoleID === user.Role && p.DepartmentID === departmentId; }) ||
-    permissions.find(function (p) { return p.RoleID === user.Role && p.DepartmentID === '*'; });
+  const source = resolvePermissionRow_(permissions, user, departmentId, module);
   return !!(source && source[action] === true && source.CanDelegate === true);
 }
 
 // Trả về quyền của user hiện tại trên MỌI Khoa/Phòng, tính 1 lần (đọc Permissions sheet 1 lần thay
 // vì N Khoa/Phòng x 10 action như gọi hasPermission() lặp lại) — dùng để client ẩn/hiện tính năng
-// theo đúng phân quyền thay vì hiện tất cả rồi chờ lỗi khi bấm.
-function getMyPermissionMap(user) {
+// theo đúng phân quyền thay vì hiện tất cả rồi chờ lỗi khi bấm. module: tuỳ chọn — bỏ trống dùng cho
+// UI cũ (nút ẩn/hiện chung), CÓ module dùng cho UI đã tách theo từng trang chức năng.
+function getMyPermissionMap(user, module) {
   const departments = getSheetRepository(SHEETS.DEPARTMENTS).findAll().filter(function (d) { return d.Status === 'Active'; });
   const actions = ['CanView', 'CanCreate', 'CanEdit', 'CanDelete', 'CanSubmit', 'CanApprove', 'CanReject', 'CanPublish', 'CanLock', 'CanExport'];
 
@@ -80,13 +97,9 @@ function getMyPermissionMap(user) {
   }
 
   const permissions = getSheetRepository(SHEETS.PERMISSIONS).findAll().filter(isPermissionRowActive_);
-  const roleGlobalRow = permissions.find(function (p) { return p.RoleID === user.Role && p.DepartmentID === '*'; });
-
   const map = {};
   departments.forEach(function (dept) {
-    const userOverride = permissions.find(function (p) { return p.UserID === user.UserID && p.DepartmentID === dept.DepartmentID; });
-    const roleScopedRow = permissions.find(function (p) { return p.RoleID === user.Role && p.DepartmentID === dept.DepartmentID; });
-    const source = userOverride || roleScopedRow || roleGlobalRow;
+    const source = resolvePermissionRow_(permissions, user, dept.DepartmentID, module);
     map[dept.DepartmentID] = actions.reduce(function (a, act) { a[act] = !!(source && source[act] === true); return a; }, {});
   });
   return map;

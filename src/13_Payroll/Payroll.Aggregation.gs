@@ -20,7 +20,7 @@ function hoursBetween_(startTime, endTime) {
 }
 
 function getDutySummaryForMonth(user, departmentId, yearMonth) {
-  requirePermission(user, departmentId, 'CanView');
+  requirePermission(user, departmentId, 'CanView', 'PAYROLL');
   const range = yearMonthRange_(yearMonth);
   const employees = listEmployeesByDepartment(departmentId).filter(function (e) { return e.Status === 'Active'; });
   const shifts = getSheetRepository(SHEETS.DUTY_SHIFTS).findAll().filter(function (s) {
@@ -46,7 +46,7 @@ function getDutySummaryForMonth(user, departmentId, yearMonth) {
 // riêng, xem OvertimeList.Service.gs) để không mất dữ liệu đã có, không nhập lại.
 function getPayrollAggregationForMonth(actingUser, departmentId, yearMonth) {
   const scope = departmentId || '*';
-  requirePermission(actingUser, scope, 'CanView');
+  requirePermission(actingUser, scope, 'CanView', 'PAYROLL');
   const range = yearMonthRange_(yearMonth);
 
   const employees = (departmentId ? listEmployeesByDepartment(departmentId) : listEmployees()).filter(function (e) { return e.Status === 'Active'; });
@@ -100,7 +100,7 @@ function getPayrollAggregationForMonth(actingUser, departmentId, yearMonth) {
 
 function exportPayrollAggregationToExcel(actingUser, departmentId, yearMonth) {
   const scope = departmentId || '*';
-  requirePermission(actingUser, scope, 'CanExport');
+  requirePermission(actingUser, scope, 'CanExport', 'PAYROLL');
   const rows = getPayrollAggregationForMonth(actingUser, departmentId, yearMonth);
 
   const tempSpreadsheet = SpreadsheetApp.create('TongHopKeToan_' + yearMonth + '_' + Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyyMMdd_HHmmss'));

@@ -5,7 +5,7 @@
 // Trưởng khoa/phòng.
 
 function recordMonthlyClinicalStat(actingUser, input) {
-  requirePermission(actingUser, input.departmentId, 'CanCreate');
+  requirePermission(actingUser, input.departmentId, 'CanCreate', 'CLINICAL_STATS');
   if (isBlank(input.employeeId) || isBlank(input.yearMonth) || isBlank(input.statType)) {
     throw new Error('Thiếu nhân viên, tháng hoặc loại số liệu.');
   }
@@ -39,7 +39,7 @@ function recordMonthlyClinicalStat(actingUser, input) {
 // Script không cần tự đọc file nhị phân). Mỗi dòng upsert độc lập qua recordMonthlyClinicalStat,
 // không rollback cả lô nếu 1 dòng lỗi (báo lỗi riêng từng dòng để người nhập biết sửa đúng chỗ).
 function importMonthlyClinicalStats(actingUser, departmentId, yearMonth, rows) {
-  requirePermission(actingUser, departmentId, 'CanCreate');
+  requirePermission(actingUser, departmentId, 'CanCreate', 'CLINICAL_STATS');
   const employees = listEmployeesByDepartment(departmentId);
   const results = rows.map(function (row) {
     const employee = employees.find(function (e) { return e.EmployeeCode === row.employeeCode; });
@@ -61,14 +61,14 @@ function importMonthlyClinicalStats(actingUser, departmentId, yearMonth, rows) {
 function deleteMonthlyClinicalStat(actingUser, statId) {
   const stat = getSheetRepository(SHEETS.MONTHLY_CLINICAL_STATS).findById('StatID', statId);
   if (!stat) throw new Error('Không tìm thấy số liệu.');
-  requirePermission(actingUser, stat.DepartmentID, 'CanDelete');
+  requirePermission(actingUser, stat.DepartmentID, 'CanDelete', 'CLINICAL_STATS');
   getSheetRepository(SHEETS.MONTHLY_CLINICAL_STATS).updateById('StatID', statId, { Value: 0, Notes: '[Đã xoá]', UpdatedAt: nowIso() });
   logAudit(actingUser.UserID, 'CLINICAL_STAT_DELETED', 'MonthlyClinicalStat', statId, '');
   return { success: true };
 }
 
 function listMonthlyClinicalStatsByDepartment(user, departmentId, yearMonth) {
-  requirePermission(user, departmentId, 'CanView');
+  requirePermission(user, departmentId, 'CanView', 'CLINICAL_STATS');
   return getSheetRepository(SHEETS.MONTHLY_CLINICAL_STATS).findAll().filter(function (s) {
     return s.DepartmentID === departmentId && (!yearMonth || s.YearMonth === yearMonth);
   });

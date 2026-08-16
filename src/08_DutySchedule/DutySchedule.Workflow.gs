@@ -10,7 +10,7 @@
 function submitDutySchedule(actingUser, dutyScheduleId) {
   const schedule = getSheetRepository(SHEETS.DUTY_SCHEDULES).findById('DutyScheduleID', dutyScheduleId);
   if (!schedule) throw new Error('Không tìm thấy lịch trực.');
-  requirePermission(actingUser, schedule.DepartmentID, 'CanSubmit');
+  requirePermission(actingUser, schedule.DepartmentID, 'CanSubmit', 'DUTY_SCHEDULE');
   if (DUTY_SCHEDULE_EDITABLE_STATUSES_.indexOf(schedule.Status) === -1) {
     throw new Error('Chỉ có thể gửi duyệt lịch trực đang ở trạng thái Nháp hoặc Yêu cầu chỉnh sửa.');
   }
@@ -23,14 +23,14 @@ function submitDutySchedule(actingUser, dutyScheduleId) {
   });
   logAudit(actingUser.UserID, 'DUTY_SCHEDULE_SUBMITTED', 'DutySchedule', dutyScheduleId, schedule.WeekStartDate);
   notifyApprovers(actingUser, schedule.DepartmentID, 'Lịch trực tuần cần duyệt: ' + schedule.WeekStartDate,
-    'Khoa/Phòng: ' + schedule.DepartmentID + '\nTuần: ' + schedule.WeekStartDate);
+    'Khoa/Phòng: ' + schedule.DepartmentID + '\nTuần: ' + schedule.WeekStartDate, 'DUTY_SCHEDULE');
   return updated;
 }
 
 function markDutyScheduleUnderReview(actingUser, dutyScheduleId) {
   const schedule = getSheetRepository(SHEETS.DUTY_SCHEDULES).findById('DutyScheduleID', dutyScheduleId);
   if (!schedule) throw new Error('Không tìm thấy lịch trực.');
-  requirePermission(actingUser, schedule.DepartmentID, 'CanApprove');
+  requirePermission(actingUser, schedule.DepartmentID, 'CanApprove', 'DUTY_SCHEDULE');
   if (schedule.Status !== 'SUBMITTED') throw new Error('Chỉ có thể bắt đầu xét duyệt lịch trực đang ở trạng thái Đã gửi duyệt.');
 
   const updated = getSheetRepository(SHEETS.DUTY_SCHEDULES).updateById('DutyScheduleID', dutyScheduleId, {
@@ -44,7 +44,7 @@ function markDutyScheduleUnderReview(actingUser, dutyScheduleId) {
 function forwardDutyScheduleForDirectorApproval(actingUser, dutyScheduleId, comment) {
   const schedule = getSheetRepository(SHEETS.DUTY_SCHEDULES).findById('DutyScheduleID', dutyScheduleId);
   if (!schedule) throw new Error('Không tìm thấy lịch trực.');
-  requirePermission(actingUser, schedule.DepartmentID, 'CanApprove');
+  requirePermission(actingUser, schedule.DepartmentID, 'CanApprove', 'DUTY_SCHEDULE');
   if (['SUBMITTED', 'UNDER_REVIEW'].indexOf(schedule.Status) === -1) {
     throw new Error('Chỉ có thể chuyển lãnh đạo phê duyệt khi lịch trực đang chờ Phòng KH-NV kiểm tra.');
   }
@@ -63,7 +63,7 @@ function forwardDutyScheduleForDirectorApproval(actingUser, dutyScheduleId, comm
 function requestDutyScheduleRevision(actingUser, dutyScheduleId, comment) {
   const schedule = getSheetRepository(SHEETS.DUTY_SCHEDULES).findById('DutyScheduleID', dutyScheduleId);
   if (!schedule) throw new Error('Không tìm thấy lịch trực.');
-  requirePermission(actingUser, schedule.DepartmentID, 'CanReject');
+  requirePermission(actingUser, schedule.DepartmentID, 'CanReject', 'DUTY_SCHEDULE');
   if (['SUBMITTED', 'UNDER_REVIEW', 'PENDING_DIRECTOR_APPROVAL'].indexOf(schedule.Status) === -1) {
     throw new Error('Chỉ có thể yêu cầu chỉnh sửa lịch trực đang chờ duyệt.');
   }
@@ -100,7 +100,7 @@ function approveDutyScheduleByDirector(actingUser, dutyScheduleId, comment) {
 function publishDutySchedule(actingUser, dutyScheduleId) {
   const schedule = getSheetRepository(SHEETS.DUTY_SCHEDULES).findById('DutyScheduleID', dutyScheduleId);
   if (!schedule) throw new Error('Không tìm thấy lịch trực.');
-  requirePermission(actingUser, schedule.DepartmentID, 'CanPublish');
+  requirePermission(actingUser, schedule.DepartmentID, 'CanPublish', 'DUTY_SCHEDULE');
   if (schedule.Status !== 'APPROVED') throw new Error('Chỉ có thể công bố lịch trực đã được duyệt.');
 
   const updated = getSheetRepository(SHEETS.DUTY_SCHEDULES).updateById('DutyScheduleID', dutyScheduleId, {

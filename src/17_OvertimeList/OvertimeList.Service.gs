@@ -132,7 +132,7 @@ function listOvertimeListItems_(overtimeListId) {
 function getOvertimeListDetail(user, overtimeListId) {
   const list = getSheetRepository(SHEETS.OVERTIME_LISTS).findById('OvertimeListID', overtimeListId);
   if (!list) throw new Error('Không tìm thấy danh sách làm ngoài giờ.');
-  if (list.SubmittedByUserID !== user.UserID) requirePermission(user, list.DepartmentID, 'CanView');
+  if (list.SubmittedByUserID !== user.UserID) requirePermission(user, list.DepartmentID, 'CanView', 'OVERTIME_LIST');
 
   const items = listOvertimeListItems_(overtimeListId);
   const warnings = {};
@@ -147,7 +147,7 @@ function listMyOvertimeLists(user) {
 // Phòng KH-NV/SUPER_ADMIN xem toàn viện (phạm vi '*') — đúng vai trò "MANAGE_ALL_DUTY/REVIEW_OVERTIME"
 // đề xuất ở §32.
 function listPendingOvertimeListsForKhNv(user) {
-  requirePermission(user, '*', 'CanApprove');
+  requirePermission(user, '*', 'CanApprove', 'OVERTIME_LIST');
   return getSheetRepository(SHEETS.OVERTIME_LISTS).findAll().filter(function (l) {
     return ['SUBMITTED', 'KHNV_RECEIVED', 'UNDER_REVIEW'].indexOf(l.Status) !== -1;
   });
@@ -172,7 +172,7 @@ function submitOvertimeList(actingUser, overtimeListId) {
 function receiveOvertimeList(actingUser, overtimeListId) {
   const list = getSheetRepository(SHEETS.OVERTIME_LISTS).findById('OvertimeListID', overtimeListId);
   if (!list) throw new Error('Không tìm thấy danh sách làm ngoài giờ.');
-  requirePermission(actingUser, list.DepartmentID, 'CanApprove');
+  requirePermission(actingUser, list.DepartmentID, 'CanApprove', 'OVERTIME_LIST');
   if (list.Status !== 'SUBMITTED') throw new Error('Chỉ có thể tiếp nhận danh sách đang ở trạng thái Đã gửi.');
 
   const updated = getSheetRepository(SHEETS.OVERTIME_LISTS).updateById('OvertimeListID', overtimeListId, {
@@ -185,7 +185,7 @@ function receiveOvertimeList(actingUser, overtimeListId) {
 function markOvertimeListUnderReview(actingUser, overtimeListId) {
   const list = getSheetRepository(SHEETS.OVERTIME_LISTS).findById('OvertimeListID', overtimeListId);
   if (!list) throw new Error('Không tìm thấy danh sách làm ngoài giờ.');
-  requirePermission(actingUser, list.DepartmentID, 'CanApprove');
+  requirePermission(actingUser, list.DepartmentID, 'CanApprove', 'OVERTIME_LIST');
   if (list.Status !== 'KHNV_RECEIVED') throw new Error('Chỉ có thể bắt đầu kiểm tra danh sách đã tiếp nhận.');
 
   const updated = getSheetRepository(SHEETS.OVERTIME_LISTS).updateById('OvertimeListID', overtimeListId, {
@@ -198,7 +198,7 @@ function markOvertimeListUnderReview(actingUser, overtimeListId) {
 function requestOvertimeListRevision(actingUser, overtimeListId, reason) {
   const list = getSheetRepository(SHEETS.OVERTIME_LISTS).findById('OvertimeListID', overtimeListId);
   if (!list) throw new Error('Không tìm thấy danh sách làm ngoài giờ.');
-  requirePermission(actingUser, list.DepartmentID, 'CanReject');
+  requirePermission(actingUser, list.DepartmentID, 'CanReject', 'OVERTIME_LIST');
   if (['SUBMITTED', 'KHNV_RECEIVED', 'UNDER_REVIEW'].indexOf(list.Status) === -1) {
     throw new Error('Chỉ có thể yêu cầu bổ sung danh sách đang chờ xử lý.');
   }
@@ -214,7 +214,7 @@ function requestOvertimeListRevision(actingUser, overtimeListId, reason) {
 function finalizeOvertimeList(actingUser, overtimeListId) {
   const list = getSheetRepository(SHEETS.OVERTIME_LISTS).findById('OvertimeListID', overtimeListId);
   if (!list) throw new Error('Không tìm thấy danh sách làm ngoài giờ.');
-  requirePermission(actingUser, list.DepartmentID, 'CanApprove');
+  requirePermission(actingUser, list.DepartmentID, 'CanApprove', 'OVERTIME_LIST');
   if (list.Status !== 'UNDER_REVIEW') throw new Error('Chỉ có thể chốt danh sách đang được kiểm tra.');
 
   const updated = getSheetRepository(SHEETS.OVERTIME_LISTS).updateById('OvertimeListID', overtimeListId, {
@@ -243,7 +243,7 @@ function requestOvertimeListUnlock(actingUser, overtimeListId, reason) {
 function approveOvertimeListUnlock(actingUser, overtimeListId) {
   const list = getSheetRepository(SHEETS.OVERTIME_LISTS).findById('OvertimeListID', overtimeListId);
   if (!list) throw new Error('Không tìm thấy danh sách làm ngoài giờ.');
-  requirePermission(actingUser, list.DepartmentID, 'CanApprove');
+  requirePermission(actingUser, list.DepartmentID, 'CanApprove', 'OVERTIME_LIST');
   if (list.Status !== 'FINALIZED') throw new Error('Danh sách này chưa ở trạng thái đã chốt.');
   if (isBlank(list.UnlockRequestedAt)) throw new Error('Chưa có yêu cầu mở khoá nào đang chờ.');
 

@@ -3,7 +3,7 @@
 // "không cho phép sửa âm thầm dữ liệu đã chốt".
 
 function recordAttendance(actingUser, input) {
-  requirePermission(actingUser, input.departmentId, 'CanCreate');
+  requirePermission(actingUser, input.departmentId, 'CanCreate', 'ATTENDANCE');
   if (isBlank(input.employeeId) || isBlank(input.workDate)) {
     throw new Error('Thiếu nhân viên hoặc ngày công.');
   }
@@ -33,7 +33,7 @@ function recordAttendance(actingUser, input) {
 function updateAttendance(actingUser, attendanceId, patch) {
   const attendance = getSheetRepository(SHEETS.ATTENDANCE).findById('AttendanceID', attendanceId);
   if (!attendance) throw new Error('Không tìm thấy dữ liệu chấm công.');
-  requirePermission(actingUser, attendance.DepartmentID, 'CanEdit');
+  requirePermission(actingUser, attendance.DepartmentID, 'CanEdit', 'ATTENDANCE');
   if (attendance.Status === 'LOCKED') {
     throw new Error('Dữ liệu đã chốt — dùng chức năng Điều chỉnh công để thay đổi.');
   }
@@ -47,7 +47,7 @@ function updateAttendance(actingUser, attendanceId, patch) {
 // Chốt tập trung ở Phòng TC-HC (phạm vi '*'), không giao cho từng Trưởng khoa/phòng — xem quyết định
 // trong Bootstrap.Defaults.gs.
 function lockAttendanceRange(actingUser, departmentId, dateFrom, dateTo) {
-  requirePermission(actingUser, '*', 'CanLock');
+  requirePermission(actingUser, '*', 'CanLock', 'ATTENDANCE');
   const repo = getSheetRepository(SHEETS.ATTENDANCE);
   const rows = repo.findAll().filter(function (a) {
     return a.DepartmentID === departmentId && a.WorkDate >= dateFrom && a.WorkDate <= dateTo && a.Status === 'OPEN';
@@ -69,7 +69,7 @@ function listMyAttendance(user, dateFrom, dateTo) {
 }
 
 function listAttendanceByDepartment(user, departmentId, dateFrom, dateTo) {
-  requirePermission(user, departmentId, 'CanView');
+  requirePermission(user, departmentId, 'CanView', 'ATTENDANCE');
   return getSheetRepository(SHEETS.ATTENDANCE).findAll().filter(function (a) {
     if (a.DepartmentID !== departmentId) return false;
     if (dateFrom && a.WorkDate < dateFrom) return false;
@@ -87,7 +87,7 @@ function requestAttendanceAdjustment(actingUser, input) {
   if (!attendance) throw new Error('Không tìm thấy dữ liệu chấm công.');
   const employee = getEmployeeByUserId_(actingUser.UserID);
   const isOwner = employee && attendance.EmployeeID === employee.EmployeeID;
-  if (!isOwner) requirePermission(actingUser, attendance.DepartmentID, 'CanEdit');
+  if (!isOwner) requirePermission(actingUser, attendance.DepartmentID, 'CanEdit', 'ATTENDANCE');
   if (isBlank(input.reason)) throw new Error('Vui lòng nhập lý do điều chỉnh.');
 
   const adjustment = getSheetRepository(SHEETS.ATTENDANCE_ADJUSTMENTS).append({
@@ -114,7 +114,7 @@ function confirmAttendanceAdjustmentByDeptHead(actingUser, adjustmentId) {
   const adjustment = getSheetRepository(SHEETS.ATTENDANCE_ADJUSTMENTS).findById('AdjustmentID', adjustmentId);
   if (!adjustment) throw new Error('Không tìm thấy yêu cầu điều chỉnh.');
   const attendance = getSheetRepository(SHEETS.ATTENDANCE).findById('AttendanceID', adjustment.AttendanceID);
-  requirePermission(actingUser, attendance.DepartmentID, 'CanApprove');
+  requirePermission(actingUser, attendance.DepartmentID, 'CanApprove', 'ATTENDANCE');
   if (adjustment.Status !== 'REQUESTED') throw new Error('Yêu cầu điều chỉnh không ở trạng thái chờ trưởng khoa xác nhận.');
 
   const updated = getSheetRepository(SHEETS.ATTENDANCE_ADJUSTMENTS).updateById('AdjustmentID', adjustmentId, {
@@ -127,7 +127,7 @@ function confirmAttendanceAdjustmentByDeptHead(actingUser, adjustmentId) {
 function approveAttendanceAdjustment(actingUser, adjustmentId) {
   const adjustment = getSheetRepository(SHEETS.ATTENDANCE_ADJUSTMENTS).findById('AdjustmentID', adjustmentId);
   if (!adjustment) throw new Error('Không tìm thấy yêu cầu điều chỉnh.');
-  requirePermission(actingUser, '*', 'CanApprove');
+  requirePermission(actingUser, '*', 'CanApprove', 'ATTENDANCE');
   if (adjustment.Status !== 'DEPT_HEAD_CONFIRMED') throw new Error('Yêu cầu điều chỉnh chưa được trưởng khoa xác nhận.');
 
   getSheetRepository(SHEETS.ATTENDANCE).updateById('AttendanceID', adjustment.AttendanceID, {
@@ -149,7 +149,7 @@ function rejectAttendanceAdjustment(actingUser, adjustmentId, reason) {
     throw new Error('Yêu cầu điều chỉnh này không còn ở trạng thái có thể từ chối.');
   }
   const isDeptStage = adjustment.Status === 'REQUESTED';
-  requirePermission(actingUser, isDeptStage ? attendance.DepartmentID : '*', 'CanReject');
+  requirePermission(actingUser, isDeptStage ? attendance.DepartmentID : '*', 'CanReject', 'ATTENDANCE');
 
   const updated = getSheetRepository(SHEETS.ATTENDANCE_ADJUSTMENTS).updateById('AdjustmentID', adjustmentId, {
     Status: 'REJECTED', RejectedByUserID: actingUser.UserID, RejectedAt: nowIso(), RejectionReason: reason || '', UpdatedAt: nowIso()
@@ -169,8 +169,8 @@ function listPendingAttendanceAdjustmentConfirmations(user) {
   return getSheetRepository(SHEETS.ATTENDANCE_ADJUSTMENTS).findAll().filter(function (adj) {
     const attendance = attendanceById_[adj.AttendanceID];
     if (!attendance) return false;
-    if (adj.Status === 'REQUESTED' && hasPermission(user, attendance.DepartmentID, 'CanApprove')) return true;
-    if (adj.Status === 'DEPT_HEAD_CONFIRMED' && hasPermission(user, '*', 'CanApprove')) return true;
+    if (adj.Status === 'REQUESTED' && hasPermission(user, attendance.DepartmentID, 'CanApprove', 'ATTENDANCE')) return true;
+    if (adj.Status === 'DEPT_HEAD_CONFIRMED' && hasPermission(user, '*', 'CanApprove', 'ATTENDANCE')) return true;
     return false;
   });
 }

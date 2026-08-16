@@ -58,7 +58,7 @@ function confirmSwapByDeptHead(actingUser, swapRequestId) {
   const swapRequest = getSheetRepository(SHEETS.DUTY_SWAP_REQUESTS).findById('SwapRequestID', swapRequestId);
   if (!swapRequest) throw new Error('Không tìm thấy yêu cầu đổi trực.');
   const shift = getSheetRepository(SHEETS.DUTY_SHIFTS).findById('DutyShiftID', swapRequest.OriginalShiftID);
-  requirePermission(actingUser, shift.DepartmentID, 'CanApprove');
+  requirePermission(actingUser, shift.DepartmentID, 'CanApprove', 'DUTY_SCHEDULE');
   if (swapRequest.Status !== 'REPLACEMENT_CONFIRMED') throw new Error('Yêu cầu đổi trực chưa được người thay thế xác nhận.');
 
   const updated = getSheetRepository(SHEETS.DUTY_SWAP_REQUESTS).updateById('SwapRequestID', swapRequestId, {
@@ -74,7 +74,7 @@ function confirmSwapByDeptHead(actingUser, swapRequestId) {
 function approveSwapByKhNv(actingUser, swapRequestId) {
   const swapRequest = getSheetRepository(SHEETS.DUTY_SWAP_REQUESTS).findById('SwapRequestID', swapRequestId);
   if (!swapRequest) throw new Error('Không tìm thấy yêu cầu đổi trực.');
-  requirePermission(actingUser, '*', 'CanApprove');
+  requirePermission(actingUser, '*', 'CanApprove', 'DUTY_SCHEDULE');
   if (swapRequest.Status !== 'DEPT_HEAD_CONFIRMED') throw new Error('Yêu cầu đổi trực chưa được trưởng khoa xác nhận.');
 
   const originalShift = getSheetRepository(SHEETS.DUTY_SHIFTS).findById('DutyShiftID', swapRequest.OriginalShiftID);
@@ -116,7 +116,7 @@ function rejectSwap(actingUser, swapRequestId, reason) {
     throw new Error('Yêu cầu đổi trực này không còn ở trạng thái có thể từ chối.');
   }
   const shift = getSheetRepository(SHEETS.DUTY_SHIFTS).findById('DutyShiftID', swapRequest.OriginalShiftID);
-  requirePermission(actingUser, shift.DepartmentID, 'CanReject');
+  requirePermission(actingUser, shift.DepartmentID, 'CanReject', 'DUTY_SCHEDULE');
 
   const updated = getSheetRepository(SHEETS.DUTY_SWAP_REQUESTS).updateById('SwapRequestID', swapRequestId, {
     Status: 'REJECTED', RejectedByUserID: actingUser.UserID, RejectedAt: nowIso(), RejectionReason: reason || '', UpdatedAt: nowIso()
@@ -137,8 +137,8 @@ function listPendingSwapConfirmations(user) {
   const employee = getEmployeeByUserId_(user.UserID);
   const pending = getSheetRepository(SHEETS.DUTY_SWAP_REQUESTS).findAll().filter(function (r) {
     if (employee && r.Status === 'REQUESTED' && r.ReplacementEmployeeID === employee.EmployeeID) return true;
-    if (r.Status === 'REPLACEMENT_CONFIRMED' && hasPermission(user, getShiftDepartment_(r.OriginalShiftID), 'CanApprove')) return true;
-    if (r.Status === 'DEPT_HEAD_CONFIRMED' && hasPermission(user, '*', 'CanApprove')) return true;
+    if (r.Status === 'REPLACEMENT_CONFIRMED' && hasPermission(user, getShiftDepartment_(r.OriginalShiftID), 'CanApprove', 'DUTY_SCHEDULE')) return true;
+    if (r.Status === 'DEPT_HEAD_CONFIRMED' && hasPermission(user, '*', 'CanApprove', 'DUTY_SCHEDULE')) return true;
     return false;
   });
   return pending;
