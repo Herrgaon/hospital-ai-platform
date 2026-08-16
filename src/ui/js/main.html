@@ -2353,6 +2353,10 @@
       creatingUser: false,
       syncingSchema: false,
       schemaSyncResult: null,
+      cleaningExpiredFiles: false,
+      fileCleanupResult: null,
+      fileRetentionDays: 30,
+      fileRetentionAutoEnabled: false,
       allUsers: [],
       allRoles: [],
       activeAiConfig: null,
@@ -2585,6 +2589,38 @@
             this.errorMessage = e.message;
           })
           .api_syncSchemaWithSpreadsheet(this.authToken);
+      },
+
+      cleanupExpiredFilesAction() {
+        this.cleaningExpiredFiles = true;
+        google.script.run
+          .withSuccessHandler((result) => {
+            this.cleaningExpiredFiles = false;
+            this.fileCleanupResult = result;
+            this.toast('success', 'Đã dọn dẹp file quá hạn.');
+          })
+          .withFailureHandler((e) => {
+            this.cleaningExpiredFiles = false;
+            this.errorMessage = e.message;
+          })
+          .api_cleanupExpiredFiles(this.authToken);
+      },
+      loadFileRetentionStatusAction() {
+        google.script.run
+          .withSuccessHandler((enabled) => { this.fileRetentionAutoEnabled = enabled; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_isFileRetentionTriggerInstalled(this.authToken);
+      },
+      toggleFileRetentionAutoAction() {
+        const turningOn = !this.fileRetentionAutoEnabled;
+        const call = turningOn ? 'api_installFileRetentionTrigger' : 'api_uninstallFileRetentionTrigger';
+        google.script.run
+          .withSuccessHandler(() => {
+            this.fileRetentionAutoEnabled = turningOn;
+            this.toast('success', turningOn ? 'Đã bật dọn dẹp file tự động hằng ngày.' : 'Đã tắt dọn dẹp file tự động.');
+          })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          [call](this.authToken);
       },
 
       auditFilters: { userId: '', action: '', fromDate: '', toDate: '' },

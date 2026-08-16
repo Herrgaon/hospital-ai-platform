@@ -56,6 +56,26 @@ function api_syncSchemaWithSpreadsheet(token) {
   return syncSchemaWithSpreadsheet(user);
 }
 
+function api_cleanupExpiredFiles(token) {
+  const user = getCurrentUserFromToken_(token);
+  return cleanupExpiredFiles(user);
+}
+
+function api_installFileRetentionTrigger(token) {
+  const user = getCurrentUserFromToken_(token);
+  return installFileRetentionTrigger(user);
+}
+
+function api_uninstallFileRetentionTrigger(token) {
+  const user = getCurrentUserFromToken_(token);
+  return uninstallFileRetentionTrigger(user);
+}
+
+function api_isFileRetentionTriggerInstalled(token) {
+  const user = getCurrentUserFromToken_(token);
+  return isFileRetentionTriggerInstalled(user);
+}
+
 function api_getDashboardSummary(token) {
   const user = getCurrentUserFromToken_(token);
   const weekStart = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyyy-MM-dd');

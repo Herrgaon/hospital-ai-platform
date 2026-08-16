@@ -1,4 +1,4 @@
-<div x-show="currentView === 'admin' && isSuperAdmin" x-init="$watch('currentView', v => { if (v === 'admin' && isSuperAdmin) { loadAdminData(); loadUsersAndRoles(); } }); if (currentView === 'admin' && isSuperAdmin) { loadAdminData(); loadUsersAndRoles(); }" class="max-w-5xl mx-auto">
+<div x-show="currentView === 'admin' && isSuperAdmin" x-init="$watch('currentView', v => { if (v === 'admin' && isSuperAdmin) { loadAdminData(); loadUsersAndRoles(); loadFileRetentionStatusAction(); } }); if (currentView === 'admin' && isSuperAdmin) { loadAdminData(); loadUsersAndRoles(); loadFileRetentionStatusAction(); }" class="max-w-5xl mx-auto">
   <div class="page-header">
     <div class="page-header-left">
       <div class="page-header-icon">⚙</div>
@@ -10,6 +10,9 @@
     <div class="page-header-actions">
       <button @click="syncSchemaAction()" :disabled="syncingSchema" class="btn btn-secondary btn-sm">
         <span x-text="syncingSchema ? 'Đang đồng bộ...' : '⟳ Đồng bộ cấu trúc dữ liệu'"></span>
+      </button>
+      <button @click="cleanupExpiredFilesAction()" :disabled="cleaningExpiredFiles" class="btn btn-secondary btn-sm">
+        <span x-text="cleaningExpiredFiles ? 'Đang dọn dẹp...' : '🗑 Dọn dẹp file quá hạn'"></span>
       </button>
     </div>
   </div>
@@ -23,6 +26,20 @@
       </div>
     </div>
   </template>
+
+  <div class="card mb-4">
+    <div class="card-body space-y-2">
+      <p class="holo-label">Lưu trữ file có thời hạn</p>
+      <p class="text-xs holo-text-dim">File đính kèm công việc (của việc đã hoàn thành/huỷ) và file Excel xuất ra được chuyển vào Thùng rác Drive sau <strong x-text="fileRetentionDays"></strong> ngày kể từ lần cập nhật cuối — KHÔNG xoá vĩnh viễn ngay, Drive còn giữ thêm trong Thùng rác nên vẫn khôi phục được nếu cần. File của công việc đang xử lý không bao giờ bị dọn.</p>
+      <template x-if="fileCleanupResult">
+        <p class="text-xs" style="color:#22c55e">Đã chuyển vào Thùng rác <strong x-text="fileCleanupResult.taskFilesTrashed"></strong> file đính kèm công việc và <strong x-text="fileCleanupResult.exportFilesTrashed"></strong> file Excel xuất ra.</p>
+      </template>
+      <div class="toggle-wrap">
+        <div class="toggle" :class="fileRetentionAutoEnabled ? 'on' : ''" @click="toggleFileRetentionAutoAction()"></div>
+        <span class="toggle-label">Tự động dọn dẹp hằng ngày (2h sáng)</span>
+      </div>
+    </div>
+  </div>
 
   <!-- Tab bar -->
   <div class="tabs">
@@ -424,6 +441,12 @@
             <option value="AI_TOGGLE">Bật/tắt AI</option>
             <option value="AI_PROVIDER_CONFIG_CHANGED">Đổi cấu hình AI</option>
             <option value="SCHEMA_SYNCED">Đồng bộ cấu trúc dữ liệu</option>
+            <option value="FILE_RETENTION_CLEANUP">Dọn dẹp file quá hạn</option>
+            <option value="FILE_RETENTION_TRIGGER_INSTALLED">Bật dọn dẹp file tự động</option>
+            <option value="FILE_RETENTION_TRIGGER_REMOVED">Tắt dọn dẹp file tự động</option>
+            <option value="PERMISSION_GRANTED">Cấp quyền</option>
+            <option value="PERMISSION_REVOKED">Thu hồi quyền</option>
+            <option value="PERMISSION_RESTORED">Khôi phục quyền</option>
             <option value="SYSTEM_INITIALIZED">Khởi tạo hệ thống</option>
             <option value="AUDIT_LOG_EXPORTED">Xuất nhật ký</option>
           </select>
