@@ -667,11 +667,6 @@ function api_updateAttendance(token, attendanceId, patch) {
   return updateAttendance(user, attendanceId, patch);
 }
 
-function api_lockAttendanceRange(token, departmentId, dateFrom, dateTo) {
-  const user = getCurrentUserFromToken_(token);
-  return lockAttendanceRange(user, departmentId, dateFrom, dateTo);
-}
-
 function api_listMyAttendance(token, dateFrom, dateTo) {
   const user = getCurrentUserFromToken_(token);
   return listMyAttendance(user, dateFrom, dateTo);
@@ -710,6 +705,83 @@ function api_listMyAttendanceAdjustments(token) {
 function api_listPendingAttendanceAdjustmentConfirmations(token) {
   const user = getCurrentUserFromToken_(token);
   return listPendingAttendanceAdjustmentConfirmations(user);
+}
+
+// --- Kỳ chấm công hàng tháng (Attendance Period — Đặc tả Chấm công & Tiền lương V1) ---
+
+function api_createAttendancePeriod(token, departmentId, periodMonth) {
+  const user = getCurrentUserFromToken_(token);
+  return createAttendancePeriod(user, departmentId, periodMonth);
+}
+
+function api_markAttendancePeriodDeptCompleted(token, periodId) {
+  const user = getCurrentUserFromToken_(token);
+  return markAttendancePeriodDeptCompleted(user, periodId);
+}
+
+function api_confirmAttendancePeriodByDeptHead(token, periodId) {
+  const user = getCurrentUserFromToken_(token);
+  return confirmAttendancePeriodByDeptHead(user, periodId);
+}
+
+function api_submitAttendancePeriod(token, periodId) {
+  const user = getCurrentUserFromToken_(token);
+  return submitAttendancePeriod(user, periodId);
+}
+
+function api_markAttendancePeriodUnderReview(token, periodId) {
+  const user = getCurrentUserFromToken_(token);
+  return markAttendancePeriodUnderReview(user, periodId);
+}
+
+function api_requestAttendancePeriodRevision(token, periodId, comment) {
+  const user = getCurrentUserFromToken_(token);
+  return requestAttendancePeriodRevision(user, periodId, comment);
+}
+
+function api_lockAttendancePeriod(token, periodId) {
+  const user = getCurrentUserFromToken_(token);
+  return lockAttendancePeriod(user, periodId);
+}
+
+function api_listAttendancePeriodsByDepartment(token, departmentId) {
+  const user = getCurrentUserFromToken_(token);
+  return listAttendancePeriodsByDepartment(user, departmentId);
+}
+
+function api_getAttendancePeriodDetail(token, periodId) {
+  const user = getCurrentUserFromToken_(token);
+  return getAttendancePeriodDetail(user, periodId);
+}
+
+function api_getAttendanceDashboard(token) {
+  const user = getCurrentUserFromToken_(token);
+  return getAttendanceDashboard(user);
+}
+
+function api_getAttendancePeriodReconciliation(token, periodId) {
+  const user = getCurrentUserFromToken_(token);
+  return getAttendancePeriodReconciliation(user, periodId);
+}
+
+function api_requestReopenAttendancePeriod(token, periodId, reason) {
+  const user = getCurrentUserFromToken_(token);
+  return requestReopenAttendancePeriod(user, periodId, reason);
+}
+
+function api_approveReopenAttendancePeriod(token, requestId) {
+  const user = getCurrentUserFromToken_(token);
+  return approveReopenAttendancePeriod(user, requestId);
+}
+
+function api_rejectReopenAttendancePeriod(token, requestId, reason) {
+  const user = getCurrentUserFromToken_(token);
+  return rejectReopenAttendancePeriod(user, requestId, reason);
+}
+
+function api_listPendingAttendancePeriodReopenRequests(token) {
+  const user = getCurrentUserFromToken_(token);
+  return listPendingAttendancePeriodReopenRequests(user);
 }
 
 // --- Làm thêm giờ / Làm ngoài giờ (Overtime) ---

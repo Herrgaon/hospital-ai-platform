@@ -1583,7 +1583,6 @@
       // --- Chấm công ---
       attendanceTab: 'mine',
       myAttendance: [],
-      departmentAttendance: [],
       attendanceDepartmentFilter: '',
       myAttendanceAdjustments: [],
       pendingAttendanceAdjustmentConfirmations: [],
@@ -1592,13 +1591,6 @@
           .withSuccessHandler((rows) => { this.myAttendance = rows; })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_listMyAttendance(this.authToken, null, null);
-      },
-      loadDepartmentAttendanceAction() {
-        if (!this.attendanceDepartmentFilter) { this.departmentAttendance = []; return; }
-        google.script.run
-          .withSuccessHandler((rows) => { this.departmentAttendance = rows; })
-          .withFailureHandler((e) => { this.errorMessage = e.message; })
-          .api_listAttendanceByDepartment(this.authToken, this.attendanceDepartmentFilter, null, null);
       },
       loadPendingAttendanceAdjustmentConfirmationsAction() {
         google.script.run
@@ -1610,28 +1602,185 @@
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_listMyAttendanceAdjustments(this.authToken);
       },
-      newAttendanceForm: { departmentId: '', employeeId: '', workDate: '', shiftType: '', checkIn: '', checkOut: '', leaveType: '', workUnits: 1, notes: '' },
-      creatingAttendance: false,
-      openAddAttendanceModal() {
-        this.newAttendanceForm = { departmentId: '', employeeId: '', workDate: '', shiftType: '', checkIn: '', checkOut: '', leaveType: '', workUnits: 1, notes: '' };
-        this.openModal('addAttendance');
+
+      // --- Kỳ chấm công hàng tháng (Đặc tả Chấm công & Tiền lương V1 — Giai đoạn 2) ---
+      attendancePeriods: [],
+      currentAttendancePeriod: null,
+      attendanceReconciliation: null,
+      attendanceDashboard: null,
+      pendingAttendancePeriodReopenRequests: [],
+      attendancePeriodStatusLabel(status) {
+        const map = {
+          DRAFT: 'Nhập', DEPT_COMPLETED: 'Khoa đã hoàn thiện', DEPT_HEAD_CONFIRMED: 'Trưởng khoa đã xác nhận',
+          SUBMITTED: 'Đã gửi', UNDER_REVIEW: 'Đang kiểm tra', LOCKED: 'Đã chốt'
+        };
+        return map[status] || status;
       },
-      recordAttendanceAction() {
-        this.creatingAttendance = true;
+      attendancePeriodStatusBadgeClass(status) {
+        const map = {
+          DRAFT: 'badge-gray', DEPT_COMPLETED: 'badge-cyan', DEPT_HEAD_CONFIRMED: 'badge-cyan',
+          SUBMITTED: 'badge-orange', UNDER_REVIEW: 'badge-orange', LOCKED: 'badge-green'
+        };
+        return map[status] || 'badge-gray';
+      },
+      attendanceDashboardStatusLabel(statusLabel) {
+        const map = { SUBMITTED: 'Đã gửi', NEEDS_INPUT: 'Cần bổ sung', NOT_STARTED: 'Chưa gửi', LOCKED: 'Đã chốt' };
+        return map[statusLabel] || statusLabel;
+      },
+      attendanceDashboardStatusIcon(statusLabel) {
+        const map = { SUBMITTED: '🟢', NEEDS_INPUT: '🟡', NOT_STARTED: '🔴', LOCKED: '⚫' };
+        return map[statusLabel] || '';
+      },
+      attendancePeriodRowEditable(a) {
+        return this.currentAttendancePeriod && ['DRAFT', 'DEPT_COMPLETED'].includes(this.currentAttendancePeriod.period.Status);
+      },
+      get attendanceReconciliationWarnings() {
+        if (!this.attendanceReconciliation) return [];
+        const out = [];
+        this.attendanceReconciliation.forEach((r) => { r.warnings.forEach((w) => out.push({ attendanceId: r.attendanceId, employeeId: r.employeeId, workDate: r.workDate, text: w })); });
+        return out;
+      },
+      get attendanceReconciliationWarningCount() {
+        return this.attendanceReconciliationWarnings.length;
+      },
+      loadAttendancePeriodsAction() {
+        if (!this.attendanceDepartmentFilter) { this.attendancePeriods = []; return; }
+        google.script.run
+          .withSuccessHandler((rows) => { this.attendancePeriods = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listAttendancePeriodsByDepartment(this.authToken, this.attendanceDepartmentFilter);
+      },
+      newAttendancePeriodForm: { periodMonth: '' },
+      creatingAttendancePeriod: false,
+      openAddAttendancePeriodModal() {
+        this.newAttendancePeriodForm = { periodMonth: new Date().toISOString().slice(0, 7) };
+        this.openModal('addAttendancePeriod');
+      },
+      createAttendancePeriodAction() {
+        this.creatingAttendancePeriod = true;
         google.script.run
           .withSuccessHandler(() => {
-            this.creatingAttendance = false;
+            this.creatingAttendancePeriod = false;
             this.closeModal();
-            this.toast('success', 'Đã ghi nhận công.');
-            this.loadMyAttendanceAction();
-            if (this.attendanceDepartmentFilter) this.loadDepartmentAttendanceAction();
+            this.toast('success', 'Đã tạo kỳ chấm công.');
+            this.loadAttendancePeriodsAction();
           })
           .withFailureHandler((e) => {
-            this.creatingAttendance = false;
+            this.creatingAttendancePeriod = false;
             this.errorMessage = e.message;
           })
-          .api_recordAttendance(this.authToken, this.newAttendanceForm);
+          .api_createAttendancePeriod(this.authToken, this.attendanceDepartmentFilter, this.newAttendancePeriodForm.periodMonth);
       },
+      openAttendancePeriodDetail(p) {
+        this.attendanceReconciliation = null;
+        google.script.run
+          .withSuccessHandler((detail) => { this.currentAttendancePeriod = detail; this.openModal('attendancePeriodDetail'); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_getAttendancePeriodDetail(this.authToken, p.AttendancePeriodID);
+      },
+      refreshCurrentAttendancePeriod_() {
+        google.script.run
+          .withSuccessHandler((detail) => { this.currentAttendancePeriod = detail; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_getAttendancePeriodDetail(this.authToken, this.currentAttendancePeriod.period.AttendancePeriodID);
+      },
+      markAttendancePeriodDeptCompletedAction() {
+        google.script.run
+          .withSuccessHandler(() => { this.toast('success', 'Đã đánh dấu khoa hoàn thiện.'); this.refreshCurrentAttendancePeriod_(); this.loadAttendancePeriodsAction(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_markAttendancePeriodDeptCompleted(this.authToken, this.currentAttendancePeriod.period.AttendancePeriodID);
+      },
+      confirmAttendancePeriodByDeptHeadAction() {
+        google.script.run
+          .withSuccessHandler(() => { this.toast('success', 'Đã xác nhận.'); this.refreshCurrentAttendancePeriod_(); this.loadAttendancePeriodsAction(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_confirmAttendancePeriodByDeptHead(this.authToken, this.currentAttendancePeriod.period.AttendancePeriodID);
+      },
+      submitAttendancePeriodAction() {
+        google.script.run
+          .withSuccessHandler(() => { this.toast('success', 'Đã gửi kỳ chấm công.'); this.refreshCurrentAttendancePeriod_(); this.loadAttendancePeriodsAction(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_submitAttendancePeriod(this.authToken, this.currentAttendancePeriod.period.AttendancePeriodID);
+      },
+      markAttendancePeriodUnderReviewAction() {
+        google.script.run
+          .withSuccessHandler(() => { this.toast('success', 'Đã bắt đầu kiểm tra.'); this.refreshCurrentAttendancePeriod_(); this.loadAttendancePeriodsAction(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_markAttendancePeriodUnderReview(this.authToken, this.currentAttendancePeriod.period.AttendancePeriodID);
+      },
+      requestAttendancePeriodRevisionAction() {
+        const comment = prompt('Ghi chú lý do cần chỉnh sửa:');
+        if (comment === null) return;
+        google.script.run
+          .withSuccessHandler(() => { this.toast('info', 'Đã yêu cầu khoa chỉnh sửa lại.'); this.refreshCurrentAttendancePeriod_(); this.loadAttendancePeriodsAction(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_requestAttendancePeriodRevision(this.authToken, this.currentAttendancePeriod.period.AttendancePeriodID, comment);
+      },
+      lockAttendancePeriodAction() {
+        if (!confirm('Chốt kỳ chấm công này? Sau khi chốt phải qua đề nghị mở lại mới sửa được.')) return;
+        google.script.run
+          .withSuccessHandler(() => { this.toast('success', 'Đã chốt kỳ chấm công.'); this.refreshCurrentAttendancePeriod_(); this.loadAttendancePeriodsAction(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_lockAttendancePeriod(this.authToken, this.currentAttendancePeriod.period.AttendancePeriodID);
+      },
+      updateAttendanceRowAction(a, patch) {
+        google.script.run
+          .withFailureHandler((e) => { this.errorMessage = e.message; this.refreshCurrentAttendancePeriod_(); })
+          .api_updateAttendance(this.authToken, a.AttendanceID, patch);
+      },
+      loadAttendancePeriodReconciliationAction() {
+        google.script.run
+          .withSuccessHandler((rows) => { this.attendanceReconciliation = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_getAttendancePeriodReconciliation(this.authToken, this.currentAttendancePeriod.period.AttendancePeriodID);
+      },
+      loadAttendanceDashboardAction() {
+        google.script.run
+          .withSuccessHandler((dashboard) => { this.attendanceDashboard = dashboard; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_getAttendanceDashboard(this.authToken);
+      },
+      reopenAttendancePeriodReason: '',
+      requestingReopenAttendancePeriod: false,
+      openRequestReopenAttendancePeriodModal() {
+        this.reopenAttendancePeriodReason = '';
+        this.openModal('requestReopenAttendancePeriod');
+      },
+      requestReopenAttendancePeriodAction() {
+        this.requestingReopenAttendancePeriod = true;
+        google.script.run
+          .withSuccessHandler(() => {
+            this.requestingReopenAttendancePeriod = false;
+            this.closeModal();
+            this.toast('success', 'Đã gửi đề nghị mở lại.');
+          })
+          .withFailureHandler((e) => {
+            this.requestingReopenAttendancePeriod = false;
+            this.errorMessage = e.message;
+          })
+          .api_requestReopenAttendancePeriod(this.authToken, this.currentAttendancePeriod.period.AttendancePeriodID, this.reopenAttendancePeriodReason);
+      },
+      loadPendingAttendancePeriodReopenRequestsAction() {
+        google.script.run
+          .withSuccessHandler((rows) => { this.pendingAttendancePeriodReopenRequests = rows; })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_listPendingAttendancePeriodReopenRequests(this.authToken);
+      },
+      approveReopenAttendancePeriodAction(r) {
+        google.script.run
+          .withSuccessHandler(() => { this.toast('success', 'Đã duyệt mở lại kỳ chấm công.'); this.loadPendingAttendancePeriodReopenRequestsAction(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_approveReopenAttendancePeriod(this.authToken, r.ReopenRequestID);
+      },
+      rejectReopenAttendancePeriodAction(r) {
+        const reason = prompt('Lý do từ chối:');
+        if (reason === null) return;
+        google.script.run
+          .withSuccessHandler(() => { this.toast('info', 'Đã từ chối đề nghị.'); this.loadPendingAttendancePeriodReopenRequestsAction(); })
+          .withFailureHandler((e) => { this.errorMessage = e.message; })
+          .api_rejectReopenAttendancePeriod(this.authToken, r.ReopenRequestID, reason);
+      },
+
       requestAdjustmentForm: { attendance: null, requestedCheckIn: '', requestedCheckOut: '', reason: '' },
       requestingAdjustment: false,
       openRequestAdjustmentModal(a) {
@@ -1677,27 +1826,6 @@
           .withSuccessHandler(() => { this.toast('info', 'Đã từ chối.'); this.loadPendingAttendanceAdjustmentConfirmationsAction(); })
           .withFailureHandler((e) => { this.errorMessage = e.message; })
           .api_rejectAttendanceAdjustment(this.authToken, adj.AdjustmentID, reason);
-      },
-      lockRangeForm: { dateFrom: '', dateTo: '' },
-      lockingAttendance: false,
-      openLockAttendanceModal() {
-        this.lockRangeForm = { dateFrom: '', dateTo: '' };
-        this.openModal('lockAttendance');
-      },
-      lockAttendanceRangeAction() {
-        this.lockingAttendance = true;
-        google.script.run
-          .withSuccessHandler((result) => {
-            this.lockingAttendance = false;
-            this.closeModal();
-            this.toast('success', 'Đã chốt ' + result.lockedCount + ' dòng công.');
-            this.loadDepartmentAttendanceAction();
-          })
-          .withFailureHandler((e) => {
-            this.lockingAttendance = false;
-            this.errorMessage = e.message;
-          })
-          .api_lockAttendanceRange(this.authToken, this.attendanceDepartmentFilter, this.lockRangeForm.dateFrom, this.lockRangeForm.dateTo);
       },
 
       // --- Làm thêm giờ / Làm ngoài giờ ---

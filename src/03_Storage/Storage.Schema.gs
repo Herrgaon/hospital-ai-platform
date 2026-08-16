@@ -17,6 +17,8 @@ const SHEETS = {
   DUTY_POSITIONS: 'DutyPositions',
   ATTENDANCE: 'Attendance',
   ATTENDANCE_ADJUSTMENTS: 'AttendanceAdjustments',
+  ATTENDANCE_PERIODS: 'AttendancePeriods',
+  ATTENDANCE_PERIOD_REOPEN_REQUESTS: 'AttendancePeriodReopenRequests',
   OVERTIME: 'Overtime',
   OVERTIME_LISTS: 'OvertimeLists',
   OVERTIME_LIST_ITEMS: 'OvertimeListItems',
@@ -265,10 +267,19 @@ const SCHEMA = {
 
   // Chấm công — Giai đoạn 2. Status: OPEN (còn sửa được trực tiếp) | LOCKED (đã chốt, mọi thay đổi
   // phải qua AttendanceAdjustments, không sửa thẳng — đúng yêu cầu "không sửa âm thầm dữ liệu đã chốt").
+  // AttendancePeriodID: đúng Đặc tả Chấm công & Tiền lương V1 §3-4 — liên kết dòng công vào 1 KỲ CHẤM
+  // CÔNG theo tháng/khoa-phòng (AttendancePeriods) để đi qua đúng quy trình Nhập → Khoa hoàn thiện →
+  // Trưởng khoa xác nhận → Gửi → Đang kiểm tra → Chốt, thay vì chốt tự do theo khoảng ngày như trước.
+  // Rỗng = dòng công cũ tạo trước khi có khái niệm Kỳ (vẫn hợp lệ, không thuộc kỳ nào — không chặn sửa
+  // theo trạng thái Kỳ, chỉ theo Status của chính dòng đó như trước).
+  // KHÔNG xây riêng 4 lớp Attendance Raw/Processed/Result/Approved theo đúng câu chữ §7 — dữ liệu nhập
+  // tay hiện tại (chưa có máy chấm công) coi Attendance = "Processed/Result" gộp, chuyển thành "Approved"
+  // khi Kỳ chuyển LOCKED; khi tích hợp máy chấm công thật (Giai đoạn 6, đặc tả §8 tự nêu rõ "sau này"),
+  // thêm AttendanceRaw + bước import riêng, không phá cấu trúc hiện tại.
   [SHEETS.ATTENDANCE]: [
     'AttendanceID', 'EmployeeID', 'DepartmentID', 'WorkDate', 'ShiftType',
     'CheckIn', 'CheckOut', 'LeaveType', 'WorkUnits', 'Status', 'Notes',
-    'RecordedByUserID', 'CreatedAt', 'UpdatedAt'
+    'AttendancePeriodID', 'RecordedByUserID', 'CreatedAt', 'UpdatedAt'
   ],
 
   // Điều chỉnh công — sub-workflow độc lập, giữ nguyên giá trị cũ/mới để có lịch sử đầy đủ.
@@ -278,6 +289,33 @@ const SCHEMA = {
     'OriginalCheckIn', 'OriginalCheckOut', 'OriginalLeaveType', 'OriginalWorkUnits',
     'RequestedCheckIn', 'RequestedCheckOut', 'RequestedLeaveType', 'RequestedWorkUnits',
     'Status', 'RequestedAt', 'DeptHeadConfirmedByUserID', 'DeptHeadConfirmedAt',
+    'ApprovedByUserID', 'ApprovedAt', 'RejectedByUserID', 'RejectedAt', 'RejectionReason',
+    'CreatedAt', 'UpdatedAt'
+  ],
+
+  // Kỳ chấm công hàng tháng theo khoa/phòng — đúng Đặc tả Chấm công & Tiền lương V1 §3-4. Status:
+  // DRAFT (Nhập) -> DEPT_COMPLETED (Khoa hoàn thiện) -> DEPT_HEAD_CONFIRMED (Trưởng khoa xác nhận) ->
+  // SUBMITTED (Đã gửi) -> UNDER_REVIEW (Đang kiểm tra, Đối chiếu + Xử lý ngoại lệ diễn ra ở bước này,
+  // không tách state riêng) -> LOCKED (Đã chốt). SUBMITTED/UNDER_REVIEW có thể bị trả về DRAFT
+  // (RevisionRequested) nếu đơn vị phụ trách phát hiện sai sót trước khi chốt — dùng lại đúng field
+  // ReviewComment/ReviewedByUserID/ReviewedAt như DutySchedules cho việc "trả lại yêu cầu chỉnh sửa".
+  [SHEETS.ATTENDANCE_PERIODS]: [
+    'AttendancePeriodID', 'DepartmentID', 'PeriodMonth', 'Status',
+    'CreatedByUserID', 'CreatedAt',
+    'DeptCompletedByUserID', 'DeptCompletedAt',
+    'DeptHeadConfirmedByUserID', 'DeptHeadConfirmedAt',
+    'SubmittedAt',
+    'ReviewedByUserID', 'ReviewedAt', 'ReviewComment',
+    'LockedByUserID', 'LockedAt',
+    'UpdatedAt'
+  ],
+
+  // "Đề nghị mở lại" kỳ chấm công ĐÃ CHỐT — đúng §4 "Đề nghị mở lại → Người có thẩm quyền → Mở khóa →
+  // Khoa điều chỉnh → Trưởng khoa xác nhận lại → Gửi lại" — 1 bước duyệt (không tách 2 bước như Điều
+  // chỉnh công từng dòng, vì kỳ ĐÃ Ở cấp trung tâm rồi, không còn khâu "khoa xác nhận" giữa chừng).
+  [SHEETS.ATTENDANCE_PERIOD_REOPEN_REQUESTS]: [
+    'ReopenRequestID', 'AttendancePeriodID', 'RequestedByUserID', 'Reason',
+    'Status', 'RequestedAt',
     'ApprovedByUserID', 'ApprovedAt', 'RejectedByUserID', 'RejectedAt', 'RejectionReason',
     'CreatedAt', 'UpdatedAt'
   ],
@@ -442,6 +480,7 @@ const PLAIN_TEXT_COLUMNS = {
   [SHEETS.DUTY_SCHEDULES]: ['WeekStartDate', 'WeekEndDate'],
   [SHEETS.DUTY_SHIFTS]: ['ShiftDate', 'ShiftStart', 'ShiftEnd'],
   [SHEETS.ATTENDANCE]: ['WorkDate', 'CheckIn', 'CheckOut'],
+  [SHEETS.ATTENDANCE_PERIODS]: ['PeriodMonth'],
   [SHEETS.OVERTIME]: ['WorkDate', 'StartTime', 'EndTime'],
   [SHEETS.OVERTIME_LIST_ITEMS]: ['WorkDate', 'StartTime', 'EndTime'],
   [SHEETS.MONTHLY_CLINICAL_STATS]: ['YearMonth'],

@@ -37,24 +37,25 @@ function updateAttendance(actingUser, attendanceId, patch) {
   if (attendance.Status === 'LOCKED') {
     throw new Error('Dữ liệu đã chốt — dùng chức năng Điều chỉnh công để thay đổi.');
   }
+  // Đúng Đặc tả Chấm công & Tiền lương V1 §4 "Sau khi gửi, khoa không tự ý sửa" — chặn sửa trực tiếp
+  // ngay khi Kỳ đã qua khỏi Nhập/Khoa hoàn thiện, không chỉ chặn khi ĐÃ CHỐT.
+  if (!isBlank(attendance.AttendancePeriodID)) {
+    const period = getSheetRepository(SHEETS.ATTENDANCE_PERIODS).findById('AttendancePeriodID', attendance.AttendancePeriodID);
+    if (period && ATTENDANCE_PERIOD_EDITABLE_STATUSES_.indexOf(period.Status) === -1) {
+      throw new Error('Kỳ chấm công đã ' + attendancePeriodStatusLabel_(period.Status) + ' — không thể tự ý sửa, cần đề nghị mở lại.');
+    }
+  }
   const updated = getSheetRepository(SHEETS.ATTENDANCE).updateById('AttendanceID', attendanceId, Object.assign({}, patch, { UpdatedAt: nowIso() }));
   logAudit(actingUser.UserID, 'ATTENDANCE_UPDATED', 'Attendance', attendanceId, JSON.stringify(patch));
   return updated;
 }
 
-// Chốt hàng loạt theo khoa/phòng + khoảng ngày — chuẩn bị dữ liệu cho Tổng hợp kế toán, khoá không
-// cho sửa trực tiếp nữa.
-// Chốt tập trung ở Phòng TC-HC (phạm vi '*'), không giao cho từng Trưởng khoa/phòng — xem quyết định
-// trong Bootstrap.Defaults.gs.
-function lockAttendanceRange(actingUser, departmentId, dateFrom, dateTo) {
-  requirePermission(actingUser, '*', 'CanLock', 'ATTENDANCE');
-  const repo = getSheetRepository(SHEETS.ATTENDANCE);
-  const rows = repo.findAll().filter(function (a) {
-    return a.DepartmentID === departmentId && a.WorkDate >= dateFrom && a.WorkDate <= dateTo && a.Status === 'OPEN';
-  });
-  rows.forEach(function (a) { repo.updateById('AttendanceID', a.AttendanceID, { Status: 'LOCKED', UpdatedAt: nowIso() }); });
-  logAudit(actingUser.UserID, 'ATTENDANCE_LOCKED', 'Department', departmentId, dateFrom + ' - ' + dateTo + ' (' + rows.length + ' dòng)');
-  return { lockedCount: rows.length };
+function attendancePeriodStatusLabel_(status) {
+  const map = {
+    DRAFT: 'ở trạng thái Nhập', DEPT_COMPLETED: 'được khoa hoàn thiện', DEPT_HEAD_CONFIRMED: 'được Trưởng khoa xác nhận',
+    SUBMITTED: 'được gửi', UNDER_REVIEW: 'đang được kiểm tra', LOCKED: 'được chốt'
+  };
+  return map[status] || status;
 }
 
 function listMyAttendance(user, dateFrom, dateTo) {
